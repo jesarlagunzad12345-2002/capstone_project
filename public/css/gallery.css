@@ -1,0 +1,820 @@
+/* ============================================
+   KML RESORT - GALLERY STYLES
+   ============================================ */
+
+:root {
+  --primary-blue: #0284c7;
+  --dark-blue: #0369a1;
+  --light-blue: #0ea5e9;
+  --black: #0f172a;
+  --dark-gray: #1e293b;
+  --light-gray: #f8fafc;
+  --gray: #f1f5f9;
+  --medium-gray: #e2e8f0;
+  --dark-gray-text: #64748b;
+  --text-gray: #334155;
+  --border-gray: #e2e8f0;
+  --text-light: #f1f5f9;
+  --white: #ffffff;
+}
+
+/* ============================================
+   BASE & LAYOUT
+   ============================================ */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+html, body {
+  height: 100%;
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color: var(--white);
+  color: var(--dark-gray);
+  line-height: 1.6;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+main {
+  flex: 1 0 auto;
+  padding: 4rem 2rem;
+  max-width: 1400px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+footer {
+  flex-shrink: 0;
+  margin-top: auto;
+  background: linear-gradient(135deg, var(--black) 0%, var(--dark-gray) 100%);
+  color: var(--text-light);
+  text-align: center;
+  padding: 2rem;
+  border-top: 2px solid var(--dark-blue);
+}
+
+footer p {
+  margin-bottom: 0;
+  font-size: 0.9rem;
+  opacity: 0.9;
+}
+
+/* ============================================
+   HEADER & NAVIGATION
+   ============================================ */
+header {
+  background: linear-gradient(135deg, var(--black) 0%, var(--dark-gray) 100%);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.custom-navbar {
+  background: transparent !important;
+  padding: 1.5rem 2rem;
+}
+
+.logo {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--primary-blue);
+  letter-spacing: 0.1em;
+  background: linear-gradient(135deg, var(--primary-blue), var(--dark-blue));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-decoration: none;
+}
+
+.navbar-nav {
+  gap: 2.5rem;
+}
+
+.nav-link {
+  color: var(--text-light) !important;
+  text-decoration: none;
+  font-weight: 500;
+  font-size: 0.9rem;
+  letter-spacing: 0.05em;
+  position: relative;
+  transition: color 0.3s ease;
+  padding: 0.5rem 0 !important;
+}
+
+.nav-link::after {
+  content: '';
+  position: absolute;
+  bottom: -5px;
+  left: 0;
+  width: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--primary-blue), var(--dark-blue));
+  transition: width 0.3s ease;
+}
+
+.nav-link:hover {
+  color: var(--primary-blue) !important;
+}
+
+.nav-link:hover::after {
+  width: 100%;
+}
+
+.nav-link.active {
+  color: var(--primary-blue) !important;
+}
+
+.nav-link.active::after {
+  width: 100%;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.search-input {
+  padding: 0.7rem 1.2rem;
+  border: 1px solid var(--border-gray);
+  border-radius: 0.5rem;
+  background-color: rgba(255, 255, 255, 0.1);
+  color: var(--text-light);
+  font-size: 0.9rem;
+  width: 200px;
+  transition: all 0.3s ease;
+}
+
+.search-input::placeholder {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.search-input:focus {
+  outline: none;
+  background-color: rgba(255, 255, 255, 0.15);
+  border-color: var(--primary-blue);
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.1);
+  color: var(--text-light);
+}
+
+.book-btn {
+  padding: 0.7rem 1.5rem;
+  background: linear-gradient(135deg, var(--primary-blue), var(--dark-blue));
+  color: var(--white);
+  border: none;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 0.9rem;
+  text-decoration: none;
+  display: inline-block;
+}
+
+.book-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(2, 132, 199, 0.3);
+  color: var(--white);
+}
+
+/* ============================================
+   GALLERY HEADER & FILTERS
+   ============================================ */
+main > h1 {
+  font-size: 3.5rem;
+  text-align: center;
+  margin-bottom: 3rem;
+  color: var(--black);
+  letter-spacing: 3px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.filter-btn {
+  padding: 0.75rem 1.75rem;
+  border: 2px solid var(--medium-gray);
+  background-color: var(--white);
+  color: var(--dark-gray);
+  border-radius: 30px;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.filter-btn:hover {
+  border-color: var(--dark-blue);
+  color: var(--dark-blue);
+}
+
+.filter-btn.active {
+  border-color: var(--dark-blue);
+  background: linear-gradient(135deg, var(--dark-blue), var(--primary-blue));
+  color: var(--white);
+}
+
+/* ============================================
+   ROOM CARDS - COMPLETELY HIDDEN DETAILS
+   ============================================ */
+.room-gallery-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 12px;
+  background-color: var(--light-gray);
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08);
+  transition: all 0.4s ease;
+  height: 100%;
+}
+
+.room-gallery-card:hover {
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.15);
+  transform: translateY(-5px);
+}
+
+.room-gallery-card img {
+  width: 100%;
+  height: 280px;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.5s ease;
+}
+
+.room-gallery-card:hover img {
+  transform: scale(1.08);
+}
+
+/* Badges */
+.room-category-badge {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  background: rgba(255, 255, 255, 0.95);
+  color: var(--dark-gray);
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  z-index: 2;
+}
+
+.room-price {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: rgba(2, 132, 199, 0.9);
+  color: white;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  z-index: 2;
+}
+
+.room-status-badge {
+  position: absolute;
+  top: 50px;
+  right: 12px;
+  padding: 4px 10px;
+  border-radius: 99px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: white;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  z-index: 2;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+
+.status-available { background: #10b981; }
+.status-occupied { background: #ef4444; }
+.status-cleaning { background: #f59e0b; }
+
+/* Content - COMPLETELY hidden by default, slides up on hover */
+.room-gallery-content {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(180deg, transparent, rgba(15, 23, 42, 0.95));
+  color: var(--white);
+  padding: 2rem 1.5rem 1.5rem;
+  transform: translateY(100%);
+  transition: transform 0.4s ease;
+  opacity: 0;
+}
+
+.room-gallery-card:hover .room-gallery-content {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+.room-info-gallery h4 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.room-info-gallery p {
+  font-size: 0.85rem;
+  opacity: 0.9;
+  margin-bottom: 0;
+}
+
+/* Action Buttons */
+.room-actions-gallery {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.room-actions-gallery .btn {
+  flex: 1;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 8px 12px;
+  border-radius: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.btn-details-gallery {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  transition: all 0.3s ease;
+}
+
+.btn-details-gallery:hover {
+  background: rgba(255, 255, 255, 0.3);
+  color: white;
+}
+
+.btn-book-gallery {
+  background: linear-gradient(135deg, var(--primary-blue), var(--dark-blue));
+  color: white;
+  border: none;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+}
+
+.btn-book-gallery:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.4);
+  color: white;
+}
+
+.btn-book-gallery:disabled,
+.btn-book-gallery[style*="pointer-events:none"] {
+  background: #64748b;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+/* ============================================
+   MOUNTAIN VIEW CARDS - COMPLETELY HIDDEN DETAILS
+   ============================================ */
+.mountain-gallery-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 12px;
+  background-color: var(--light-gray);
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08);
+  transition: all 0.4s ease;
+  height: 100%;
+}
+
+.mountain-gallery-card:hover {
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.15);
+  transform: translateY(-5px);
+}
+
+.mountain-gallery-card img {
+  width: 100%;
+  height: 280px;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.5s ease;
+}
+
+.mountain-gallery-card:hover img {
+  transform: scale(1.08);
+}
+
+.mountain-gallery-location {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  background: rgba(16, 185, 129, 0.95);
+  color: white;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  z-index: 2;
+}
+
+/* Content - COMPLETELY hidden by default */
+.mountain-gallery-content {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(180deg, transparent, rgba(15, 23, 42, 0.95));
+  color: var(--white);
+  padding: 2rem 1.5rem 1.5rem;
+  transform: translateY(100%);
+  transition: transform 0.4s ease;
+  opacity: 0;
+}
+
+.mountain-gallery-card:hover .mountain-gallery-content {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+.mountain-info-gallery h4 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.mountain-info-gallery p {
+  font-size: 0.85rem;
+  opacity: 0.9;
+  margin-bottom: 0;
+}
+
+/* ============================================
+   DINING CARDS - CLEAN & COMPLETELY HIDDEN
+   ============================================ */
+.dining-gallery-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 12px;
+  background-color: var(--light-gray);
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08);
+  transition: all 0.4s ease;
+  height: 100%;
+}
+
+.dining-gallery-card:hover {
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.15);
+  transform: translateY(-5px);
+}
+
+.dining-gallery-card img {
+  width: 100%;
+  height: 280px;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.5s ease;
+}
+
+.dining-gallery-card:hover img {
+  transform: scale(1.08);
+}
+
+/* ============================================
+   DINING BADGES - POPULARITY LEFT, PRICE & STOCK RIGHT
+   ============================================ */
+
+/* Popularity badge - TOP LEFT (matches room-category-badge shape/size) */
+.dining-gallery-card .popularity-badge {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  z-index: 2;
+}
+
+/* Popularity badge colors - keep current colors */
+.badge-popular {
+  background: #f59e0b;
+  color: white;
+}
+
+.badge-best-seller {
+  background: #ef4444;
+  color: white;
+}
+
+.badge-freshly-made {
+  background: #10b981;
+  color: white;
+}
+
+.badge-must-try {
+  background: #8b5cf6;
+  color: white;
+}
+
+.badge-just-in {
+  background: #0284c7;
+  color: white;
+}
+
+/* Price badge - TOP RIGHT (matches room-price style) */
+.dining-price-badge {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: rgba(2, 132, 199, 0.9);
+  color: white;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  z-index: 2;
+}
+
+/* Stock badge - TOP RIGHT (below price, matches room-status-badge style) */
+.dining-stock-badge {
+  position: absolute;
+  top: 50px;
+  right: 12px;
+  padding: 4px 10px;
+  border-radius: 99px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: white;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  z-index: 2;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+
+/* Stock badge colors */
+.stock-in { background: #10b981; }
+.stock-low { background: #f59e0b; }
+.stock-out { background: #ef4444; }
+
+/* Content - COMPLETELY hidden by default, slides up on hover */
+.dining-gallery-content {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(180deg, transparent, rgba(15, 23, 42, 0.95));
+  color: var(--white);
+  padding: 2rem 1.5rem 1.5rem;
+  transform: translateY(100%);
+  transition: transform 0.4s ease;
+  opacity: 0;
+}
+
+.dining-gallery-card:hover .dining-gallery-content {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+.dining-info-gallery h4 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.dining-category {
+  font-size: 0.85rem;
+  opacity: 0.9;
+  margin-bottom: 0;
+}
+
+/* Out of stock styling */
+.dining-gallery-card.opacity-75 {
+  opacity: 0.75;
+}
+
+.dining-gallery-card.opacity-75 img {
+  filter: grayscale(0.6);
+}
+
+/* ============================================
+   HIDE PRICE & STOCK BADGES IN GALLERY CARDS
+   ============================================ */
+
+/* Hide room price and status badges in gallery */
+.room-gallery-card .room-price,
+.room-gallery-card .room-status-badge {
+  display: none !important;
+}
+
+/* Hide dining price and stock badges in gallery */
+.dining-gallery-card .dining-price-badge,
+.dining-gallery-card .dining-stock-badge {
+  display: none !important;
+}
+
+/* Keep all badges visible in modals */
+.modal-gallery .room-price,
+.modal-gallery .room-status-badge,
+.modal-gallery .dining-price-badge,
+.modal-gallery .dining-stock-badge {
+  display: inline-block !important;
+}
+
+/* ============================================
+   MODAL STYLES
+   ============================================ */
+.modal-gallery {
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.modal-status {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+}
+
+/* Modal popularity badge - stays at top right */
+.modal-gallery .popularity-badge {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  left: auto;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  z-index: 2;
+  color: white;
+}
+
+/* Modal popularity colors */
+.popularity-POPULAR { background: #f59e0b; }
+.popularity-BEST-SELLER { background: #ef4444; }
+.popularity-FRESHLY-MADE { background: #10b981; }
+.popularity-MUST-TRY { background: #8b5cf6; }
+.popularity-JUST-IN { background: #0284c7; }
+
+/* ============================================
+   EMPTY STATES
+   ============================================ */
+.empty-rooms {
+  text-align: center;
+  padding: 4rem 2rem;
+  color: var(--dark-gray-text);
+}
+
+.empty-rooms i {
+  font-size: 4rem;
+  margin-bottom: 1rem;
+  opacity: 0.5;
+}
+
+/* ============================================
+   SEARCH EMPTY STATE STYLES - NEW
+   ============================================ */
+.search-empty-state {
+  text-align: center;
+  padding: 3rem 2rem;
+  color: var(--dark-gray-text);
+  background: var(--light-gray);
+  border-radius: 12px;
+  border: 2px dashed var(--medium-gray);
+  margin: 2rem 0;
+}
+
+.search-empty-state i {
+  font-size: 4rem;
+  margin-bottom: 1rem;
+  opacity: 0.5;
+}
+
+.search-empty-state h4 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: var(--dark-gray);
+}
+
+.search-empty-state p {
+  font-size: 1rem;
+  color: var(--dark-gray-text);
+  margin-bottom: 1.5rem;
+}
+
+.search-empty-state .btn {
+  border-radius: 30px;
+  padding: 0.5rem 1.5rem;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.search-empty-state .btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.2);
+}
+
+/* ============================================
+   RESPONSIVE MEDIA QUERIES
+   ============================================ */
+@media (max-width: 991px) {
+  .navbar-collapse {
+    background: var(--dark-gray);
+    padding: 1rem;
+    border-radius: 8px;
+    margin-top: 1rem;
+  }
+
+  .header-actions {
+    flex-direction: column;
+    width: 100%;
+    margin-top: 1rem;
+  }
+
+  .search-input,
+  .book-btn {
+    width: 100%;
+  }
+
+  main > h1 {
+    font-size: 2.5rem;
+  }
+
+  .room-gallery-card img,
+  .mountain-gallery-card img,
+  .dining-gallery-card img {
+    height: 240px;
+  }
+}
+
+@media (max-width: 480px) {
+  .logo {
+    font-size: 1.2rem;
+  }
+
+  .navbar-nav {
+    gap: 0.5rem;
+  }
+
+  .nav-link {
+    font-size: 0.85rem;
+  }
+
+  main {
+    padding: 2rem 1rem;
+  }
+
+  main > h1 {
+    font-size: 2rem;
+    letter-spacing: 1px;
+  }
+
+  .filter-btn {
+    padding: 0.6rem 1.2rem;
+    font-size: 0.9rem;
+  }
+
+  .room-gallery-card img,
+  .mountain-gallery-card img,
+  .dining-gallery-card img {
+    height: 200px;
+  }
+
+  .room-gallery-content,
+  .mountain-gallery-content,
+  .dining-gallery-content {
+    padding: 1.5rem 1rem 1rem;
+  }
+
+  .room-info-gallery h4,
+  .mountain-info-gallery h4,
+  .dining-info-gallery h4 {
+    font-size: 1rem;
+  }
+
+  .search-empty-state {
+    padding: 2rem 1rem;
+    margin: 1rem 0;
+  }
+
+  .search-empty-state i {
+    font-size: 3rem;
+  }
+
+  .search-empty-state h4 {
+    font-size: 1.25rem;
+  }
+}

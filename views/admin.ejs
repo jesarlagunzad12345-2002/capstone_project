@@ -1,0 +1,191 @@
+<!-- <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>KML Admin Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+    <script type="text/javascript">
+      (function() { emailjs.init({ publicKey: "EfvIkV0UtUXjEGOgu" }); })();
+
+      window.onload = function() {
+        const shouldTrigger = "<%= triggerApprove %>";
+        const gEmail = "<%= guestEmail %>";
+        if (shouldTrigger === "true" && gEmail && gEmail !== "null") {
+          const templateParams = {
+            to_email: gEmail,
+            user_name: "<%= guestName %>",
+            room_type: "<%= guestRoom %>" || "Standard Apartment",
+            checkin_date: "<%= guestIn %>",
+            checkout_date: "<%= guestOut %>",
+            guests_count: "<%= guestPeople %>",
+            message: "Your reservation at KML Resort is officially confirmed!"
+          };
+
+          emailjs.send('service_kmlresort', 'template_klmresort1', templateParams)
+            .then(() => alert("Success! Confirmation email sent."))
+            .catch((err) => alert("Email Error: " + JSON.stringify(err)));
+        }
+      };
+    </script>
+    <style>
+        .section-card { border-radius: 15px; border: none; }
+        .nav-link-custom { font-weight: 600; color: #333; }
+    </style>
+</head>
+<body class="bg-light">
+
+    <nav class="navbar navbar-expand-lg navbar-white bg-white shadow-sm mb-4 py-3">
+        <div class="container-fluid px-4">
+            <a class="navbar-brand fw-bold text-dark" href="#"><span class="text-warning">KML</span>.ADMIN</a>
+            <a href="/logout" class="btn btn-outline-danger btn-sm fw-bold px-3">Logout</a>
+        </div>
+    </nav>
+
+    <div class="container-fluid px-4">
+        
+        <div class="card section-card shadow-sm mb-5">
+            <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                <h5 class="mb-0 fw-bold text-primary"><i class="bi bi-clock-history me-2"></i>Pending Requests</h5>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th class="ps-4">Guest</th>
+                            <th>Stay Details</th>
+                            <th>Room</th>
+                            <th class="text-center">Guests</th>
+                            <th class="text-center">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% bookings.filter(b => b.status !== 'approved').forEach(booking => { %>
+                        <tr>
+                            <td class="ps-4">
+                                <div class="fw-bold"><%= booking.name %></div>
+                                <div class="text-muted small text-truncate" style="max-width: 150px;"><%= booking.email %></div>
+                            </td>
+                            <td>
+                                <div class="small">
+                                    <div><strong>In:</strong> <%= booking.checkin %></div>
+                                    <div><strong>Out:</strong> <%= booking.checkout %></div>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="badge border text-dark bg-light px-2 py-2">
+                                    <%= booking.roomType || 'Not Selected' %>
+                                </span>
+                            </td>
+                            <td class="text-center"><%= booking.people %></td>
+                            <td>
+                                <div class="d-flex justify-content-center gap-2">
+                                    <form action="/approve/<%= booking.id %>" method="POST">
+                                        <button class="btn btn-success btn-sm px-3 fw-bold">Approve</button>
+                                    </form>
+                                    <button class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#editModal<%= booking.id %>">
+                                        <i class="bi bi-pencil-square"></i>
+                                    </button>
+                                    <form action="/delete/<%= booking.id %>" method="POST" onsubmit="return confirm('Delete this request?')">
+                                        <button class="btn btn-outline-danger btn-sm"><i class="bi bi-trash"></i></button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+
+                        <div class="modal fade" id="editModal<%= booking.id %>" tabindex="-1">
+                            <div class="modal-dialog">
+                                <div class="modal-content" style="border-radius: 15px;">
+                                    <form action="/update/<%= booking.id %>" method="POST">
+                                        <div class="modal-header">
+                                            <h5 class="modal-title fw-bold">Update Booking #<%= booking.id %></h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                        </div>
+                                        <div class="modal-body">
+                                            <div class="mb-3">
+                                                <label class="form-label small fw-bold">Guest Name</label>
+                                                <input type="text" name="name" class="form-control" value="<%= booking.name %>" required>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label class="form-label small fw-bold">Email Address</label>
+                                                <input type="email" name="email" class="form-control" value="<%= booking.email %>" required>
+                                            </div>
+                                            <div class="row mb-3">
+                                                <div class="col">
+                                                    <label class="form-label small fw-bold">Check-In</label>
+                                                    <input type="date" name="checkin" class="form-control" value="<%= booking.checkin %>" required>
+                                                </div>
+                                                <div class="col">
+                                                    <label class="form-label small fw-bold">Check-Out</label>
+                                                    <input type="date" name="checkout" class="form-control" value="<%= booking.checkout %>" required>
+                                                </div>
+                                            </div>
+                                            <div class="row">
+                                                <div class="col">
+                                                    <label class="form-label small fw-bold">Room Type</label>
+                                                    <select name="roomType" class="form-select">
+                                                        <option value="Micro Apartment" <%= booking.roomType === 'Micro Apartment' ? 'selected' : '' %>>Micro Apartment</option>
+                                                        <option value="Luxury Suite" <%= booking.roomType === 'Luxury Suite' ? 'selected' : '' %>>Luxury Suite</option>
+                                                        <option value="Family Villa" <%= booking.roomType === 'Family Villa' ? 'selected' : '' %>>Family Villa</option>
+                                                    </select>
+                                                </div>
+                                                <div class="col">
+                                                    <label class="form-label small fw-bold">People</label>
+                                                    <input type="number" name="people" class="form-control" value="<%= booking.people %>" required>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="modal-footer">
+                                            <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                                            <button type="submit" class="btn btn-warning fw-bold">Save Changes</button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                        <% }) %>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card section-card shadow-sm">
+            <div class="card-header bg-white py-3 border-bottom-0">
+                <h5 class="mb-0 fw-bold text-success"><i class="bi bi-check-circle-fill me-2"></i>Approved History</h5>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="ps-4">Guest</th>
+                            <th>Stay Details</th>
+                            <th>Room</th>
+                            <th class="text-center">Status</th>
+                            <th class="text-center">Delete</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% bookings.filter(b => b.status === 'approved').forEach(booking => { %>
+                        <tr class="opacity-75">
+                            <td class="ps-4 py-3"><%= booking.name %></td>
+                            <td class="small text-muted">In: <%= booking.checkin %><br>Out: <%= booking.checkout %></td>
+                            <td><small><%= booking.roomType %></small></td>
+                            <td class="text-center"><span class="badge bg-success-subtle text-success border border-success px-3">Approved</span></td>
+                            <td class="text-center">
+                                <form action="/delete/<%= booking.id %>" method="POST" onsubmit="return confirm('Remove from history?')">
+                                    <button class="btn btn-link text-danger p-0"><i class="bi bi-trash3"></i></button>
+                                </form>
+                            </td>
+                        </tr>
+                        <% }) %>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+</body>
+</html> -->

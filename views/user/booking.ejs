@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Book Your Stay | KML Mountain Resort</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="css/booking.css">
+</head>
+<body>
+
+    <header class="sticky-top">
+        <nav class="navbar navbar-expand-lg navbar-dark custom-navbar py-3 px-4">
+            <div class="container-fluid">
+                <a class="navbar-brand logo" href="/dashboard">KML RESORT</a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="collapse navbar-collapse" id="navbarNav">
+                    <ul class="navbar-nav mx-auto mb-2 mb-lg-0">
+                        <li class="nav-item"><a class="nav-link" href="/dashboard">HOME</a></li>
+                        <li class="nav-item"><a class="nav-link" href="/location">LOCATION</a></li>
+                        <li class="nav-item"><a class="nav-link" href="/accomodation">ACCOMMODATION</a></li>
+                        <li class="nav-item"><a class="nav-link" href="/experience">EXPERIENCE</a></li>
+                        <li class="nav-item"><a class="nav-link" href="/gallery">GALLERY</a></li>
+                        <li class="nav-item"><a class="nav-link" href="/dinning">DINNING</a></li>
+                        <li class="nav-item"><a class="nav-link active" href="/booking">BOOKING</a></li>
+                    </ul>
+                    <div class="d-flex align-items-center gap-3 header-actions">
+                        <input type="text" class="form-control search-input invisible" placeholder="Search rooms...">
+                        <a href="/booking" class="btn book-btn invisible">Book Now</a>
+                    </div>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <main class="booking-page">
+        <div class="container">
+            <div class="row justify-content-center">
+                <div class="col-lg-8">
+                    <section class="booking-container">
+                        <div class="booking-header text-center">
+                            <h1 class="display-5 fw-bold mb-3">RESERVE YOUR SANCTUARY</h1>
+                            <p class="mb-0">Choose from our rooms and cottages. Prices are calculated automatically.</p>
+                        </div>
+
+                        <% if (message) { %>
+                            <div class="alert alert-success alert-dismissible fade show m-4" role="alert">
+                                <strong>Success!</strong> <%= message %>
+                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            </div>
+                        <% } %>
+
+                        <form class="main-booking-form" action="/create" method="POST" id="bookingForm">
+                            <div class="form-section">
+                                <h3>1. Personal Information</h3>
+                                <div class="mb-3">
+                                    <label class="form-label fw-semibold">Full Name</label>
+                                    <input type="text" name="name" class="form-control custom-input" placeholder="Enter your full name (e.g., Juan Dela Cruz)" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label fw-semibold">Email Address</label>
+                                    <input type="email" name="email" class="form-control custom-input" placeholder="Enter your email (e.g., juan@email.com)" required>
+                                </div>
+                            </div>
+
+                            <div class="form-section">
+                                <h3>2. Stay Details</h3>
+                                <div class="row g-3 mb-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold">Check-in Date</label>
+                                        <input type="date" name="checkin" id="checkin" class="form-control custom-input" required onchange="calculateTotal()">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold">Check-out Date</label>
+                                        <input type="date" name="checkout" id="checkout" class="form-control custom-input" required onchange="calculateTotal()">
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label fw-semibold">Number of People</label>
+                                    <input type="number" name="people" id="people" class="form-control custom-input" min="1" max="20" value="1" required onchange="calculateTotal()">
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label fw-semibold">Select Accommodation</label>
+                                    <select name="roomType" id="roomType" class="form-select custom-select" required onchange="calculateTotal()">
+                                        <option value="">Choose your room or cottage...</option>
+
+                                        <% if (rooms && rooms.length > 0) { %>
+                                            <% 
+                                                const categories = {};
+                                                rooms.forEach(room => {
+                                                    if (!categories[room.category]) categories[room.category] = [];
+                                                    categories[room.category].push(room);
+                                                });
+                                            %>
+
+                                            <% for (const [category, items] of Object.entries(categories)) { %>
+                                                <optgroup label="<%= category === 'Cottage' ? '🏡 Cottages' : '🏨 ' + category + ' Rooms' %>">
+                                                    <% items.forEach(room => { %>
+                                                        <option value="<%= room.name %>" data-price="<%= room.price %>" data-category="<%= room.category %>" data-occupancy="<%= room.occupancy %>">
+                                                            <%= room.name %> — ₱<%= room.price %>/night (Max <%= room.occupancy %> guests)
+                                                        </option>
+                                                    <% }) %>
+                                                </optgroup>
+                                            <% } %>
+                                        <% } else { %>
+                                            <option value="" disabled>No accommodations available</option>
+                                        <% } %>
+                                    </select>
+                                </div>
+
+                                <div class="alert alert-info" id="priceDisplay" style="display: none;">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <strong>Estimated Total:</strong>
+                                            <div class="small text-muted" id="priceBreakdown"></div>
+                                        </div>
+                                        <h4 class="mb-0 text-primary">₱<span id="totalPrice">0</span></h4>
+                                    </div>
+                                </div>
+                            </div>
+
+                    
+                            <div class="form-section border-0">
+                                <h3>3. Special Requests</h3>
+                                <textarea name="requests" class="form-control custom-textarea" rows="5" placeholder="Tell us about any special requests (e.g., dietary requirements, celebration setup, extra pillows...)"></textarea>
+                            </div>
+
+                            <button type="submit" class="btn submit-booking-btn w-100 mt-4">Confirm Reservation Request</button>
+                        </form>
+                    </section>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="text-center py-4">
+        <p class="mb-0">&copy; 2026 KML Mountain Resort. All rights reserved.</p>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function calculateTotal() {
+            const roomSelect = document.getElementById('roomType');
+            const checkin = document.getElementById('checkin').value;
+            const checkout = document.getElementById('checkout').value;
+            const people = parseInt(document.getElementById('people').value) || 1;
+
+            const selectedOption = roomSelect.options[roomSelect.selectedIndex];
+            const pricePerNight = parseFloat(selectedOption.getAttribute('data-price')) || 0;
+            const maxOccupancy = parseInt(selectedOption.getAttribute('data-occupancy')) || 1;
+            const category = selectedOption.getAttribute('data-category') || 'Room';
+
+
+            if (people > maxOccupancy && maxOccupancy > 0) {
+                alert(`⚠️ ${category} "${selectedOption.text.split('—')[0].trim()}" can only accommodate ${maxOccupancy} guests. Please adjust.`);
+                document.getElementById('people').value = maxOccupancy;
+                return calculateTotal();
+            }
+
+            if (checkin && checkout && pricePerNight > 0) {
+                const start = new Date(checkin);
+                const end = new Date(checkout);
+
+                if (end <= start) {
+                    document.getElementById('priceDisplay').style.display = 'none';
+                    return;
+                }
+
+                const nights = Math.max(1, Math.ceil((end - start) / (1000 * 60 * 60 * 24)));
+                const total = pricePerNight * nights;
+
+                document.getElementById('totalPrice').textContent = total.toLocaleString();
+                document.getElementById('priceBreakdown').textContent = `₱${pricePerNight.toLocaleString()} × ${nights} night(s) — ${category}`;
+                document.getElementById('priceDisplay').style.display = 'block';
+            } else {
+                document.getElementById('priceDisplay').style.display = 'none';
+            }
+        }
+
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('checkin').min = today;
+        document.getElementById('checkout').min = today;
+
+        document.getElementById('checkin').addEventListener('change', function() {
+            const checkinDate = new Date(this.value);
+            checkinDate.setDate(checkinDate.getDate() + 1);
+            document.getElementById('checkout').min = checkinDate.toISOString().split('T')[0];
+        });
+    </script>
+</body>
+</html>

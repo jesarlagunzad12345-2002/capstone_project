@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>KML Admin Login</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <style>
+        body { background: #1a1a1a; height: 100vh; display: flex; align-items: center; }
+        .login-card { border-radius: 15px; border: none; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-md-4">
+                <div class="card login-card p-4">
+                    <div class="text-center mb-4">
+                        <h2 class="fw-bold text-dark"><i class="bi bi-lock-fill text-warning"></i> KML ADMIN</h2>
+                        <p class="text-muted small">Authorized Access Only</p>
+                    </div>
+
+                    <% if (error) { %>
+                        <div class="alert alert-danger py-2 small text-center"><%= error %></div>
+                    <% } %>
+
+                    <form action="/login" method="POST">
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Username</label>
+                            <input type="text" name="username" class="form-control" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Password</label>
+                            <input type="password" name="password" class="form-control" required>
+                        </div>
+                        <button type="submit" class="btn btn-warning w-100 fw-bold py-2 mt-2">LOGIN</button>
+                    </form>
+                    <div class="text-center mt-3">
+                        <a href="/" class="text-muted small text-decoration-none"><i class="bi bi-arrow-left"></i> Back to Home</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

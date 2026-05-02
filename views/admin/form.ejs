@@ -1,0 +1,150 @@
+<!-- <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KML Resort | New Reservation</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --primary-dark: #0f172a;
+            --accent-blue: #38bdf8;
+            --bg-body: #f1f5f9;
+            --sidebar-width: 280px;
+        }
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: var(--bg-body); }
+        
+        /* Sidebar Styling (Matches your Dashboard) */
+        .sidebar { width: var(--sidebar-width); background: var(--primary-dark); min-height: 100vh; position: fixed; }
+        .nav-link { color: #94a3b8; border-radius: 12px; margin: 0.2rem 1rem; padding: 0.8rem 1rem; transition: 0.25s; text-decoration: none; display: flex; align-items: center; }
+        .nav-link:hover { background: rgba(255, 255, 255, 0.05); color: #fff; }
+        .active-link { background: var(--accent-blue) !important; color: var(--primary-dark) !important; font-weight: 700; }
+        .main-wrapper { margin-left: var(--sidebar-width); width: calc(100% - var(--sidebar-width)); }
+    </style>
+</head>
+<body>
+
+    <aside class="sidebar">
+        <div class="p-8">
+            <div class="flex items-center gap-2">
+                <div class="w-9 h-9 bg-sky-400 rounded-lg flex items-center justify-center font-bold text-slate-900">KML</div>
+                <span class="text-white font-bold tracking-tight">MOUNTAIN RESORT</span>
+            </div>
+        </div>
+        <nav class="flex flex-column">
+            <a href="/admin-dashboard" class="nav-link"><i class="bi bi-grid-1x2 me-2"></i> Dashboard</a>
+            <a href="/bookings" class="nav-link"><i class="bi bi-calendar-event me-2"></i> Bookings</a>
+            <a href="/rooms" class="nav-link"><i class="bi bi-door-open me-2"></i> Rooms</a>
+            <a href="/food" class="nav-link"><i class="bi bi-egg-fried me-2"></i> Restaurant</a>
+        </nav>
+    </aside>
+
+    <div class="main-wrapper">
+        <header class="h-[72px] bg-white/80 backdrop-blur-md border-b border-slate-200 flex items-center justify-between px-8 sticky top-0 z-40">
+            <h2 class="font-bold text-slate-800">Reservations</h2>
+            <button onclick="toggleModal()" class="bg-slate-900 text-white px-4 py-2 rounded-lg font-semibold text-sm hover:bg-slate-800 transition-all">
+                <i class="bi bi-plus-lg me-2"></i> Create New
+            </button>
+        </header>
+
+        <div class="p-8 flex flex-col items-center justify-center min-h-[80vh] text-center">
+            <div class="w-20 h-20 bg-slate-200 rounded-full flex items-center justify-center mb-4">
+                <i class="bi bi-clipboard-plus text-3xl text-slate-400"></i>
+            </div>
+            <h3 class="text-xl font-bold text-slate-800">Ready to add a guest?</h3>
+            <p class="text-slate-500 mb-6">Click the button above to open the booking panel.</p>
+        </div>
+    </div>
+
+    <div id="modal-overlay" onclick="toggleModal()" class="fixed inset-0 bg-slate-900/60 z-50 opacity-0 pointer-events-none transition-opacity duration-300 backdrop-blur-sm"></div>
+    
+    <div id="booking-modal" class="fixed top-0 right-0 h-full w-full max-w-lg bg-white shadow-2xl z-[60] transform translate-x-full transition-transform duration-300 ease-in-out border-l border-slate-200 flex flex-col">
+        
+        <div class="p-6 border-b border-slate-100 flex items-center justify-between">
+            <div>
+                <h3 class="text-xl font-bold text-slate-800">Create New Reservation</h3>
+                <p class="text-xs text-slate-500">Fill in the details to reserve a room.</p>
+            </div>
+            <button onclick="toggleModal()" class="text-slate-400 hover:text-slate-600">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+        </div>
+
+        <form action="/create" method="POST" class="flex flex-col h-full">
+            <div class="flex-1 overflow-y-auto p-6 space-y-6">
+                <section>
+                    <h4 class="text-xs font-bold text-sky-600 uppercase tracking-widest mb-4">Guest Information</h4>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="col-span-2">
+                            <label class="block text-xs font-semibold text-slate-500 mb-1">Full Name</label>
+                            <input type="text" name="name" required class="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 px-3 text-sm focus:ring-2 focus:ring-sky-500 outline-none">
+                        </div>
+                        <div class="col-span-2">
+                            <label class="block text-xs font-semibold text-slate-500 mb-1">Email Address</label>
+                            <input type="email" name="email" required class="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 px-3 text-sm focus:ring-2 focus:ring-sky-500 outline-none">
+                        </div>
+                        <div class="col-span-2">
+                            <label class="block text-xs font-semibold text-slate-500 mb-1">Number of People</label>
+                            <input type="number" name="people" min="1" required class="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 px-3 text-sm focus:ring-2 focus:ring-sky-500 outline-none">
+                        </div>
+                    </div>
+                </section>
+
+                <section>
+                    <h4 class="text-xs font-bold text-sky-600 uppercase tracking-widest mb-4">Stay Details</h4>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="col-span-2">
+                            <label class="block text-xs font-semibold text-slate-500 mb-1">Room Type</label>
+                            <select name="roomType" class="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 px-3 text-sm outline-none">
+                                <option value="Standard King">Standard King</option>
+                                <option value="Oceanfront Deluxe">Oceanfront Deluxe</option>
+                                <option value="Alpine Suite">Alpine Suite</option>
+                                <option value="Family Villa">Family Villa</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-500 mb-1">Check-In</label>
+                            <input type="date" name="checkin" required class="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 px-3 text-sm outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-500 mb-1">Check-Out</label>
+                            <input type="date" name="checkout" required class="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 px-3 text-sm outline-none">
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <div class="p-6 border-t border-slate-100 flex gap-4 bg-white">
+                <button type="button" onclick="toggleModal()" class="flex-1 py-3 bg-slate-100 text-slate-700 rounded-lg font-bold text-sm uppercase hover:bg-slate-200 transition-colors">Cancel</button>
+                <button type="submit" class="flex-1 py-3 bg-sky-600 text-white rounded-lg font-bold text-sm uppercase shadow-md hover:bg-sky-700 transition-all">Confirm Booking</button>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        function toggleModal() {
+            const modal = document.getElementById('booking-modal');
+            const overlay = document.getElementById('modal-overlay');
+            
+            if (modal.classList.contains('translate-x-full')) {
+                modal.classList.remove('translate-x-full');
+                overlay.classList.remove('opacity-0', 'pointer-events-none');
+                overlay.classList.add('opacity-100');
+            } else {
+                modal.classList.add('translate-x-full');
+                overlay.classList.add('opacity-0', 'pointer-events-none');
+                overlay.classList.remove('opacity-100');
+            }
+        }
+
+        // AUTO-OPEN: When the admin arrives from the Dashboard "Quick Booking"
+        window.onload = () => {
+            setTimeout(toggleModal, 300); // Small delay for smooth entry
+        };
+    </script>
+</body>
+</html> -->

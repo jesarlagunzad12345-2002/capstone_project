@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Location | KML Mountain Resort</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="css/location.css">
+    <style>
+        #map-container {
+            height: 500px;
+            width: 100%;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        
+        #map {
+            height: 100%;
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+
+    <header class="sticky-top">
+        <nav class="navbar navbar-expand-lg navbar-dark custom-navbar py-3 px-4">
+            <div class="container-fluid">
+                <a class="navbar-brand logo" href="/dashboard">KML RESORT</a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="collapse navbar-collapse" id="navbarNav">
+                    <ul class="navbar-nav mx-auto mb-2 mb-lg-0">
+                        <li class="nav-item"><a class="nav-link" href="/dashboard">HOME</a></li>
+                        <li class="nav-item"><a class="nav-link active" href="/location">LOCATION</a></li>
+                        <li class="nav-item"><a class="nav-link" href="/accomodation">ACCOMMODATION</a></li>
+                        <li class="nav-item"><a class="nav-link" href="/experience">EXPERIENCE</a></li>
+                        <li class="nav-item"><a class="nav-link" href="/gallery">GALLERY</a></li>
+                        <li class="nav-item"><a class="nav-link" href="/dinning">DINNING</a></li>
+                        <li class="nav-item"><a class="nav-link" href="/booking">BOOKING</a></li>
+                    </ul>
+                    <div class="d-flex align-items-center gap-3 header-actions">
+                        <input type="text" class="form-control search-input invisible" placeholder="Search">
+                        <a href="/booking" class="btn book-btn">Book Now</a>
+                    </div>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <main class="container py-5">
+        <div class="row g-5">
+            <section class="col-lg-5">
+                <h1 class="display-4 fw-bold mb-4">FIND YOUR WAY TO PEACE</h1>
+                
+                <article class="info-card mb-4">
+                    <h2>Our Address</h2>
+                    <p>KML Mountain Road, Peak Sanctuary, Western Visayas, Philippines</p>
+                </article>
+
+                <article class="info-card mb-4">
+                    <h2>Getting Here</h2>
+                    <p>Located just a 12-minute hike from the nearest main road. We recommend lightweight gear for the ascent.</p>
+                </article>
+
+                <article class="info-card mb-4">
+                    <h2>Contact Details</h2>
+                    <ul class="list-unstyled contact-list">
+                        <li>Email: hello@kmlresort.com</li>
+                        <li>Phone: +63 912 345 6789</li>
+                    </ul>
+                </article>
+                <button id="goToLiveMap" style="display: none;" onclick="window.location.href='/live-map'"></button>
+                
+                <button class="btn map-btn" onclick="document.getElementById('goToLiveMap').click()">Open Navigation Map</button>
+            </section>
+
+            <section class="col-lg-7">
+                <div id="map-container">
+                    <div id="map"></div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <footer class="text-center py-4 mt-5">
+        <p class="mb-0">&copy; 2026 KML Mountain Resort. All rights reserved.</p>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="/js/navigation.js"></script>
+</body>
+</html>

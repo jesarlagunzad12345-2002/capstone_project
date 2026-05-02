@@ -1,0 +1,429 @@
+:root {
+  --primary-blue: #0284c7;
+  --dark-blue: #0369a1;
+  --light-blue: #0ea5e9;
+  --black: #0f172a;
+  --dark-gray: #1e293b;
+  --medium-gray: #334155;
+  --light-gray: #f8fafc;
+  --border-gray: #e2e8f0;
+  --text-light: #f1f5f9;
+  --text-muted: #475569;
+  --white: #ffffff;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color: var(--white);
+  color: var(--black);
+  line-height: 1.6;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ============================================
+   HEADER & NAVIGATION - MATCHING EXPERIENCE
+   ============================================ */
+header {
+  background: linear-gradient(135deg, var(--black) 0%, var(--dark-gray) 100%);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  flex-shrink: 0;
+}
+
+.custom-navbar {
+  background: transparent !important;
+  padding: 1rem 2rem;
+}
+
+.logo {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--primary-blue);
+  letter-spacing: 0.1em;
+  background: linear-gradient(135deg, var(--primary-blue), var(--dark-blue));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-decoration: none;
+}
+
+.navbar-nav {
+  gap: 2.5rem;
+}
+
+.nav-link {
+  color: var(--text-light) !important;
+  text-decoration: none;
+  font-weight: 500;
+  font-size: 0.9rem;
+  letter-spacing: 0.05em;
+  position: relative;
+  transition: color 0.3s ease;
+  padding: 0.5rem 0 !important;
+}
+
+.nav-link::after {
+  content: '';
+  position: absolute;
+  bottom: -5px;
+  left: 0;
+  width: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--primary-blue), var(--dark-blue));
+  transition: width 0.3s ease;
+}
+
+.nav-link:hover {
+  color: var(--primary-blue) !important;
+}
+
+.nav-link:hover::after {
+  width: 100%;
+}
+
+.nav-link.active {
+  color: var(--primary-blue) !important;
+}
+
+.nav-link.active::after {
+  width: 100%;
+}
+
+/* Header Actions - Matching Experience */
+.header-actions {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.search-input {
+  padding: 0.7rem 1.2rem;
+  border: 1px solid var(--border-gray);
+  border-radius: 0.5rem;
+  background-color: rgba(255, 255, 255, 0.1);
+  color: var(--text-light);
+  font-size: 0.9rem;
+  width: 200px;
+  transition: all 0.3s ease;
+}
+
+.search-input::placeholder {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.search-input:focus {
+  outline: none;
+  background-color: rgba(255, 255, 255, 0.15);
+  border-color: var(--primary-blue);
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.1);
+  color: var(--text-light);
+}
+
+.book-btn {
+  padding: 0.7rem 1.5rem;
+  background: linear-gradient(135deg, var(--primary-blue), var(--dark-blue));
+  color: white;
+  border: none;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 0.9rem;
+}
+
+.book-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(2, 132, 199, 0.3);
+}
+
+/* ============================================
+   MAIN CONTENT - FULL HEIGHT NO SCROLL
+   ============================================ */
+main {
+  flex: 1;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 2rem;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+main .row {
+  flex: 1;
+  height: 100%;
+  align-items: stretch;
+}
+
+main .col-lg-5 {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+main .col-lg-7 {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* ============================================
+   SECTION STYLES - COMPACT
+   ============================================ */
+main h1 {
+  font-size: 2.5rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--black) 0%, var(--dark-blue) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  line-height: 1.2;
+  margin-bottom: 1.5rem;
+  letter-spacing: -1px;
+}
+
+.info-card {
+  padding: 1rem 1.25rem;
+  background: var(--light-gray);
+  border-radius: 8px;
+  border-left: 4px solid var(--primary-blue);
+  transition: all 0.3s ease;
+  margin-bottom: 0.75rem;
+}
+
+.info-card:last-of-type {
+  margin-bottom: 0;
+}
+
+.info-card:hover {
+  background: #f1f5f9;
+  transform: translateX(8px);
+  box-shadow: 0 4px 12px rgba(3, 105, 161, 0.1);
+}
+
+.info-card h2 {
+  color: var(--black);
+  font-size: 1.1rem;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+}
+
+.info-card p {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  line-height: 1.6;
+  margin-bottom: 0;
+}
+
+.contact-list {
+  list-style: none;
+  color: var(--text-muted);
+  margin-bottom: 0;
+}
+
+.contact-list li {
+  padding: 0.3rem 0;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+}
+
+.contact-list li::before {
+  content: '▸';
+  color: var(--primary-blue);
+  margin-right: 0.75rem;
+  font-size: 1.2rem;
+}
+
+.map-btn {
+  align-self: flex-start;
+  background: linear-gradient(135deg, var(--dark-blue) 0%, var(--primary-blue) 100%);
+  color: var(--white);
+  border: none;
+  padding: 0.875rem 1.5rem;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(3, 105, 161, 0.2);
+  margin-top: 1rem;
+}
+
+.map-btn:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 25px rgba(3, 105, 161, 0.3);
+  color: var(--white);
+}
+
+/* ============================================
+   MAP CONTAINER - FULL HEIGHT RIGHT SIDE
+   ============================================ */
+#map-container {
+  flex: 1;
+  background: linear-gradient(135deg, var(--black) 0%, var(--dark-gray) 100%);
+  border-radius: 12px;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-light);
+  font-size: 1.1rem;
+  box-shadow: 0 8px 32px rgba(3, 105, 161, 0.15);
+  position: relative;
+  overflow: hidden;
+  height: 100%;
+}
+
+#map-container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: radial-gradient(circle at 30% 50%, rgba(2, 132, 199, 0.1) 0%, transparent 50%);
+  pointer-events: none;
+}
+
+#map {
+  height: 100%;
+  width: 100%;
+  border-radius: 12px;
+  z-index: 1;
+}
+
+/* ============================================
+   FOOTER - COMPACT
+   ============================================ */
+footer {
+  background: var(--black);
+  color: var(--text-light);
+  text-align: center;
+  padding: 1rem;
+  font-size: 0.85rem;
+  border-top: 2px solid var(--primary-blue);
+  flex-shrink: 0;
+}
+
+footer p {
+  margin-bottom: 0;
+}
+
+/* ============================================
+   RESPONSIVE DESIGN
+   ============================================ */
+@media (max-width: 991px) {
+  html, body {
+    height: auto;
+    overflow: auto;
+  }
+
+  .navbar-collapse {
+    background: var(--dark-gray);
+    padding: 1rem;
+    border-radius: 8px;
+    margin-top: 1rem;
+  }
+
+  .header-actions {
+    flex-direction: column;
+    width: 100%;
+    margin-top: 1rem;
+  }
+
+  .search-input,
+  .book-btn {
+    width: 100%;
+  }
+
+  main {
+    padding: 1.5rem;
+    height: auto;
+  }
+
+  main .row {
+    height: auto;
+  }
+
+  main h1 {
+    font-size: 1.75rem;
+    margin-bottom: 1rem;
+  }
+
+  #map-container {
+    height: 350px;
+    margin-top: 1.5rem;
+  }
+
+  .info-card {
+    padding: 0.875rem 1rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .info-card h2 {
+    font-size: 1rem;
+  }
+
+  .map-btn {
+    width: 100%;
+    text-align: center;
+    margin-top: 0.75rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .custom-navbar {
+    padding: 0.75rem;
+  }
+
+  .logo {
+    font-size: 1.2rem;
+  }
+
+  .navbar-nav {
+    gap: 0.5rem;
+  }
+
+  .nav-link {
+    font-size: 0.85rem;
+  }
+
+  main {
+    padding: 1rem;
+  }
+
+  main h1 {
+    font-size: 1.5rem;
+  }
+
+  .info-card {
+    padding: 0.75rem;
+    border-left-width: 3px;
+  }
+
+  .info-card h2 {
+    font-size: 0.95rem;
+  }
+
+  .info-card p,
+  .contact-list li {
+    font-size: 0.85rem;
+  }
+
+  #map-container {
+    height: 300px;
+  }
+}

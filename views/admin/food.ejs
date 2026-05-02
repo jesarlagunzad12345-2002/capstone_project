@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KML Mountain Resort | Food & Beverage</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/food.css">
+</head>
+<body>
+
+    <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+
+    <aside class="sidebar" id="sidebar">
+        <div class="d-flex justify-content-end d-lg-none p-3">
+            <button class="btn text-white border-0" onclick="toggleSidebar()">
+                <i class="bi bi-x-lg fs-4"></i>
+            </button>
+        </div>
+
+        <div class="sidebar-brand">
+            <div class="brand-logo me-2">KML</div>
+            <span class="text-white fw-bold">MOUNTAIN RESORT</span>
+        </div>
+
+        <div class="nav-label">Main</div>
+        <nav class="nav flex-column">
+            <a href="/admin-dashboard" class="nav-link"><i class="bi bi-grid-1x2 me-2"></i> Dashboard</a>
+            <a href="/bookings" class="nav-link"><i class="bi bi-calendar-event me-2"></i> Bookings</a>
+            <a href="/rooms" class="nav-link"><i class="bi bi-door-open me-2"></i> Rooms</a>
+            
+            <div class="nav-label">Operations</div>
+            <a href="/food" class="nav-link active"><i class="bi bi-egg-fried me-2"></i> Restaurant Menu</a>
+        </nav>
+
+        <div class="mt-auto p-4">
+            <a href="/logout" class="btn btn-outline-danger w-100 rounded-4 fw-bold">Logout</a>
+        </div>
+    </aside>
+
+    <div class="main-wrapper">
+        <header class="justify-content-between align-items-center">
+            <div class="d-flex align-items-center gap-3">
+                <button class="btn btn-light d-lg-none" onclick="toggleSidebar()">
+                    <i class="bi bi-list fs-4"></i>
+                </button>
+                <h3 class="h5 fw-bold mb-0">Food & Beverage</h3>
+                <span class="badge rounded-pill border border-success bg-success bg-opacity-10 text-success px-3">Kitchen Open</span>
+            </div>
+            <div class="header-controls">
+                <button class="btn btn-dark fw-bold d-flex align-items-center gap-2 rounded-3 px-4" data-bs-toggle="modal" data-bs-target="#addItemModal">
+                    <i class="bi bi-plus-lg"></i> <span>Add Food Item</span>
+                </button>
+            </div>
+        </header>
+
+        <div class="content-scroll">
+            <div class="container-fluid">
+                <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3 mb-4">
+                    <div class="btn-group p-1 bg-white border rounded-3 overflow-auto w-auto" id="categoryFilters">
+                        <button class="btn btn-dark btn-sm rounded-2 px-3 active" onclick="filterFood('all')">All Items</button>
+                        <button class="btn btn-link btn-sm text-muted rounded-2 px-3 text-decoration-none" onclick="filterFood('Breakfast')">Breakfast</button>
+                        <button class="btn btn-link btn-sm text-muted rounded-2 px-3 text-decoration-none" onclick="filterFood('Main Course')">Main Course</button>
+                        <button class="btn btn-link btn-sm text-muted rounded-2 px-3 text-decoration-none" onclick="filterFood('Desserts')">Desserts</button>
+                        <button class="btn btn-link btn-sm text-muted rounded-2 px-3 text-decoration-none" onclick="filterFood('Drinks')">Drinks</button>
+                    </div>
+                    
+                    <div class="position-relative">
+                        <input type="text" placeholder="Search menu items..." class="search-input shadow-sm w-100" id="searchInput" onkeyup="searchFood()" style="min-width: 320px;">
+                        <i class="bi bi-search position-absolute start-0 top-50 translate-middle-y ms-3 text-muted"></i>
+                    </div>
+                </div>
+
+                <div class="row g-4" id="foodContainer">
+                </div> 
+            </div>
+        </div>
+    </div>
+
+    <div class="toast-container" id="toastContainer"></div>
+
+    <div class="modal fade" id="addItemModal" tabindex="-1" aria-labelledby="addItemModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 rounded-4 overflow-hidden shadow">
+                <div class="modal-header border-bottom-0 bg-light p-4">
+                    <h5 class="modal-title fw-bold" id="addItemModalLabel">Add New Menu Item</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                
+                <form id="addFoodForm" onsubmit="saveFoodItem(event)">
+                    <div class="modal-body p-4">
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label class="form-label small fw-bold text-muted text-uppercase">Dish Name</label>
+                                <input type="text" class="form-control bg-light border-0 py-2 rounded-3" id="foodName" placeholder="Grilled Salmon" required>
+                            </div>
+
+                            <div class="col-sm-6">
+                                <label class="form-label small fw-bold text-muted text-uppercase">Category</label>
+                                <select class="form-select bg-light border-0 py-2 rounded-3" id="foodCategory" required>
+                                    <option value="">Select Category</option>
+                                    <option value="Breakfast">Breakfast</option>
+                                    <option value="Main Course">Main Course</option>
+                                    <option value="Desserts">Desserts</option>
+                                    <option value="Drinks">Drinks</option>
+                                </select>
+                            </div>
+
+                            <div class="col-sm-6">
+                                <label class="form-label small fw-bold text-muted text-uppercase">Price (₱)</label>
+                                <input type="number" step="0.01" class="form-control bg-light border-0 py-2 rounded-3" id="foodPrice" placeholder="0.00" required>
+                            </div>
+
+                            <div class="col-12">
+                                <label class="form-label small fw-bold text-muted text-uppercase">Popularity Tag</label>
+                                <select class="form-select bg-light border-0 py-2 rounded-3" id="foodPopularity" required>
+                                    <option value="">Select Popularity</option>
+                                    <option value="POPULAR">🔥 POPULAR</option>
+                                    <option value="BEST SELLER">⭐ BEST SELLER</option>
+                                    <option value="FRESHLY MADE">🌿 FRESHLY MADE</option>
+                                    <option value="MUST TRY">💎 MUST TRY</option>
+                                    <option value="JUST IN">✨ JUST IN</option>
+                                </select>
+                            </div>
+
+                            <div class="col-12">
+                                <label class="form-label small fw-bold text-muted text-uppercase">Description</label>
+                                <textarea class="form-control bg-light border-0 rounded-3" id="foodDescription" rows="3" placeholder="Ingredients details..." required></textarea>
+                            </div>
+
+                            <div class="col-sm-6">
+                                <label class="form-label small fw-bold text-muted text-uppercase">Stock Status</label>
+                                <select class="form-select bg-light border-0 py-2 rounded-3" id="foodStockStatus" required>
+                                    <option value="In Stock">In Stock</option>
+                                    <option value="Low Stock">Low Stock</option>
+                                    <option value="Out of Stock">Out of Stock</option>
+                                </select>
+                            </div>
+
+                            <div class="col-sm-6">
+                                <label class="form-label small fw-bold text-muted text-uppercase">Stock Quantity</label>
+                                <input type="number" class="form-control bg-light border-0 py-2 rounded-3" id="foodStockQty" placeholder="0" value="10">
+                            </div>
+
+                            <div class="col-12">
+                                <label class="form-label small fw-bold text-muted text-uppercase">Dish Image</label>
+                                <div class="upload-area p-4 rounded-4 bg-light text-center" id="uploadArea" onclick="document.getElementById('foodUpload').click()">
+                                    <i class="bi bi-cloud-arrow-up h1 text-muted d-block" id="uploadIcon"></i>
+                                    <p class="small text-muted mb-0 fw-semibold" id="uploadText">Click to upload food photo</p>
+                                    <img id="imagePreview" class="file-preview" alt="Preview">
+                                    <input type="file" class="d-none" id="foodUpload" accept="image/*" onchange="handleImageUpload(this)" required>
+                                </div>
+                                <input type="hidden" id="foodImageBase64">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer border-top-0 p-4 pt-0">
+                        <div class="row w-100 g-2">
+                            <div class="col-6">
+                                <button type="button" class="btn btn-light w-100 fw-bold py-2 rounded-3" data-bs-dismiss="modal" onclick="resetForm()">Cancel</button>
+                            </div>
+                            <div class="col-6">
+                                <button type="submit" class="btn btn-primary w-100 py-2 rounded-3" style="background: var(--accent-blue); color: var(--primary-dark); border:none; font-weight:700;">Save Dish</button>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="editItemModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 rounded-4 overflow-hidden shadow">
+                <div class="modal-header border-bottom-0 bg-light p-4">
+                    <h5 class="modal-title fw-bold">Edit Menu Item</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                
+                <form id="editFoodForm" onsubmit="updateFoodItem(event)">
+                    <div class="modal-body p-4">
+                        <input type="hidden" id="editFoodId">
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label class="form-label small fw-bold text-muted text-uppercase">Dish Name</label>
+                                <input type="text" class="form-control bg-light border-0 py-2 rounded-3" id="editFoodName" required>
+                            </div>
+
+                            <div class="col-sm-6">
+                                <label class="form-label small fw-bold text-muted text-uppercase">Category</label>
+                                <select class="form-select bg-light border-0 py-2 rounded-3" id="editFoodCategory" required>
+                                    <option value="Breakfast">Breakfast</option>
+                                    <option value="Main Course">Main Course</option>
+                                    <option value="Desserts">Desserts</option>
+                                    <option value="Drinks">Drinks</option>
+                                </select>
+                            </div>
+
+                            <div class="col-sm-6">
+                                <label class="form-label small fw-bold text-muted text-uppercase">Price (₱)</label>
+                                <input type="number" step="0.01" class="form-control bg-light border-0 py-2 rounded-3" id="editFoodPrice" required>
+                            </div>
+
+                            <div class="col-12">
+                                <label class="form-label small fw-bold text-muted text-uppercase">Popularity Tag</label>
+                                <select class="form-select bg-light border-0 py-2 rounded-3" id="editFoodPopularity" required>
+                                    <option value="POPULAR">🔥 POPULAR</option>
+                                    <option value="BEST SELLER">⭐ BEST SELLER</option>
+                                    <option value="FRESHLY MADE">🌿 FRESHLY MADE</option>
+                                    <option value="MUST TRY">💎 MUST TRY</option>
+                                    <option value="JUST IN">✨ JUST IN</option>
+                                </select>
+                            </div>
+
+                            <div class="col-12">
+                                <label class="form-label small fw-bold text-muted text-uppercase">Description</label>
+                                <textarea class="form-control bg-light border-0 rounded-3" id="editFoodDescription" rows="3" required></textarea>
+                            </div>
+
+                            <div class="col-sm-6">
+                                <label class="form-label small fw-bold text-muted text-uppercase">Stock Status</label>
+                                <select class="form-select bg-light border-0 py-2 rounded-3" id="editFoodStockStatus" required>
+                                    <option value="In Stock">In Stock</option>
+                                    <option value="Low Stock">Low Stock</option>
+                                    <option value="Out of Stock">Out of Stock</option>
+                                </select>
+                            </div>
+
+                            <div class="col-sm-6">
+                                <label class="form-label small fw-bold text-muted text-uppercase">Stock Quantity</label>
+                                <input type="number" class="form-control bg-light border-0 py-2 rounded-3" id="editFoodStockQty">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer border-top-0 p-4 pt-0">
+                        <div class="row w-100 g-2">
+                            <div class="col-6">
+                                <button type="button" class="btn btn-light w-100 fw-bold py-2 rounded-3" data-bs-dismiss="modal">Cancel</button>
+                            </div>
+                            <div class="col-6">
+                                <button type="submit" class="btn btn-primary w-100 py-2 rounded-3" style="background: var(--accent-blue); color: var(--primary-dark); border:none; font-weight:700;">Update Dish</button>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/js/food.js"></script>
+</body>
+</html>
