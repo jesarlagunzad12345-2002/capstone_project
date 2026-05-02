@@ -3,7 +3,6 @@ const bodyParser = require("body-parser");
 const session = require("express-session");
 const app = express();
 
-// Import routes
 const routes = require("./routes");
 
 app.set("view engine", "ejs");
@@ -18,7 +17,6 @@ app.use(session({
   cookie: { maxAge: 3600000 }
 }));
 
-// Use routes
 app.use("/", routes);
 
 const port = 8080;
