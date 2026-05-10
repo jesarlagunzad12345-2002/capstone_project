@@ -30,7 +30,7 @@
             <a href="/admin-dashboard" class="nav-link"><i class="bi bi-grid-1x2 me-2"></i> Dashboard</a>
             <a href="/bookings" class="nav-link"><i class="bi bi-calendar-event me-2"></i> Bookings</a>
             <a href="/rooms" class="nav-link"><i class="bi bi-door-open me-2"></i> Rooms</a>
-            
+
             <div class="nav-label">Operations</div>
             <a href="/food" class="nav-link active"><i class="bi bi-egg-fried me-2"></i> Restaurant Menu</a>
         </nav>
@@ -50,7 +50,7 @@
                 <span class="badge rounded-pill border border-success bg-success bg-opacity-10 text-success px-3">Kitchen Open</span>
             </div>
             <div class="header-controls">
-                <button class="btn btn-dark fw-bold d-flex align-items-center gap-2 rounded-3 px-4" data-bs-toggle="modal" data-bs-target="#addItemModal">
+                <button class="btn btn-dark fw-bold d-flex align-items-center gap-2 rounded-3 px-4" data-bs-toggle="modal" data-bs-target="#addItemModal" id="addBtn">
                     <i class="bi bi-plus-lg"></i> <span>Add Food Item</span>
                 </button>
             </div>
@@ -58,29 +58,66 @@
 
         <div class="content-scroll">
             <div class="container-fluid">
-                <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3 mb-4">
-                    <div class="btn-group p-1 bg-white border rounded-3 overflow-auto w-auto" id="categoryFilters">
-                        <button class="btn btn-dark btn-sm rounded-2 px-3 active" onclick="filterFood('all')">All Items</button>
-                        <button class="btn btn-link btn-sm text-muted rounded-2 px-3 text-decoration-none" onclick="filterFood('Breakfast')">Breakfast</button>
-                        <button class="btn btn-link btn-sm text-muted rounded-2 px-3 text-decoration-none" onclick="filterFood('Main Course')">Main Course</button>
-                        <button class="btn btn-link btn-sm text-muted rounded-2 px-3 text-decoration-none" onclick="filterFood('Desserts')">Desserts</button>
-                        <button class="btn btn-link btn-sm text-muted rounded-2 px-3 text-decoration-none" onclick="filterFood('Drinks')">Drinks</button>
+
+                <!-- Section Tabs -->
+                <div class="section-tabs mb-3">
+                    <button class="section-tab active" onclick="switchSection('menu')" id="menuTab">
+                        <i class="bi bi-egg-fried"></i> Menu Items
+                    </button>
+                    <button class="section-tab" onclick="switchSection('diningSpots')" id="diningSpotsTab">
+                        <i class="bi bi-shop"></i> Dining Spots
+                    </button>
+                </div>
+
+                <!-- Menu Items Section -->
+                <div id="menuSection">
+                    <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3 mb-4">
+                        <div class="btn-group p-1 bg-white border rounded-3 overflow-auto w-auto" id="categoryFilters">
+                            <button class="btn btn-dark btn-sm rounded-2 px-3 active" onclick="filterFood('all')">All Items</button>
+                            <button class="btn btn-link btn-sm text-muted rounded-2 px-3 text-decoration-none" onclick="filterFood('Breakfast')">Breakfast</button>
+                            <button class="btn btn-link btn-sm text-muted rounded-2 px-3 text-decoration-none" onclick="filterFood('Main Course')">Main Course</button>
+                            <button class="btn btn-link btn-sm text-muted rounded-2 px-3 text-decoration-none" onclick="filterFood('Desserts')">Desserts</button>
+                            <button class="btn btn-link btn-sm text-muted rounded-2 px-3 text-decoration-none" onclick="filterFood('Drinks')">Drinks</button>
+                        </div>
+
+                        <div class="position-relative">
+                            <input type="text" placeholder="Search menu items..." class="search-input shadow-sm w-100" id="searchInput" onkeyup="searchFood()" style="min-width: 320px;">
+                            <i class="bi bi-search position-absolute start-0 top-50 translate-middle-y ms-3 text-muted"></i>
+                        </div>
                     </div>
-                    
-                    <div class="position-relative">
-                        <input type="text" placeholder="Search menu items..." class="search-input shadow-sm w-100" id="searchInput" onkeyup="searchFood()" style="min-width: 320px;">
-                        <i class="bi bi-search position-absolute start-0 top-50 translate-middle-y ms-3 text-muted"></i>
+
+                    <div class="row g-4" id="foodContainer">
                     </div>
                 </div>
 
-                <div class="row g-4" id="foodContainer">
-                </div> 
+                <!-- Dining Spots Section -->
+                <div id="diningSpotsSection" style="display: none;">
+                    <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3 mb-4">
+                        <div class="col">
+                            <h5 class="fw-bold mb-0">Dining Spots</h5>
+                            <p class="text-muted mb-0" style="font-size: 0.85rem;">Manage dining spots displayed in the amenities page</p>
+                        </div>
+                        <div class="position-relative">
+                            <input type="text" placeholder="Search dining spots..." class="search-input shadow-sm w-100" id="diningSearchInput" onkeyup="searchDiningSpots()" style="min-width: 320px;">
+                            <i class="bi bi-search position-absolute start-0 top-50 translate-middle-y ms-3 text-muted"></i>
+                        </div>
+                    </div>
+
+                    <div class="row g-4" id="diningSpotsContainer"></div>
+
+                    <div id="diningSpotsNotFound" class="not-found-message" style="display: none;">
+                        <i class="bi bi-shop"></i>
+                        <h5>No Dining Spots Found</h5>
+                        <p>No dining spots match your search. Try different keywords or add new dining spots.</p>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 
     <div class="toast-container" id="toastContainer"></div>
 
+    <!-- Add Food Item Modal -->
     <div class="modal fade" id="addItemModal" tabindex="-1" aria-labelledby="addItemModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content border-0 rounded-4 overflow-hidden shadow">
@@ -88,7 +125,7 @@
                     <h5 class="modal-title fw-bold" id="addItemModalLabel">Add New Menu Item</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                
+
                 <form id="addFoodForm" onsubmit="saveFoodItem(event)">
                     <div class="modal-body p-4">
                         <div class="row g-3">
@@ -172,6 +209,62 @@
         </div>
     </div>
 
+    <!-- Add Dining Spot Modal -->
+    <div class="modal fade" id="addDiningSpotModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 rounded-4 overflow-hidden shadow">
+                <div class="modal-header border-bottom-0 bg-light p-4">
+                    <h5 class="modal-title fw-bold">Add Dining Spot</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+
+                <form id="addDiningSpotForm" onsubmit="saveDiningSpot(event)">
+                    <div class="modal-body p-4">
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label class="form-label small fw-bold text-muted text-uppercase">Spot Name</label>
+                                <input type="text" class="form-control bg-light border-0 py-2 rounded-3" id="diningSpotName" placeholder="e.g. The KML Main Hall" required>
+                            </div>
+
+                            <div class="col-12">
+                                <label class="form-label small fw-bold text-muted text-uppercase">Tag / Label</label>
+                                <input type="text" class="form-control bg-light border-0 py-2 rounded-3" id="diningSpotTag" placeholder="e.g. RESTAURANT INTERIOR" required>
+                            </div>
+
+                            <div class="col-12">
+                                <label class="form-label small fw-bold text-muted text-uppercase">Description</label>
+                                <textarea class="form-control bg-light border-0 rounded-3" id="diningSpotDescription" rows="3" placeholder="Describe the dining spot..." required></textarea>
+                            </div>
+
+                            <div class="col-12">
+                                <label class="form-label small fw-bold text-muted text-uppercase">Spot Image</label>
+                                <div class="upload-area p-4 rounded-4 bg-light text-center" id="diningUploadArea" onclick="document.getElementById('diningSpotUpload').click()">
+                                    <i class="bi bi-cloud-arrow-up h1 text-muted d-block" id="diningUploadIcon"></i>
+                                    <p class="small text-muted mb-0 fw-semibold" id="diningUploadText">Click to upload spot photo</p>
+                                    <img id="diningSpotImagePreview" class="file-preview" alt="Preview">
+                                    <input type="file" class="d-none" id="diningSpotUpload" accept="image/*" onchange="handleDiningSpotImageUpload(this)" required>
+                                </div>
+                                <input type="hidden" id="diningSpotImageBase64">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer border-top-0 p-4 pt-0">
+                        <div class="row w-100 g-2">
+                            <div class="col-6">
+                                <button type="button" class="btn btn-light w-100 fw-bold py-2 rounded-3" data-bs-dismiss="modal" onclick="resetDiningSpotForm()">Cancel</button>
+                            </div>
+                            <div class="col-6">
+                                <button type="submit" class="btn btn-primary w-100 py-2 rounded-3" style="background: var(--accent-blue); color: var(--primary-dark); border:none; font-weight:700;">Save Spot</button>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Item Modal -->
     <div class="modal fade" id="editItemModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content border-0 rounded-4 overflow-hidden shadow">
@@ -179,7 +272,7 @@
                     <h5 class="modal-title fw-bold">Edit Menu Item</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                
+
                 <form id="editFoodForm" onsubmit="updateFoodItem(event)">
                     <div class="modal-body p-4">
                         <input type="hidden" id="editFoodId">

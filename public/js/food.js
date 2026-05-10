@@ -1,9 +1,12 @@
 let foodItems = [];
+let diningSpots = [];
 let currentFilter = 'all';
+let currentSection = 'menu';
 let editingFoodId = null;
 
 document.addEventListener('DOMContentLoaded', function() {
     loadFoodItems();
+    loadDiningSpots();
 });
 
 async function apiGet(url) {
@@ -38,11 +41,48 @@ async function apiDelete(url) {
     return res.json();
 }
 
+// ==================== SECTION SWITCHING ====================
+function switchSection(section) {
+    currentSection = section;
 
+    // Auto-clear search bar when switching sections
+    document.getElementById('searchInput').value = '';
+    var diningSearch = document.getElementById('diningSearchInput');
+    if (diningSearch) diningSearch.value = '';
+
+    var isMenu = (section === 'menu');
+    var isDiningSpots = (section === 'diningSpots');
+
+    document.getElementById('menuSection').style.display = isMenu ? 'block' : 'none';
+    document.getElementById('diningSpotsSection').style.display = isDiningSpots ? 'block' : 'none';
+
+    document.getElementById('menuTab').classList.toggle('active', isMenu);
+    document.getElementById('diningSpotsTab').classList.toggle('active', isDiningSpots);
+
+    // Update add button
+    var addBtn = document.getElementById('addBtn');
+    if (isMenu) {
+        addBtn.setAttribute('data-bs-target', '#addItemModal');
+        addBtn.innerHTML = '<i class="bi bi-plus-lg"></i> <span>Add Food Item</span>';
+        var catFilters = document.getElementById('categoryFilters');
+        if (catFilters) catFilters.style.display = 'flex';
+        renderFoodItems();
+    } else if (isDiningSpots) {
+        addBtn.setAttribute('data-bs-target', '#addDiningSpotModal');
+        addBtn.innerHTML = '<i class="bi bi-plus-lg"></i> <span>Add Dining Spot</span>';
+        var catFilters = document.getElementById('categoryFilters');
+        if (catFilters) catFilters.style.display = 'none';
+        showDiningSpots();
+    }
+}
+
+// ==================== FOOD ITEMS ====================
 async function loadFoodItems() {
     try {
         foodItems = await apiGet('/api/food-items');
-        renderFoodItems();
+        if (currentSection === 'menu') {
+            renderFoodItems();
+        }
     } catch (err) {
         console.error('Failed to load food items:', err);
         showToast('Failed to load food items', 'error');
@@ -52,7 +92,7 @@ async function loadFoodItems() {
 function renderFoodItems() {
     const container = document.getElementById('foodContainer');
     let filtered = currentFilter === 'all' ? foodItems : foodItems.filter(f => f.category === currentFilter);
-    
+
     const searchTerm = document.getElementById('searchInput').value.toLowerCase();
     if (searchTerm) {
         filtered = filtered.filter(f => 
@@ -78,7 +118,7 @@ function renderFoodItems() {
         const stockColor = getStockColor(item.stock_status);
         const popClass = getPopularityClass(item.popularity);
         const popText = item.popularity || '';
-        
+
         return `
         <div class="col-12 col-sm-6 col-xl-4 col-xxl-3">
             <div class="food-card">
@@ -111,7 +151,7 @@ function renderFoodItems() {
 
 async function saveFoodItem(event) {
     event.preventDefault();
-    
+
     const name = document.getElementById('foodName').value.trim();
     const category = document.getElementById('foodCategory').value;
     const price = parseFloat(document.getElementById('foodPrice').value) || 0;
@@ -171,9 +211,9 @@ async function editFoodItem(id) {
 
 async function updateFoodItem(event) {
     event.preventDefault();
-    
+
     const id = document.getElementById('editFoodId').value;
-    
+
     const data = {
         name: document.getElementById('editFoodName').value.trim(),
         category: document.getElementById('editFoodCategory').value,
@@ -197,7 +237,7 @@ async function updateFoodItem(event) {
 
 async function deleteFoodItem(id) {
     if (!confirm('Are you sure you want to delete this food item?')) return;
-    
+
     try {
         await apiDelete(`/api/food-items/${id}`);
         await loadFoodItems();
@@ -210,7 +250,7 @@ async function deleteFoodItem(id) {
 
 function filterFood(category) {
     currentFilter = category;
-    
+
     document.querySelectorAll('#categoryFilters button').forEach(btn => {
         if ((category === 'all' && btn.textContent === 'All Items') || btn.textContent === category) {
             btn.className = 'btn btn-dark btn-sm rounded-2 px-3 active';
@@ -218,7 +258,7 @@ function filterFood(category) {
             btn.className = 'btn btn-link btn-sm text-muted rounded-2 px-3 text-decoration-none';
         }
     });
-    
+
     renderFoodItems();
 }
 
@@ -226,20 +266,145 @@ function searchFood() {
     renderFoodItems();
 }
 
-function getStockColor(status) {
-    const colors = {
-        'In Stock': 'text-success',
-        'Low Stock': 'text-warning',
-        'Out of Stock': 'text-danger'
-    };
-    return colors[status] || 'text-muted';
+// ==================== DINING SPOTS ====================
+async function loadDiningSpots() {
+    try {
+        diningSpots = await apiGet('/api/dining-spots');
+        if (currentSection === 'diningSpots') {
+            showDiningSpots();
+        }
+    } catch (err) {
+        console.error('Failed to load dining spots:', err);
+        showToast('Failed to load dining spots', 'error');
+    }
 }
 
-function getPopularityClass(popularity) {
-    if (!popularity) return '';
-    return 'popularity-' + popularity.replace(/\s+/g, '-');
+function showDiningSpots(searchTerm) {
+    var container = document.getElementById('diningSpotsContainer');
+    var notFound = document.getElementById('diningSpotsNotFound');
+
+    if (!container) return;
+
+    var list = diningSpots;
+    var term = searchTerm || '';
+
+    var searchInput = document.getElementById('diningSearchInput');
+    if (searchInput && !term) {
+        term = searchInput.value.toLowerCase();
+    }
+
+    if (term) {
+        list = diningSpots.filter(function(spot) {
+            var nameMatch = spot.name.toLowerCase().includes(term);
+            var tagMatch = spot.tag && spot.tag.toLowerCase().includes(term);
+            return nameMatch || tagMatch;
+        });
+    }
+
+    if (list.length === 0) {
+        container.innerHTML = '';
+        if (notFound) notFound.style.display = 'block';
+        return;
+    }
+
+    if (notFound) notFound.style.display = 'none';
+
+    var html = '';
+    for (var i = 0; i < list.length; i++) {
+        var spot = list[i];
+        // Show full description, don't truncate
+        var desc = spot.description ? spot.description : 'No description';
+
+        html += `
+        <div class="col-sm-6 col-lg-4 col-xl-3">
+            <div class="dining-spot-card">
+                <div class="dining-spot-img-wrapper">
+                    <img src="${spot.image}" alt="${spot.name}">
+                    <span class="dining-spot-tag">${spot.tag || 'DINING'}</span>
+                    <button class="btn btn-danger btn-sm delete-btn" onclick="deleteDiningSpot('${spot.dining_id}')">
+                        <i class="bi bi-trash-fill"></i>
+                    </button>
+                </div>
+                <div class="dining-spot-content">
+                    <h6 class="dining-spot-title">${spot.name}</h6>
+                    <p class="dining-spot-description">${desc}</p>
+                </div>
+            </div>
+        </div>`;
+    }
+
+    container.innerHTML = html;
 }
 
+function searchDiningSpots() {
+    showDiningSpots();
+}
+
+async function saveDiningSpot(event) {
+    if (event) event.preventDefault();
+
+    var nameEl = document.getElementById('diningSpotName');
+    var tagEl = document.getElementById('diningSpotTag');
+    var descEl = document.getElementById('diningSpotDescription');
+    var imgEl = document.getElementById('diningSpotImageBase64');
+
+    if (!nameEl || !tagEl) {
+        showToast('Form elements not found', 'error');
+        return;
+    }
+
+    var name = nameEl.value.trim();
+    var tag = tagEl.value.trim();
+    var description = descEl ? descEl.value.trim() : '';
+    var image = imgEl && imgEl.value ? imgEl.value : 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=600';
+
+    if (!name || !tag) {
+        showToast('Please enter name and tag', 'error');
+        return;
+    }
+
+    var nextNumber = diningSpots.length + 1;
+    var dining_id = 'DS' + String(nextNumber).padStart(3, '0');
+
+    try {
+        await apiPost('/api/dining-spots', {
+            dining_id: dining_id,
+            name: name,
+            tag: tag,
+            description: description,
+            image: image
+        });
+
+        await loadDiningSpots();
+        resetDiningSpotForm();
+
+        var modalEl = document.getElementById('addDiningSpotModal');
+        if (modalEl) {
+            var modal = bootstrap.Modal.getInstance(modalEl);
+            if (modal) modal.hide();
+        }
+
+        showToast('Dining spot added!', 'success');
+    } catch (err) {
+        console.error('Error saving dining spot:', err);
+        showToast('Failed to add dining spot', 'error');
+    }
+}
+
+async function deleteDiningSpot(id) {
+    if (!confirm('Delete this dining spot?')) return;
+
+    try {
+        await apiDelete('/api/dining-spots/' + id);
+        await loadDiningSpots();
+        showToast('Dining spot deleted', 'success');
+    } catch (err) {
+        console.error('Error deleting dining spot:', err);
+        showToast('Failed to delete dining spot', 'error');
+    }
+}
+
+// ==================== IMAGE HANDLERS ====================
 function handleImageUpload(input) {
     const file = input.files[0];
     const uploadArea = document.getElementById('uploadArea');
@@ -247,14 +412,14 @@ function handleImageUpload(input) {
     const base64Input = document.getElementById('foodImageBase64');
     const uploadIcon = document.getElementById('uploadIcon');
     const uploadText = document.getElementById('uploadText');
-    
+
     if (file) {
         if (file.size > 5 * 1024 * 1024) {
             showToast('File size must be less than 5MB', 'error');
             input.value = '';
             return;
         }
-        
+
         const reader = new FileReader();
         reader.onload = function(e) {
             base64Input.value = e.target.result;
@@ -268,25 +433,104 @@ function handleImageUpload(input) {
     }
 }
 
+function handleDiningSpotImageUpload(input) {
+    var file = input.files[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+        showToast('File too big! Max 5MB', 'error');
+        input.value = '';
+        return;
+    }
+
+    var uploadArea = document.getElementById('diningUploadArea');
+    var preview = document.getElementById('diningSpotImagePreview');
+    var base64Input = document.getElementById('diningSpotImageBase64');
+    var uploadIcon = document.getElementById('diningUploadIcon');
+    var uploadText = document.getElementById('diningUploadText');
+
+    var reader = new FileReader();
+    reader.onload = function(e) {
+        if (base64Input) base64Input.value = e.target.result;
+        if (preview) {
+            preview.src = e.target.result;
+            preview.classList.add('show');
+        }
+        if (uploadArea) uploadArea.classList.add('has-file');
+        if (uploadIcon) uploadIcon.style.display = 'none';
+        if (uploadText) uploadText.textContent = file.name;
+    };
+    reader.readAsDataURL(file);
+}
+
+// ==================== FORM RESETS ====================
 function resetForm() {
-    document.getElementById('addFoodForm').reset();
-    document.getElementById('foodImageBase64').value = '';
-    document.getElementById('imagePreview').classList.remove('show');
-    document.getElementById('uploadArea').classList.remove('has-file');
-    document.getElementById('uploadIcon').style.display = 'block';
-    document.getElementById('uploadText').textContent = 'Click to upload food photo';
+    var form = document.getElementById('addFoodForm');
+    if (form) form.reset();
+
+    var imgBase = document.getElementById('foodImageBase64');
+    if (imgBase) imgBase.value = '';
+
+    var preview = document.getElementById('imagePreview');
+    if (preview) preview.classList.remove('show');
+
+    var uploadArea = document.getElementById('uploadArea');
+    if (uploadArea) uploadArea.classList.remove('has-file');
+
+    var uploadIcon = document.getElementById('uploadIcon');
+    if (uploadIcon) uploadIcon.style.display = 'block';
+
+    var uploadText = document.getElementById('uploadText');
+    if (uploadText) uploadText.textContent = 'Click to upload food photo';
+}
+
+function resetDiningSpotForm() {
+    var form = document.getElementById('addDiningSpotForm');
+    if (form) form.reset();
+
+    var imgBase = document.getElementById('diningSpotImageBase64');
+    if (imgBase) imgBase.value = '';
+
+    var preview = document.getElementById('diningSpotImagePreview');
+    if (preview) preview.classList.remove('show');
+
+    var uploadArea = document.getElementById('diningUploadArea');
+    if (uploadArea) uploadArea.classList.remove('has-file');
+
+    var uploadIcon = document.getElementById('diningUploadIcon');
+    if (uploadIcon) uploadIcon.style.display = 'block';
+
+    var uploadText = document.getElementById('diningUploadText');
+    if (uploadText) uploadText.textContent = 'Click to upload spot photo';
+}
+
+// ==================== UTILS ====================
+function getStockColor(status) {
+    const colors = {
+        'In Stock': 'text-success',
+        'Low Stock': 'text-warning',
+        'Out of Stock': 'text-danger'
+    };
+    return colors[status] || 'text-muted';
+}
+
+function getPopularityClass(popularity) {
+    if (!popularity) return '';
+    return 'popularity-' + popularity.split(' ').join('-');
 }
 
 function showToast(message, type) {
     const container = document.getElementById('toastContainer');
+    if (!container) return;
+
     const toast = document.createElement('div');
-    toast.className = `custom-toast ${type}`;
+    toast.className = 'custom-toast ' + type;
     toast.innerHTML = `
         <i class="bi bi-${type === 'success' ? 'check-circle-fill' : 'exclamation-circle-fill'}"></i>
         <span>${message}</span>
     `;
     container.appendChild(toast);
-    
+
     setTimeout(() => toast.classList.add('show'), 10);
     setTimeout(() => {
         toast.classList.remove('show');
@@ -295,5 +539,6 @@ function showToast(message, type) {
 }
 
 function toggleSidebar() {
-    document.getElementById('sidebar').classList.toggle('active');
+    var sidebar = document.getElementById('sidebar');
+    if (sidebar) sidebar.classList.toggle('active');
 }

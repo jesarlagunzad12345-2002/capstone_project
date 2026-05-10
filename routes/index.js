@@ -43,7 +43,6 @@ router.get("/dashboard", (req, res) => res.render("user/dashboard"));
 router.get("/accomodation", (req, res) => res.render("user/accomodation"));
 router.get("/experience", (req, res) => res.render("user/experience"));
 router.get("/gallery", (req, res) => res.render("user/gallery"));
-router.get("/dinning", (req, res) => res.render("user/dinning"));
 router.get("/amenities", (req, res) => res.render("user/amenities"));
 router.get("/location", (req, res) => res.render("user/location"));
 router.get("/live-map", (req, res) => res.render("admin/live-map"));
@@ -68,11 +67,14 @@ function buildWhere(baseSql, filters) {
         if (key === 'search') { sql += " AND (name LIKE ? OR room_id LIKE ?)"; params.push(`%${val}%`, `%${val}%`); }
         else if (key === 'foodSearch') { sql += " AND (name LIKE ? OR description LIKE ? OR category LIKE ?)"; params.push(`%${val}%`, `%${val}%`, `%${val}%`); }
         else if (key === 'mountainSearch') { sql += " AND (title LIKE ? OR location LIKE ?)"; params.push(`%${val}%`, `%${val}%`); }
+        else if (key === 'facilitySearch') { sql += " AND (name LIKE ? OR tag LIKE ?)"; params.push(`%${val}%`, `%${val}%`); }
+        else if (key === 'diningSearch') { sql += " AND (name LIKE ? OR tag LIKE ?)"; params.push(`%${val}%`, `%${val}%`); }
         else { sql += " AND category = ?"; params.push(val); }
     }
     return { sql, params };
 }
 
+// ==================== ROOMS API ====================
 router.get("/api/rooms", async (req, res) => {
     try {
         const { sql, params } = buildWhere("SELECT * FROM rooms WHERE 1=1", { category: req.query.category, search: req.query.search });
@@ -134,44 +136,7 @@ router.get("/api/rooms/stats/overview", async (req, res) => {
     } catch (err) { res.status(500).json({ error: "Database error" }); }
 });
 
-router.get("/api/dashboard/stats", checkAuth, async (req, res) => {
-    try {
-        const today = new Date().toISOString().split('T')[0];
-
-        const revenueResults = await dbQuery("SELECT total_amount FROM daily_revenue WHERE revenue_date = ?", [today]);
-        const dailyRevenue = revenueResults.length > 0 ? revenueResults[0].total_amount : 0;
-
-        const guestResults = await dbQuery("SELECT COUNT(*) as total FROM bookings WHERE status = 'approved'");
-        const activeGuests = guestResults[0].total;
-        const checkins = await dbQuery(`
-            SELECT name, roomType, checkin, status, people 
-            FROM bookings 
-            ORDER BY id DESC 
-            LIMIT 5
-        `);
-
-        res.json({ dailyRevenue, activeGuests, recentCheckins: checkins || [] });
-    } catch (err) {
-        console.error("❌ Dashboard stats error:", err);
-        res.status(500).json({ error: "Failed to load dashboard stats" });
-    }
-});
-
-router.post("/api/dashboard/reset-revenue", checkAuth, async (req, res) => {
-    try {
-        const today = new Date().toISOString().split('T')[0];
-        await dbQuery(
-            "INSERT INTO daily_revenue (revenue_date, total_amount) VALUES (?, 0) ON DUPLICATE KEY UPDATE total_amount = 0, last_reset = NOW()",
-            [today]
-        );
-        res.json({ success: true, message: "Daily revenue reset to ₱0.00" });
-    } catch (err) {
-        console.error("❌ Reset revenue error:", err);
-        res.status(500).json({ error: "Failed to reset revenue" });
-    }
-});
-
-
+// ==================== MOUNTAIN VIEWS API ====================
 router.get("/api/mountain-views", async (req, res) => {
     try {
         const { sql, params } = buildWhere("SELECT * FROM mountain_views WHERE 1=1", { mountainSearch: req.query.search });
@@ -194,7 +159,73 @@ router.delete("/api/mountain-views/:id", checkAuth, async (req, res) => {
     } catch (err) { console.error("❌ Error deleting mountain view:", err); res.status(500).json({ error: "Failed to delete mountain view" }); }
 });
 
+// ==================== FACILITIES API ====================
+router.get("/api/facilities", async (req, res) => {
+    try {
+        const { sql, params } = buildWhere("SELECT * FROM facilities WHERE 1=1", { facilitySearch: req.query.search });
+        res.json(await dbQuery(sql + " ORDER BY created_at DESC", params));
+    } catch (err) { console.error("❌ Error fetching facilities:", err); res.status(500).json({ error: "Failed to fetch facilities" }); }
+});
 
+router.get("/api/facilities/:id", async (req, res) => {
+    try {
+        const results = await dbQuery("SELECT * FROM facilities WHERE facility_id = ?", [req.params.id]);
+        results.length === 0 ? res.status(404).json({ error: "Facility not found" }) : res.json(results[0]);
+    } catch (err) { res.status(500).json({ error: "Database error" }); }
+});
+
+router.post("/api/facilities", checkAuth, async (req, res) => {
+    const { facility_id, name, tag, description, image } = req.body;
+    try {
+        const result = await dbQuery(
+            "INSERT INTO facilities (facility_id, name, tag, description, image) VALUES (?, ?, ?, ?, ?)",
+            [facility_id, name, tag, description, image]
+        );
+        res.json({ success: true, id: result.insertId, facility_id });
+    } catch (err) { console.error("❌ Error adding facility:", err); res.status(500).json({ error: "Failed to add facility" }); }
+});
+
+router.delete("/api/facilities/:id", checkAuth, async (req, res) => {
+    try {
+        await dbQuery("DELETE FROM facilities WHERE facility_id = ?", [req.params.id]);
+        res.json({ success: true });
+    } catch (err) { console.error("❌ Error deleting facility:", err); res.status(500).json({ error: "Failed to delete facility" }); }
+});
+
+// ==================== DINING SPOTS API ====================
+router.get("/api/dining-spots", async (req, res) => {
+    try {
+        const { sql, params } = buildWhere("SELECT * FROM dining_spots WHERE 1=1", { diningSearch: req.query.search });
+        res.json(await dbQuery(sql + " ORDER BY created_at DESC", params));
+    } catch (err) { console.error("❌ Error fetching dining spots:", err); res.status(500).json({ error: "Failed to fetch dining spots" }); }
+});
+
+router.get("/api/dining-spots/:id", async (req, res) => {
+    try {
+        const results = await dbQuery("SELECT * FROM dining_spots WHERE dining_id = ?", [req.params.id]);
+        results.length === 0 ? res.status(404).json({ error: "Dining spot not found" }) : res.json(results[0]);
+    } catch (err) { res.status(500).json({ error: "Database error" }); }
+});
+
+router.post("/api/dining-spots", checkAuth, async (req, res) => {
+    const { dining_id, name, tag, description, image } = req.body;
+    try {
+        const result = await dbQuery(
+            "INSERT INTO dining_spots (dining_id, name, tag, description, image) VALUES (?, ?, ?, ?, ?)",
+            [dining_id, name, tag, description, image]
+        );
+        res.json({ success: true, id: result.insertId, dining_id });
+    } catch (err) { console.error("❌ Error adding dining spot:", err); res.status(500).json({ error: "Failed to add dining spot" }); }
+});
+
+router.delete("/api/dining-spots/:id", checkAuth, async (req, res) => {
+    try {
+        await dbQuery("DELETE FROM dining_spots WHERE dining_id = ?", [req.params.id]);
+        res.json({ success: true });
+    } catch (err) { console.error("❌ Error deleting dining spot:", err); res.status(500).json({ error: "Failed to delete dining spot" }); }
+});
+
+// ==================== FOOD ITEMS API ====================
 router.get("/api/food-items", async (req, res) => {
     try {
         const { sql, params } = buildWhere("SELECT * FROM food_items WHERE 1=1", { category: req.query.category, foodSearch: req.query.search });
@@ -211,26 +242,26 @@ router.get("/api/food-items/:id", async (req, res) => {
 
 router.post("/api/food-items", checkAuth, async (req, res) => {
     const { name, category, price, popularity, description, stock_status, stock_qty, image } = req.body;
-    
+
     try {
          const results = await dbQuery(
             "SELECT food_id FROM food_items WHERE food_id LIKE 'FD%' ORDER BY CAST(SUBSTRING(food_id, 3) AS UNSIGNED) DESC LIMIT 1"
         );
-        
+
         let nextNum = 1;
         if (results.length > 0) {
             const lastId = results[0].food_id;
             const match = lastId.match(/FD(\d+)/);
             if (match) nextNum = parseInt(match[1]) + 1;
         }
-        
+
         const food_id = 'FD' + String(nextNum).padStart(3, '0');
 
         const result = await dbQuery(
             "INSERT INTO food_items (food_id, name, category, price, popularity, description, stock_status, stock_qty, image, added_to_gallery) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)",
             [food_id, name, category, price, popularity, description, stock_status, stock_qty, image]
         );
-        
+
         res.json({ success: true, id: result.insertId, food_id });
     } catch (err) { 
         console.error("❌ Error adding food item:", err); 
@@ -254,6 +285,16 @@ router.delete("/api/food-items/:id", checkAuth, async (req, res) => {
     } catch (err) { console.error("❌ Error deleting food item:", err); res.status(500).json({ error: "Failed to delete food item" }); }
 });
 
+// ==================== AMENITIES API (Public) ====================
+router.get("/api/amenities", async (req, res) => {
+    try {
+        const dining = await dbQuery("SELECT dining_id as id, name, tag, description, image, 'dining' as type FROM dining_spots");
+        const facilities = await dbQuery("SELECT facility_id as id, name, tag, description, image, 'facility' as type FROM facilities");
+        res.json({ dining, facilities });
+    } catch (err) { console.error("❌ Error fetching amenities:", err); res.status(500).json({ error: "Failed to fetch amenities" }); }
+});
+
+// ==================== GALLERY API ====================
 router.get("/api/gallery", async (req, res) => {
     const { type } = req.query;
     const db = getDb();
@@ -297,6 +338,42 @@ router.post("/create", async (req, res) => {
     }
 });
 
+router.get("/api/dashboard/stats", checkAuth, async (req, res) => {
+    try {
+        const today = new Date().toISOString().split('T')[0];
+
+        const revenueResults = await dbQuery("SELECT total_amount FROM daily_revenue WHERE revenue_date = ?", [today]);
+        const dailyRevenue = revenueResults.length > 0 ? revenueResults[0].total_amount : 0;
+
+        const guestResults = await dbQuery("SELECT COUNT(*) as total FROM bookings WHERE status = 'approved'");
+        const activeGuests = guestResults[0].total;
+        const checkins = await dbQuery(`
+            SELECT name, roomType, checkin, status, people 
+            FROM bookings 
+            ORDER BY id DESC 
+            LIMIT 5
+        `);
+
+        res.json({ dailyRevenue, activeGuests, recentCheckins: checkins || [] });
+    } catch (err) {
+        console.error("❌ Dashboard stats error:", err);
+        res.status(500).json({ error: "Failed to load dashboard stats" });
+    }
+});
+
+router.post("/api/dashboard/reset-revenue", checkAuth, async (req, res) => {
+    try {
+        const today = new Date().toISOString().split('T')[0];
+        await dbQuery(
+            "INSERT INTO daily_revenue (revenue_date, total_amount) VALUES (?, 0) ON DUPLICATE KEY UPDATE total_amount = 0, last_reset = NOW()",
+            [today]
+        );
+        res.json({ success: true, message: "Daily revenue reset to ₱0.00" });
+    } catch (err) {
+        console.error("❌ Reset revenue error:", err);
+        res.status(500).json({ error: "Failed to reset revenue" });
+    }
+});
 
 router.use("/", bookingRoutes);
 

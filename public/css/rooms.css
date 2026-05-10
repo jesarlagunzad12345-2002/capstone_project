@@ -383,9 +383,12 @@ header {
 }
 
 .mountain-location {
-    font-size: 0.8rem;
+    font-size: 0.85rem;
     color: #64748b;
     margin-bottom: 0;
+    line-height: 1.5;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
 }
 
 /* Section Tabs */
@@ -548,4 +551,102 @@ header {
         gap: 0.5rem !important;
         font-size: 10px;
     }
+}
+
+
+/* ============================================
+   FACILITIES SECTION - Same as Mountain Views
+   ============================================ */
+
+/* Facility tag overlay on image */
+.facility-tag-overlay {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    background: rgba(16, 185, 129, 0.95);
+    color: white;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    z-index: 2;
+}
+
+/* Facilities Section specific styles */
+#facilitiesSection .mountain-card {
+    background: white;
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    overflow: hidden;
+    transition: all 0.3s ease;
+    position: relative;
+    height: 100%;
+}
+
+#facilitiesSection .mountain-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
+}
+
+#facilitiesSection .mountain-img-wrapper {
+    height: 180px;
+    position: relative;
+    overflow: hidden;
+}
+
+#facilitiesSection .mountain-img-wrapper img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.3s ease;
+}
+
+#facilitiesSection .mountain-card:hover .mountain-img-wrapper img {
+    transform: scale(1.05);
+}
+
+#facilitiesSection .mountain-content {
+    padding: 1rem;
+}
+
+#facilitiesSection .mountain-title {
+    font-weight: 700;
+    font-size: 1rem;
+    margin-bottom: 0.25rem;
+    color: var(--text-main);
+}
+
+#facilitiesSection .mountain-location {
+    font-size: 0.85rem;
+    color: #64748b;
+    margin-bottom: 0;
+    line-height: 1.5;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
+
+/* Not found message for facilities */
+#facilitiesNotFound {
+    text-align: center;
+    padding: 4rem 2rem;
+    color: #64748b;
+}
+
+#facilitiesNotFound i {
+    font-size: 4rem;
+    color: #cbd5e1;
+    margin-bottom: 1rem;
+}
+
+#facilitiesNotFound h5 {
+    color: #475569;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+#facilitiesNotFound p {
+    font-size: 0.9rem;
+    margin-bottom: 0;
 }

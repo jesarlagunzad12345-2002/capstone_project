@@ -1,7 +1,12 @@
+/* ============================================
+   FOOD & BEVERAGE + DINING SPOTS STYLES
+   ============================================ */
+
 :root {
     --primary-dark: #0f172a;
     --accent-blue: #38bdf8;
     --bg-body: #f1f5f9;
+    --text-main: #1e293b;
     --border-color: #e2e8f0;
     --emerald: #10b981;
     --red: #ef4444;
@@ -105,6 +110,44 @@ header {
 
 .content-scroll { padding: 1.5rem; flex-grow: 1; }
 
+/* ============================================
+   SECTION TABS - Same as Rooms page
+   ============================================ */
+.section-tabs {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 2rem;
+}
+
+.section-tab {
+    padding: 0.75rem 1.5rem;
+    border-radius: 12px;
+    border: 2px solid var(--border-color);
+    background: white;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+    color: #64748b;
+}
+
+.section-tab:hover {
+    border-color: var(--accent-blue);
+    color: var(--accent-blue);
+}
+
+.section-tab.active {
+    background: var(--primary-dark);
+    border-color: var(--primary-dark);
+    color: white;
+}
+
+/* ============================================
+   FOOD CARDS (Menu Items)
+   ============================================ */
 .food-card {
     background: white;
     border: 1px solid var(--border-color);
@@ -118,7 +161,7 @@ header {
 .food-img-wrapper { height: 200px; position: relative; }
 .food-img-wrapper img { width: 100%; height: 100%; object-fit: cover; }
 
-/* Popularity Badge Styles - Different colors for each type */
+/* Popularity Badge Styles */
 .popularity-tag {
     position: absolute; 
     top: 12px; 
@@ -132,11 +175,11 @@ header {
     z-index: 2;
 }
 
-.popularity-POPULAR { background: #f59e0b; }      /* Amber */
-.popularity-BEST-SELLER { background: #ef4444; }  /* Red */
-.popularity-FRESHLY-MADE { background: #10b981; }  /* Emerald */
-.popularity-MUST-TRY { background: #8b5cf6; }     /* Purple */
-.popularity-JUST-IN { background: #0284c7; }      /* Blue */
+.popularity-POPULAR { background: #f59e0b; }
+.popularity-BEST-SELLER { background: #ef4444; }
+.popularity-FRESHLY-MADE { background: #10b981; }
+.popularity-MUST-TRY { background: #8b5cf6; }
+.popularity-JUST-IN { background: #0284c7; }
 
 .out-of-stock { filter: grayscale(1); opacity: 0.7; }
 .out-badge {
@@ -157,12 +200,136 @@ header {
     padding: 10px 16px 10px 40px; 
 }
 
-@media (max-width: 576px) {
-    .modal-dialog { margin: 1rem; }
-    .modal-body { padding: 1.5rem !important; }
-    .modal-footer { padding: 1.5rem !important; }
+/* ============================================
+   DINING SPOTS CARDS - Same as Mountain Views
+   ============================================ */
+.dining-spot-card {
+    background: white;
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    overflow: hidden;
+    transition: all 0.3s ease;
+    position: relative;
+    height: 100%;
 }
 
+.dining-spot-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
+}
+
+.dining-spot-img-wrapper {
+    height: 180px;
+    position: relative;
+    overflow: hidden;
+}
+
+.dining-spot-img-wrapper img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.3s ease;
+}
+
+.dining-spot-card:hover .dining-spot-img-wrapper img {
+    transform: scale(1.05);
+}
+
+/* Tag badge on image - top left */
+.dining-spot-tag {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    background: rgba(245, 158, 11, 0.95);
+    color: white;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    z-index: 2;
+}
+
+/* Delete button - top right */
+.dining-spot-card .delete-btn {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    background: rgba(239, 68, 68, 0.9);
+    border: none;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    color: white;
+    font-size: 1.1rem;
+    cursor: pointer;
+    z-index: 10;
+    opacity: 1 !important;
+    visibility: visible !important;
+    transition: all 0.2s;
+}
+
+.dining-spot-card .delete-btn:hover {
+    background: rgba(220, 38, 38, 1);
+    transform: scale(1.1);
+}
+
+.dining-spot-content {
+    padding: 1rem;
+}
+
+.dining-spot-title {
+    font-weight: 700;
+    font-size: 1rem;
+    margin-bottom: 0.5rem;
+    color: var(--primary-dark);
+}
+
+/* FIXED: Description now shows full text with proper wrapping */
+.dining-spot-description {
+    font-size: 0.85rem;
+    color: #64748b;
+    margin-bottom: 0;
+    line-height: 1.5;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
+
+/* ============================================
+   NOT FOUND MESSAGE
+   ============================================ */
+.not-found-message {
+    text-align: center;
+    padding: 4rem 2rem;
+    color: #64748b;
+}
+
+.not-found-message i {
+    font-size: 4rem;
+    color: #cbd5e1;
+    margin-bottom: 1rem;
+}
+
+.not-found-message h5 {
+    color: #475569;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+.not-found-message p {
+    font-size: 0.9rem;
+    margin-bottom: 0;
+}
+
+/* ============================================
+   FILE UPLOAD
+   ============================================ */
 .upload-area {
     cursor: pointer;
     transition: all 0.2s ease;
@@ -179,23 +346,18 @@ header {
     background-color: #ecfdf5 !important;
 }
 
-@media (max-width: 992px) {
-    .sidebar { margin-left: -280px; }
-    .sidebar.active { margin-left: 0; box-shadow: 15px 0 30px rgba(0,0,0,0.2); }
-    .sidebar.active + .sidebar-overlay { display: block; }
-    .main-wrapper { margin-left: 0; width: 100%; }
-    
-    header {
-        flex-direction: column;
-        height: auto;
-        align-items: flex-start !important;
-        gap: 12px;
-    }
-    .header-controls { width: 100%; }
-    .header-controls .btn-dark { width: 100%; justify-content: center; }
+.file-preview {
+    max-width: 100%;
+    max-height: 150px;
+    border-radius: 8px;
+    margin-top: 1rem;
+    display: none;
 }
+.file-preview.show { display: block; }
 
-/* Toast Notification */
+/* ============================================
+   TOAST NOTIFICATION
+   ============================================ */
 .toast-container {
     position: fixed;
     top: 20px;
@@ -221,11 +383,40 @@ header {
 .custom-toast.success { border-left: 4px solid var(--emerald); }
 .custom-toast.error { border-left: 4px solid var(--red); }
 
-.file-preview {
-    max-width: 100%;
-    max-height: 150px;
-    border-radius: 8px;
-    margin-top: 1rem;
-    display: none;
+/* ============================================
+   RESPONSIVE
+   ============================================ */
+@media (max-width: 992px) {
+    .sidebar { margin-left: -280px; }
+    .sidebar.active { margin-left: 0; box-shadow: 15px 0 30px rgba(0,0,0,0.2); }
+    .sidebar.active + .sidebar-overlay { display: block; }
+    .main-wrapper { margin-left: 0; width: 100%; }
+
+    header {
+        flex-direction: column;
+        height: auto;
+        align-items: flex-start !important;
+        gap: 12px;
+    }
+    .header-controls { width: 100%; }
+    .header-controls .btn-dark { width: 100%; justify-content: center; }
+
+    .section-tabs {
+        flex-direction: row;
+        overflow-x: auto;
+        flex-wrap: nowrap;
+    }
+
+    .section-tab {
+        white-space: nowrap;
+        flex-shrink: 0;
+    }
 }
-.file-preview.show { display: block; }
+
+@media (max-width: 576px) {
+    .modal-dialog { margin: 1rem; }
+    .modal-body { padding: 1.5rem !important; }
+    .modal-footer { padding: 1.5rem !important; }
+
+    .dining-spot-img-wrapper { height: 160px; }
+}

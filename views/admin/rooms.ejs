@@ -4,25 +4,25 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>KML Mountain Resort | Rooms & Cottages</title>
-    
+
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    
+
     <link rel="stylesheet" href="/css/rooms.css">
-    
+
     <style>
         .content-search-wrapper {
             position: relative;
             width: 280px;
             flex-shrink: 0;
         }
-        
+
         .content-search-wrapper .search-input {
             width: 100%;
             min-width: 260px;
         }
-        
+
         #categoryFilters {
             flex-wrap: nowrap;
             overflow-x: auto;
@@ -30,16 +30,16 @@
             scrollbar-width: none;
             -ms-overflow-style: none;
         }
-        
+
         #categoryFilters::-webkit-scrollbar {
             display: none;
         }
-        
+
         #categoryFilters button {
             white-space: nowrap;
             flex-shrink: 0;
         }
-        
+
         .section-tabs {
             flex-wrap: nowrap;
             overflow-x: auto;
@@ -47,46 +47,46 @@
             scrollbar-width: none;
             -ms-overflow-style: none;
         }
-        
+
         .section-tabs::-webkit-scrollbar {
             display: none;
         }
-        
+
         .section-tab {
             white-space: nowrap;
             flex-shrink: 0;
         }
-        
+
         @media (max-width: 992px) {
             .content-search-wrapper {
                 width: 100%;
                 order: -1;
                 margin-bottom: 1rem;
             }
-            
+
             .content-search-wrapper .search-input {
                 width: 100%;
                 min-width: 100%;
             }
-            
+
             .section-tabs {
                 flex-direction: row !important;
                 width: auto;
             }
-            
+
             .section-tab {
                 width: auto;
                 justify-content: flex-start;
                 flex: 1;
                 min-width: 140px;
             }
-            
+
             #categoryFilters {
                 flex-wrap: nowrap;
                 width: auto;
             }
         }
-        
+
         @media (max-width: 576px) {
             .section-tab {
                 min-width: 120px;
@@ -118,7 +118,7 @@
             <a href="/admin-dashboard" class="nav-link"><i class="bi bi-grid-1x2 me-2"></i> Dashboard</a>
             <a href="/bookings" class="nav-link"><i class="bi bi-calendar-event me-2"></i> Bookings</a>
             <a href="/rooms" class="nav-link active"><i class="bi bi-door-open me-2"></i> Rooms & Cottage</a>
-            
+
             <div class="nav-label">Operations</div>
             <a href="/food" class="nav-link"><i class="bi bi-egg-fried me-2"></i> Restaurant Menu</a>
         </nav>
@@ -142,7 +142,7 @@
                 </div>
             </div>
             <div class="header-controls">
-                <button class="btn btn-dark fw-bold d-flex align-items-center gap-2 rounded-3 px-4" data-bs-toggle="modal" data-bs-target="#addRoomModal">
+                <button class="btn btn-dark fw-bold d-flex align-items-center gap-2 rounded-3 px-4" data-bs-toggle="modal" data-bs-target="#addRoomModal" id="addBtn">
                     <i class="bi bi-plus-lg"></i> <span>Add Room or Cottage</span>
                 </button>
             </div>
@@ -150,13 +150,16 @@
 
         <div class="content-scroll">
             <div class="container-fluid p-0">
-                
+
                 <div class="section-tabs mb-3">
                     <button class="section-tab active" onclick="switchSection('rooms')" id="roomsTab">
                         <i class="bi bi-door-open"></i> Rooms & Cottages
                     </button>
                     <button class="section-tab" onclick="switchSection('mountain')" id="mountainTab">
                         <i class="bi bi-image"></i> Mountain Views
+                    </button>
+                    <button class="section-tab" onclick="switchSection('facilities')" id="facilitiesTab">
+                        <i class="bi bi-building"></i> Facilities
                     </button>
                 </div>
 
@@ -166,7 +169,7 @@
                         <button class="btn btn-link btn-sm text-muted text-decoration-none px-3" onclick="filterRooms('Standard')">Standard</button>
                         <button class="btn btn-link btn-sm text-muted text-decoration-none px-3" onclick="filterRooms('Cottage')">Cottage</button>
                     </div>
-                    
+
                     <div class="content-search-wrapper">
                         <input type="text" placeholder="Search..." class="search-input shadow-sm" id="searchInput" onkeyup="handleSearch()">
                         <i class="bi bi-search position-absolute start-0 top-50 translate-middle-y ms-3 text-muted"></i>
@@ -183,7 +186,7 @@
                     </div>
 
                     <div class="row g-4" id="roomsContainer"></div>
-                    
+
                     <div id="roomsNotFound" class="not-found-message" style="display: none;">
                         <i class="bi bi-search"></i>
                         <h5>No Rooms Found</h5>
@@ -197,19 +200,41 @@
                             <h5 class="fw-bold mb-0">Mountain Views Gallery</h5>
                             <p class="text-muted mb-0" style="font-size: 0.85rem;">Manage scenic mountain view images displayed in the gallery</p>
                         </div>
-                        <div class="col-auto">
+                        <!-- <div class="col-auto">
                             <button class="btn btn-dark fw-bold d-flex align-items-center gap-2" data-bs-toggle="modal" data-bs-target="#addMountainModal">
                                 <i class="bi bi-plus-lg"></i> Add Mountain View
                             </button>
-                        </div>
+                        </div> -->
                     </div>
 
                     <div class="row g-4" id="mountainContainer"></div>
-                    
+
                     <div id="mountainNotFound" class="not-found-message" style="display: none;">
                         <i class="bi bi-image"></i>
                         <h5>No Mountain Views Found</h5>
                         <p>No mountain views match your search. Try different keywords or add new views.</p>
+                    </div>
+                </div>
+
+                <div id="facilitiesSection" style="display: none;">
+                    <div class="row align-items-center mb-4 g-3">
+                        <div class="col">
+                            <h5 class="fw-bold mb-0">Facilities</h5>
+                            <p class="text-muted mb-0" style="font-size: 0.85rem;">Manage resort facilities displayed in the amenities page</p>
+                        </div>
+                        <!-- <div class="col-auto">
+                            <button class="btn btn-dark fw-bold d-flex align-items-center gap-2" data-bs-toggle="modal" data-bs-target="#addFacilityModal">
+                                <i class="bi bi-plus-lg"></i> Add Facility
+                            </button>
+                        </div> -->
+                    </div>
+
+                    <div class="row g-4" id="facilitiesContainer"></div>
+
+                    <div id="facilitiesNotFound" class="not-found-message" style="display: none;">
+                        <i class="bi bi-building"></i>
+                        <h5>No Facilities Found</h5>
+                        <p>No facilities match your search. Try different keywords or add new facilities.</p>
                     </div>
                 </div>
             </div>
@@ -233,6 +258,8 @@
 </div>
 
 <div class="toast-container" id="toastContainer"></div>
+
+<!-- Add Room Modal -->
 <div class="modal fade" id="addRoomModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered modal-md">
         <div class="modal-content border-0 shadow-lg" style="border-radius: 20px;">
@@ -304,6 +331,7 @@
     </div>
 </div>
 
+<!-- Add Mountain View Modal -->
 <div class="modal fade" id="addMountainModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered modal-md">
         <div class="modal-content border-0 shadow-lg" style="border-radius: 20px;">
@@ -342,6 +370,54 @@
             <div class="modal-footer border-top-0 p-4 pt-0 d-flex gap-2">
                 <button type="button" class="btn btn-light flex-grow-1 fw-bold" data-bs-dismiss="modal" onclick="resetMountainForm()">CANCEL</button>
                 <button type="button" class="btn btn-success flex-grow-1 fw-bold text-white" onclick="saveMountainView()">SAVE VIEW</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Facility Modal -->
+<div class="modal fade" id="addFacilityModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-md">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 20px;">
+            <div class="modal-header border-bottom-0 p-4">
+                <div>
+                    <h5 class="fw-bold mb-0">Add Facility</h5>
+                    <small class="text-muted">Add a resort facility to the amenities page.</small>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <h6 class="text-success fw-bold text-uppercase small mb-3" style="letter-spacing: 1px;">Facility Details</h6>
+                <div class="row g-3 mb-4">
+                    <div class="col-12">
+                        <label class="form-label small fw-bold text-muted">Facility Name</label>
+                        <input type="text" class="form-control bg-light border-0" id="facilityName" placeholder="e.g. Infinity Ridge Pool">
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label small fw-bold text-muted">Tag / Label</label>
+                        <input type="text" class="form-control bg-light border-0" id="facilityTag" placeholder="e.g. SWIMMING POOL">
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label small fw-bold text-muted">Description</label>
+                        <textarea class="form-control bg-light border-0" id="facilityDescription" rows="3" placeholder="Describe the facility..."></textarea>
+                    </div>
+                </div>
+
+                <h6 class="text-success fw-bold text-uppercase small mb-3" style="letter-spacing: 1px;">Facility Image</h6>
+                <div class="col-12">
+                    <div class="file-upload-wrapper" id="facilityFileUploadWrapper">
+                        <input type="file" class="file-upload-input" id="facilityImageFile" accept="image/*" onchange="handleFacilityImageUpload(this)">
+                        <div class="file-upload-icon"><i class="bi bi-cloud-arrow-up"></i></div>
+                        <div class="file-upload-text">Click or drag image here</div>
+                        <div class="file-upload-hint">PNG, JPG up to 5MB</div>
+                        <img id="facilityImagePreview" class="file-preview" alt="Preview">
+                    </div>
+                    <input type="hidden" id="facilityImageBase64">
+                </div>
+            </div>
+            <div class="modal-footer border-top-0 p-4 pt-0 d-flex gap-2">
+                <button type="button" class="btn btn-light flex-grow-1 fw-bold" data-bs-dismiss="modal" onclick="resetFacilityForm()">CANCEL</button>
+                <button type="button" class="btn btn-success flex-grow-1 fw-bold text-white" onclick="saveFacility()">SAVE FACILITY</button>
             </div>
         </div>
     </div>

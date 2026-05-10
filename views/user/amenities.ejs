@@ -2,10 +2,190 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Amenities - KML Mountain Resort</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Amenities | KML Mountain Resort</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="/css/amenities.css">
 </head>
 <body>
-    <h1>Amenities</h1>
-    <p>Coming soon...</p>
+
+    <header class="sticky-top">
+        <nav class="navbar navbar-expand-lg navbar-dark custom-navbar py-3 px-4">
+            <div class="container-fluid">
+                <a class="navbar-brand logo" href="/dashboard">KML RESORT</a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="collapse navbar-collapse" id="navbarNav">
+                    <ul class="navbar-nav mx-auto mb-2 mb-lg-0">
+                        <li class="nav-item"><a class="nav-link" href="/dashboard">HOME</a></li>
+                        <li class="nav-item"><a class="nav-link" href="/location">LOCATION</a></li>
+                        <li class="nav-item"><a class="nav-link" href="/accomodation">ACCOMMODATION</a></li>
+                        <li class="nav-item"><a class="nav-link" href="/experience">EXPERIENCE</a></li>
+                        <li class="nav-item"><a class="nav-link" href="/gallery">GALLERY</a></li>
+                        <li class="nav-item"><a class="nav-link active" href="/amenities">AMENITIES</a></li>
+                        <li class="nav-item"><a class="nav-link" href="/booking">BOOKING</a></li>
+                    </ul>
+                    <div class="d-flex align-items-center gap-3 header-actions">
+                        <input type="text" class="form-control search-input" placeholder="Search amenities..." id="amenitiesSearch" onkeyup="searchAmenities()">
+                        <a href="/booking" class="btn book-btn">Book Now</a>
+                    </div>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <main class="container-fluid py-5">
+        <h1 class="text-center display-3 fw-bold mb-5">AMENITIES</h1>
+
+        <section class="d-flex justify-content-center flex-wrap gap-3 mb-5" id="amenitiesFilters">
+            <button class="btn filter-btn active" onclick="filterAmenities('all')">All</button>
+            <button class="btn filter-btn" onclick="filterAmenities('dining')">Dining</button>
+            <button class="btn filter-btn" onclick="filterAmenities('facilities')">Facilities</button>
+        </section>
+
+        <section class="container">
+            <div class="row g-4" id="amenitiesContainer">
+            </div>
+        </section>
+    </main>
+
+    <!-- Dining Details Modal -->
+    <div class="modal fade" id="diningDetailsModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content border-0 modal-amenities">
+                <div class="row g-0">
+                    <div class="col-md-6 position-relative">
+                        <img id="modalDiningImage" src="" class="img-fluid h-100" style="object-fit: cover; min-height: 300px;">
+                        <span id="modalDiningTag" class="dining-tag-badge modal-tag">RESTAURANT INTERIOR</span>
+                    </div>
+                    <div class="col-md-6 p-4 d-flex flex-column justify-content-center">
+                        <h3 class="fw-bold mb-2" id="modalDiningName">Dining Spot Name</h3>
+                        <span class="badge bg-warning mb-3 align-self-start" id="modalDiningCategory">Dining</span>
+                        <div class="mb-3">
+                            <p class="text-muted mb-0" id="modalDiningDescription">Description goes here.</p>
+                        </div>
+                        
+                        <!-- Dining Details Info -->
+                        <div class="amenity-info-list mb-3">
+                            <div class="amenity-info-item">
+                                <i class="bi bi-geo-alt-fill text-primary"></i>
+                                <span>Located at KML Mountain Resort</span>
+                            </div>
+                            <div class="amenity-info-item">
+                                <i class="bi bi-clock-fill text-primary"></i>
+                                <span id="modalDiningHours">Open Daily: 7:00 AM – 10:00 PM</span>
+                            </div>
+                            <div class="amenity-info-item">
+                                <i class="bi bi-people-fill text-primary"></i>
+                                <span>Available for all guests & visitors</span>
+                            </div>
+                        </div>
+
+                        <!-- Attractive message card for Gallery / Food Menu -->
+                        <a href="/gallery" class="dining-cta-message mb-3">
+                            <div class="dining-cta-icon">
+                                <i class="bi bi-images"></i>
+                            </div>
+                            <div class="dining-cta-text">
+                                <span class="dining-cta-title">Craving something delicious?</span>
+                                <span class="dining-cta-desc">Explore our Gallery's Dining section to see mouthwatering food menus and culinary highlights!</span>
+                            </div>
+                            <div class="dining-cta-arrow">
+                                <i class="bi bi-arrow-right-circle-fill"></i>
+                            </div>
+                        </a>
+
+                        <!-- Wide Close button only -->
+                        <div class="d-flex gap-2 mt-auto">
+                            <button type="button" class="btn btn-outline-secondary w-100" data-bs-dismiss="modal">
+                                <i class="bi bi-x-lg me-1"></i> Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Facility Details Modal -->
+    <div class="modal fade" id="facilityDetailsModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content border-0 modal-amenities">
+                <div class="row g-0">
+                    <div class="col-md-6 position-relative">
+                        <img id="modalFacilityImage" src="" class="img-fluid h-100" style="object-fit: cover; min-height: 300px;">
+                        <span id="modalFacilityTag" class="facility-tag-badge modal-tag">SWIMMING POOL</span>
+                    </div>
+                    <div class="col-md-6 p-4 d-flex flex-column justify-content-center">
+                        <h3 class="fw-bold mb-2" id="modalFacilityName">Facility Name</h3>
+                        <span class="badge bg-success mb-3 align-self-start" id="modalFacilityCategory">Facilities</span>
+                        <div class="mb-3">
+                            <p class="text-muted mb-0" id="modalFacilityDescription">Description goes here.</p>
+                        </div>
+                        
+                        <!-- Facility Details Info -->
+                        <div class="amenity-info-list mb-3">
+                            <div class="amenity-info-item">
+                                <i class="bi bi-geo-alt-fill text-success"></i>
+                                <span>Located at KML Mountain Resort</span>
+                            </div>
+                            <div class="amenity-info-item">
+                                <i class="bi bi-clock-fill text-success"></i>
+                                <span id="modalFacilityHours">Open 24 Hours</span>
+                            </div>
+                            <div class="amenity-info-item">
+                                <i class="bi bi-person-check-fill text-success"></i>
+                                <span>Available for all guests</span>
+                            </div>
+                        </div>
+
+                        <!-- Attractive message card for Accommodations -->
+                        <a href="/accomodation" class="facility-cta-message mb-3">
+                            <div class="facility-cta-icon">
+                                <i class="bi bi-house-door"></i>
+                            </div>
+                            <div class="facility-cta-text">
+                                <span class="facility-cta-title">Looking for a Cottage or place to stay?</span>
+                                <span class="facility-cta-desc">Visit our Accommodations page to explore cozy rooms and cottages perfect for your getaway!</span>
+                            </div>
+                            <div class="facility-cta-arrow">
+                                <i class="bi bi-arrow-right-circle-fill"></i>
+                            </div>
+                        </a>
+
+                        <!-- Attractive message card for Gallery -->
+                        <a href="/gallery" class="facility-gallery-message mb-3">
+                            <div class="facility-gallery-icon">
+                                <i class="bi bi-images"></i>
+                            </div>
+                            <div class="facility-gallery-text">
+                                <span class="facility-gallery-title">Want to see more?</span>
+                                <span class="facility-gallery-desc">Visit our Gallery to see stunning photos of our rooms, cottages, and resort facilities!</span>
+                            </div>
+                            <div class="facility-gallery-arrow">
+                                <i class="bi bi-arrow-right-circle-fill"></i>
+                            </div>
+                        </a>
+
+                        <!-- Wide Close button only -->
+                        <div class="d-flex gap-2 mt-auto">
+                            <button type="button" class="btn btn-outline-secondary w-100" data-bs-dismiss="modal">
+                                <i class="bi bi-x-lg me-1"></i> Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="text-center py-4 mt-5">
+        <p class="mb-0">&copy; 2026 KML Mountain Resort. All rights reserved.</p>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/js/amenities.js"></script>
 </body>
 </html>
