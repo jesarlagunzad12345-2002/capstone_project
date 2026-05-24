@@ -52,23 +52,19 @@ router.get("/bookings", checkAuth, async (req, res) => {
 
 router.post("/approve/:id", checkAuth, async (req, res) => {
   const bookingId = req.params.id;
-  
+
   try {
     await dbQuery("UPDATE bookings SET status = 'approved' WHERE id = ?", [bookingId]);
-    
+
     const rows = await dbQuery("SELECT * FROM bookings WHERE id = ?", [bookingId]);
-    
+
     if (rows && rows.length > 0) {
       const row = rows[0];
-      const today = new Date().toISOString().split('T')[0];
-      
-      if (row.total_price > 0) {
-        await dbQuery(
-          "INSERT INTO daily_revenue (revenue_date, total_amount) VALUES (?, ?) ON DUPLICATE KEY UPDATE total_amount = total_amount + ?",
-          [today, row.total_price, row.total_price]
-        );
-      }
-      
+
+      // Add revenue and guest count using helper from index.js
+      const indexRouter = require("./index");
+      await indexRouter.addRevenueForBooking(bookingId);
+
       const dateOptions = { year: 'numeric', month: 'long', day: 'numeric' };
       req.session.triggerApprove = true;
       req.session.guestName = row.name;
@@ -79,7 +75,7 @@ router.post("/approve/:id", checkAuth, async (req, res) => {
       req.session.guestIn = new Date(row.checkin).toLocaleDateString('en-US', dateOptions);
       req.session.guestOut = new Date(row.checkout).toLocaleDateString('en-US', dateOptions);
     }
-    
+
     res.redirect("/bookings");
   } catch (err) {
     console.error("❌ Approve Error:", err);

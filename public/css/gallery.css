@@ -818,3 +818,72 @@ main > h1 {
     font-size: 1.25rem;
   }
 }
+/* ============================================
+   GALLERY ROOM MODAL CTA - ACCOMMODATIONS LINK
+   ============================================ */
+
+/* CTA Message Card - unique style for gallery room modal */
+.gallery-accom-cta {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: linear-gradient(135deg, #e0f2fe 0%, #dbeafe 100%);
+    border: 1px solid #bae6fd;
+    border-radius: 14px;
+    padding: 16px 18px;
+    text-decoration: none;
+    color: inherit;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.gallery-accom-cta:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px rgba(2, 132, 199, 0.15);
+    border-color: var(--primary-blue);
+    color: inherit;
+}
+
+.gallery-accom-icon {
+    width: 48px;
+    height: 48px;
+    background: linear-gradient(135deg, var(--primary-blue), var(--dark-blue));
+    color: white;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+    flex-shrink: 0;
+    box-shadow: 0 4px 10px rgba(2, 132, 199, 0.3);
+}
+
+.gallery-accom-text {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    gap: 4px;
+}
+
+.gallery-accom-title {
+    font-weight: 700;
+    font-size: 1rem;
+    color: var(--dark-blue);
+}
+
+.gallery-accom-desc {
+    font-size: 0.82rem;
+    color: var(--dark-gray-text);
+    line-height: 1.4;
+}
+
+.gallery-accom-arrow {
+    color: var(--primary-blue);
+    font-size: 1.4rem;
+    flex-shrink: 0;
+    transition: transform 0.3s ease;
+}
+
+.gallery-accom-cta:hover .gallery-accom-arrow {
+    transform: translateX(4px);
+}

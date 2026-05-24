@@ -170,15 +170,6 @@ async function showRoomModal(roomId) {
         document.getElementById('modalRoomStatus').textContent = room.status;
         document.getElementById('modalRoomStatus').className = 'room-status-badge modal-status status-' + room.status;
 
-        const bookBtn = document.getElementById('modalBookBtn');
-        if (room.status === 'available') {
-            bookBtn.href = `/booking?room=${room.room_id}`;
-            bookBtn.classList.remove('disabled');
-        } else {
-            bookBtn.href = '#';
-            bookBtn.classList.add('disabled');
-        }
-
         new bootstrap.Modal(document.getElementById('roomDetailsModal')).show();
     } catch (err) {
         console.error('Error loading room details:', err);

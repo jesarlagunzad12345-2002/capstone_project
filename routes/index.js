@@ -6,10 +6,51 @@ const getDb = () => require("../config/database");
 
 const checkAuth = (req, res, next) => req.session.isLoggedIn ? next() : res.redirect("/login");
 
+// Helper: Run SQL queries easily with promises
 const dbQuery = (sql, params = []) => new Promise((resolve, reject) => {
     getDb().query(sql, params, (err, results) => err ? reject(err) : resolve(results));
 });
 
+// ============================================
+// HELPER: Add revenue and guest count when booking is approved
+// This function is called from bookings.js when admin approves a booking
+// ============================================
+async function addRevenueForBooking(bookingId) {
+    try {
+        // Get the booking details
+        const bookings = await dbQuery(
+            "SELECT total_price, people, checkin FROM bookings WHERE id = ?",
+            [bookingId]
+        );
+
+        if (bookings.length === 0) return;
+
+        const booking = bookings[0];
+        const revenueDate = new Date(booking.checkin).toISOString().split('T')[0];
+        const amount = parseFloat(booking.total_price) || 0;
+        // Count only 1 guest per booking (the guest name), not the number of people
+        const guestCount = 1;
+
+        // Add to daily_revenue - increment both total_amount AND guest_count
+        await dbQuery(
+            `INSERT INTO daily_revenue (revenue_date, total_amount, guest_count, last_reset) 
+             VALUES (?, ?, ?, NOW()) 
+             ON DUPLICATE KEY UPDATE 
+                total_amount = total_amount + VALUES(total_amount),
+                guest_count = guest_count + VALUES(guest_count)`,
+            [revenueDate, amount, guestCount]
+        );
+
+        console.log(`✅ Revenue added: ₱${amount} for 1 guest on ${revenueDate}`);
+    } catch (err) {
+        console.error("❌ Error adding revenue for booking:", err);
+    }
+}
+
+// Export the helper so bookings.js can use it
+router.addRevenueForBooking = addRevenueForBooking;
+
+// ===================== LOGIN / LOGOUT =====================
 router.get("/login", (req, res) => res.render("admin/login", { error: null }));
 
 router.post("/login", async (req, res) => {
@@ -33,6 +74,8 @@ router.post("/login", async (req, res) => {
 
 router.get("/logout", (req, res) => { req.session.destroy(); res.redirect("/login"); });
 
+
+// ===================== PAGE ROUTES =====================
 router.get("/admin-dashboard", checkAuth, (req, res) => res.render("admin/admin_dashbord"));
 router.get("/rooms", checkAuth, (req, res) => res.render("admin/rooms"));
 router.get("/form", checkAuth, (req, res) => res.render("admin/form"));
@@ -74,7 +117,8 @@ function buildWhere(baseSql, filters) {
     return { sql, params };
 }
 
-// ==================== ROOMS API ====================
+
+// ===================== ROOMS API =====================
 router.get("/api/rooms", async (req, res) => {
     try {
         const { sql, params } = buildWhere("SELECT * FROM rooms WHERE 1=1", { category: req.query.category, search: req.query.search });
@@ -136,7 +180,8 @@ router.get("/api/rooms/stats/overview", async (req, res) => {
     } catch (err) { res.status(500).json({ error: "Database error" }); }
 });
 
-// ==================== MOUNTAIN VIEWS API ====================
+
+// ===================== MOUNTAIN VIEWS API =====================
 router.get("/api/mountain-views", async (req, res) => {
     try {
         const { sql, params } = buildWhere("SELECT * FROM mountain_views WHERE 1=1", { mountainSearch: req.query.search });
@@ -159,7 +204,8 @@ router.delete("/api/mountain-views/:id", checkAuth, async (req, res) => {
     } catch (err) { console.error("❌ Error deleting mountain view:", err); res.status(500).json({ error: "Failed to delete mountain view" }); }
 });
 
-// ==================== FACILITIES API ====================
+
+// ===================== FACILITIES API =====================
 router.get("/api/facilities", async (req, res) => {
     try {
         const { sql, params } = buildWhere("SELECT * FROM facilities WHERE 1=1", { facilitySearch: req.query.search });
@@ -192,7 +238,8 @@ router.delete("/api/facilities/:id", checkAuth, async (req, res) => {
     } catch (err) { console.error("❌ Error deleting facility:", err); res.status(500).json({ error: "Failed to delete facility" }); }
 });
 
-// ==================== DINING SPOTS API ====================
+
+// ===================== DINING SPOTS API =====================
 router.get("/api/dining-spots", async (req, res) => {
     try {
         const { sql, params } = buildWhere("SELECT * FROM dining_spots WHERE 1=1", { diningSearch: req.query.search });
@@ -225,7 +272,8 @@ router.delete("/api/dining-spots/:id", checkAuth, async (req, res) => {
     } catch (err) { console.error("❌ Error deleting dining spot:", err); res.status(500).json({ error: "Failed to delete dining spot" }); }
 });
 
-// ==================== FOOD ITEMS API ====================
+
+// ===================== FOOD ITEMS API =====================
 router.get("/api/food-items", async (req, res) => {
     try {
         const { sql, params } = buildWhere("SELECT * FROM food_items WHERE 1=1", { category: req.query.category, foodSearch: req.query.search });
@@ -285,7 +333,8 @@ router.delete("/api/food-items/:id", checkAuth, async (req, res) => {
     } catch (err) { console.error("❌ Error deleting food item:", err); res.status(500).json({ error: "Failed to delete food item" }); }
 });
 
-// ==================== AMENITIES API (Public) ====================
+
+// ===================== AMENITIES API (Public) =====================
 router.get("/api/amenities", async (req, res) => {
     try {
         const dining = await dbQuery("SELECT dining_id as id, name, tag, description, image, 'dining' as type FROM dining_spots");
@@ -294,7 +343,8 @@ router.get("/api/amenities", async (req, res) => {
     } catch (err) { console.error("❌ Error fetching amenities:", err); res.status(500).json({ error: "Failed to fetch amenities" }); }
 });
 
-// ==================== GALLERY API ====================
+
+// ===================== GALLERY API =====================
 router.get("/api/gallery", async (req, res) => {
     const { type } = req.query;
     const db = getDb();
@@ -311,6 +361,8 @@ router.get("/api/gallery", async (req, res) => {
     } catch (err) { console.error("❌ Error fetching gallery data:", err); res.status(500).json({ error: "Failed to fetch gallery data" }); }
 });
 
+
+// ===================== BOOKING CREATION =====================
 router.post("/create", async (req, res) => {
     const { name, email, people, checkin, checkout, roomType, requests } = req.body;
 
@@ -338,15 +390,53 @@ router.post("/create", async (req, res) => {
     }
 });
 
+
+// ============================================================
+//    DASHBOARD STATS, REVENUE LOG, TOTAL REVENUE (ALL TIME)
+// ============================================================
+
+/*
+    HOW IT WORKS:
+    1. Every time you APPROVE a booking, addRevenueForBooking() adds price + guests to daily_revenue
+    2. Total Revenue (All Time) = SUM of ALL daily_revenue rows
+    3. Revenue Log = list of all daily_revenue rows (each date's total)
+    4. Daily Guest Count = stored in daily_revenue.guest_count (persists even if bookings deleted)
+    5. When you DELETE a revenue log entry, the Total Revenue automatically decreases
+    6. Guest count in revenue log does NOT decrease when bookings are deleted
+*/
+
+
+// --- GET: Dashboard Stats (for the 3 main cards) ---
 router.get("/api/dashboard/stats", checkAuth, async (req, res) => {
     try {
         const today = new Date().toISOString().split('T')[0];
 
-        const revenueResults = await dbQuery("SELECT total_amount FROM daily_revenue WHERE revenue_date = ?", [today]);
+        // 1. Get today's revenue
+        const revenueResults = await dbQuery(
+            "SELECT total_amount FROM daily_revenue WHERE revenue_date = ?", 
+            [today]
+        );
         const dailyRevenue = revenueResults.length > 0 ? revenueResults[0].total_amount : 0;
 
-        const guestResults = await dbQuery("SELECT COUNT(*) as total FROM bookings WHERE status = 'approved'");
+        // 2. Get active guests (all approved bookings)
+        const guestResults = await dbQuery(
+            "SELECT COUNT(*) as total FROM bookings WHERE status = 'approved'"
+        );
         const activeGuests = guestResults[0].total;
+
+        // 3. Get TOTAL REVENUE (ALL TIME) - sum of every daily_revenue row
+        const totalRevenueResults = await dbQuery(
+            "SELECT SUM(total_amount) as grand_total FROM daily_revenue"
+        );
+        const totalRevenue = totalRevenueResults[0].grand_total || 0;
+
+        // 4. Get TOTAL GUESTS (ALL TIME) - sum of all guest_count from daily_revenue
+        const totalGuestsResults = await dbQuery(
+            "SELECT SUM(guest_count) as total_guests FROM daily_revenue"
+        );
+        const totalGuestsAllTime = totalGuestsResults[0].total_guests || 0;
+
+        // 5. Get recent bookings for the table
         const checkins = await dbQuery(`
             SELECT name, roomType, checkin, status, people 
             FROM bookings 
@@ -354,26 +444,84 @@ router.get("/api/dashboard/stats", checkAuth, async (req, res) => {
             LIMIT 5
         `);
 
-        res.json({ dailyRevenue, activeGuests, recentCheckins: checkins || [] });
+        res.json({ 
+            dailyRevenue, 
+            activeGuests, 
+            totalRevenue,
+            totalGuestsAllTime,
+            recentCheckins: checkins || [] 
+        });
     } catch (err) {
         console.error("❌ Dashboard stats error:", err);
         res.status(500).json({ error: "Failed to load dashboard stats" });
     }
 });
 
+
+// --- GET: Revenue Log (list of all daily revenue with stored guest counts) ---
+router.get("/api/dashboard/revenue-log", checkAuth, async (req, res) => {
+    try {
+        /*
+            guest_count is now STORED in daily_revenue table.
+            It gets incremented when a booking is approved.
+            It does NOT decrease when bookings are deleted.
+        */
+        const log = await dbQuery(`
+            SELECT 
+                id,
+                revenue_date,
+                total_amount,
+                guest_count,
+                last_reset
+            FROM daily_revenue
+            ORDER BY revenue_date DESC
+        `);
+
+        res.json({ success: true, log: log || [] });
+    } catch (err) {
+        console.error("❌ Revenue log error:", err);
+        res.status(500).json({ error: "Failed to load revenue log" });
+    }
+});
+
+
+// --- POST: Reset daily revenue to 0 ---
 router.post("/api/dashboard/reset-revenue", checkAuth, async (req, res) => {
     try {
         const today = new Date().toISOString().split('T')[0];
+
+        // Reset today's revenue to 0 and update last_reset timestamp
+        // Also reset guest_count to 0 for today
         await dbQuery(
-            "INSERT INTO daily_revenue (revenue_date, total_amount) VALUES (?, 0) ON DUPLICATE KEY UPDATE total_amount = 0, last_reset = NOW()",
+            `INSERT INTO daily_revenue (revenue_date, total_amount, guest_count, last_reset) 
+             VALUES (?, 0, 0, NOW()) 
+             ON DUPLICATE KEY UPDATE total_amount = 0, guest_count = 0, last_reset = NOW()`,
             [today]
         );
+
         res.json({ success: true, message: "Daily revenue reset to ₱0.00" });
     } catch (err) {
         console.error("❌ Reset revenue error:", err);
         res.status(500).json({ error: "Failed to reset revenue" });
     }
 });
+
+
+// --- DELETE: Delete a revenue log entry ---
+router.delete("/api/dashboard/revenue-log/:id", checkAuth, async (req, res) => {
+    try {
+        const logId = req.params.id;
+
+        // Delete the specific daily_revenue row by its ID
+        await dbQuery("DELETE FROM daily_revenue WHERE id = ?", [logId]);
+
+        res.json({ success: true, message: "Revenue log entry deleted" });
+    } catch (err) {
+        console.error("❌ Delete revenue log error:", err);
+        res.status(500).json({ error: "Failed to delete revenue log entry" });
+    }
+});
+
 
 router.use("/", bookingRoutes);
 

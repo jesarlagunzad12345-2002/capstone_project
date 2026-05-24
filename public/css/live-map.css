@@ -1,8 +1,36 @@
+/* ============================================
+   KML MOUNTAIN RESORT - LIVE GPS MAP STYLES
+   ============================================ */
 
 :root {
-    --primary: #ff8c00;
-    --moto: #6f42c1;
-    --dark-glass: rgba(20, 20, 20, 0.9);
+    --primary-orange: #ff8c00;
+    --primary-orange-light: #ffa94d;
+    --moto-purple: #8b5cf6;
+    --bike-green: #22c55e;
+    --foot-blue: #3b82f6;
+
+    --glass-dark: rgba(15, 23, 42, 0.88);
+    --glass-border: rgba(255, 255, 255, 0.08);
+    --glass-light: rgba(255, 255, 255, 0.05);
+
+    --text-white: #ffffff;
+    --text-muted: rgba(255, 255, 255, 0.6);
+    --text-dim: rgba(255, 255, 255, 0.4);
+
+    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.2);
+    --shadow-md: 0 8px 32px rgba(0, 0, 0, 0.3);
+    --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.4);
+
+    --radius-sm: 12px;
+    --radius-md: 16px;
+    --radius-lg: 24px;
+    --radius-xl: 32px;
+}
+
+*, *::before, *::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
 }
 
 body, html { 
@@ -11,112 +39,569 @@ body, html {
     height: 100%; 
     width: 100%; 
     overflow: hidden; 
-    font-family: 'Inter', sans-serif; 
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    background: #0f172a;
 }
 
 #live-map { 
     height: 100vh; 
     width: 100vw; 
     z-index: 1; 
-    background: #e5e3df; 
+    background: #1a1a2e;
 }
 
+/* ===== TOP HEADER ===== */
 .nav-header {
-    position: absolute; 
-    top: 15px; 
-    left: 15px; 
-    right: 15px;
-    background: var(--dark-glass); 
-    backdrop-filter: blur(10px);
-    padding: 15px 20px; 
-    border-radius: 18px; 
+    position: absolute;
+    top: 16px;
+    left: 16px;
+    right: 16px;
     z-index: 1000;
-    border: 1px solid rgba(255,255,255,0.1);
+}
+
+.header-content {
+    background: var(--glass-dark);
+    backdrop-filter: blur(20px) saturate(1.8);
+    -webkit-backdrop-filter: blur(20px) saturate(1.8);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-lg);
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: var(--shadow-md);
+}
+
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.resort-icon {
+    width: 42px;
+    height: 42px;
+    background: linear-gradient(135deg, var(--primary-orange), var(--primary-orange-light));
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    color: white;
+    box-shadow: 0 4px 12px rgba(255, 140, 0, 0.3);
+}
+
+.resort-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.resort-name {
+    color: var(--text-white);
+    font-weight: 700;
+    font-size: 15px;
+    margin: 0;
+    letter-spacing: -0.3px;
+}
+
+.gps-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+    background: #22c55e;
+    border-radius: 50%;
+    position: relative;
+}
+
+.status-dot::after {
+    content: '';
+    position: absolute;
+    top: -4px;
+    left: -4px;
+    right: -4px;
+    bottom: -4px;
+    border-radius: 50%;
+    border: 2px solid #22c55e;
+    animation: pulse-ring 2s ease-out infinite;
+}
+
+@keyframes pulse-ring {
+    0% { transform: scale(0.5); opacity: 1; }
+    100% { transform: scale(2); opacity: 0; }
+}
+
+.status-text {
+    color: var(--text-muted);
+    font-size: 12px;
+    font-weight: 500;
 }
 
 .btn-exit {
-    background: #dc3545; 
-    color: white; 
-    border: none; 
-    padding: 6px 15px;
-    border-radius: 10px; 
-    font-weight: 800; 
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+    border: 1px solid rgba(239, 68, 68, 0.25);
+    padding: 8px 18px;
+    border-radius: var(--radius-sm);
+    font-weight: 700;
+    font-size: 13px;
+    text-decoration: none;
+    transition: all 0.25s ease;
+    cursor: pointer;
+}
+
+.btn-exit:hover {
+    background: rgba(239, 68, 68, 0.25);
+    color: #f87171;
+    transform: translateY(-1px);
+}
+
+/* ===== RIGHT SIDE CONTROLS ===== */
+.side-controls {
+    position: absolute;
+    right: 16px;
+    top: 100px;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.recenter-btn {
+    width: 52px;
+    height: 52px;
+    background: var(--glass-dark);
+    backdrop-filter: blur(16px);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-white);
+    font-size: 22px;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    box-shadow: var(--shadow-sm);
+}
+
+.recenter-btn:hover {
+    background: var(--glass-light);
+    transform: scale(1.08);
+    box-shadow: var(--shadow-md);
+}
+
+.recenter-btn:active {
+    transform: scale(0.95);
+}
+
+.mode-panel {
+    background: var(--glass-dark);
+    backdrop-filter: blur(16px);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-lg);
+    padding: 12px 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    box-shadow: var(--shadow-md);
+}
+
+.mode-label {
+    color: var(--text-dim);
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 4px;
+}
+
+.mode-item {
+    width: 44px;
+    height: 44px;
+    background: transparent;
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    font-size: 20px;
+    cursor: pointer;
+    transition: all 0.25s ease;
+}
+
+.mode-item:hover {
+    background: var(--glass-light);
+    color: var(--text-white);
+    transform: scale(1.05);
+}
+
+.mode-item.active[data-mode="car"] {
+    background: linear-gradient(135deg, var(--primary-orange), var(--primary-orange-light));
+    border-color: transparent;
+    color: white;
+    box-shadow: 0 4px 16px rgba(255, 140, 0, 0.4);
+    transform: scale(1.1);
+}
+
+.mode-item.active[data-mode="moto"] {
+    background: linear-gradient(135deg, var(--moto-purple), #a78bfa);
+    border-color: transparent;
+    color: white;
+    box-shadow: 0 4px 16px rgba(139, 92, 246, 0.4);
+    transform: scale(1.1);
+}
+
+.mode-item.active[data-mode="bike"] {
+    background: linear-gradient(135deg, var(--bike-green), #4ade80);
+    border-color: transparent;
+    color: white;
+    box-shadow: 0 4px 16px rgba(34, 197, 94, 0.4);
+    transform: scale(1.1);
+}
+
+.mode-item.active[data-mode="foot"] {
+    background: linear-gradient(135deg, var(--foot-blue), #60a5fa);
+    border-color: transparent;
+    color: white;
+    box-shadow: 0 4px 16px rgba(59, 130, 246, 0.4);
+    transform: scale(1.1);
+}
+
+/* ===== BOTTOM DASHBOARD ===== */
+.bottom-dashboard {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    padding: 0 16px 16px;
+}
+
+.dashboard-inner {
+    background: var(--glass-dark);
+    backdrop-filter: blur(20px) saturate(1.8);
+    -webkit-backdrop-filter: blur(20px) saturate(1.8);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-xl) var(--radius-xl) var(--radius-lg) var(--radius-lg);
+    padding: 20px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    box-shadow: var(--shadow-lg);
+}
+
+.stat-box {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex: 1;
+    min-width: 0;
+}
+
+.stat-icon {
+    width: 44px;
+    height: 44px;
+    background: var(--glass-light);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--primary-orange);
+    font-size: 20px;
+    flex-shrink: 0;
+}
+
+.stat-icon.time-icon {
+    color: #f59e0b;
+}
+
+.stat-icon.arrival-icon {
+    color: #10b981;
+}
+
+.stat-content {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.stat-label {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text-dim);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+}
+
+.stat-row {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+}
+
+.stat-value {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: var(--text-white);
+    line-height: 1.2;
+    letter-spacing: -0.5px;
+}
+
+.stat-unit {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: lowercase;
+}
+
+.stat-divider {
+    width: 1px;
+    height: 40px;
+    background: var(--glass-border);
+    flex-shrink: 0;
+}
+
+/* ============================================
+   SIMPLE RESORT POPUP
+   ============================================ */
+
+.resort-popup {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0.9);
+    background: var(--glass-dark);
+    backdrop-filter: blur(20px) saturate(1.8);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-lg);
+    width: 90%;
+    max-width: 380px;
+    z-index: 2000;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.25s ease;
+    box-shadow: var(--shadow-lg);
+}
+
+.resort-popup.active {
+    opacity: 1;
+    visibility: visible;
+    transform: translate(-50%, -50%) scale(1);
+}
+
+.popup-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--glass-border);
+}
+
+.popup-header h5 {
+    color: var(--text-white);
+    font-size: 15px;
+    font-weight: 700;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.popup-header h5 i {
+    color: var(--primary-orange);
+}
+
+.popup-close {
+    width: 32px;
+    height: 32px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid var(--glass-border);
+    border-radius: 50%;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.popup-close:hover {
+    background: rgba(239, 68, 68, 0.2);
+    color: #ef4444;
+}
+
+.popup-body {
+    padding: 16px 20px 20px;
+}
+
+.popup-address {
+    color: var(--text-muted);
+    font-size: 12px;
+    margin: 0 0 12px 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.popup-address i {
+    color: var(--primary-orange);
+    font-size: 13px;
+}
+
+.popup-details {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.popup-details span {
+    background: var(--glass-light);
+    border: 1px solid var(--glass-border);
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-size: 11px;
+    color: var(--text-muted);
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.popup-details span i {
+    color: var(--primary-orange);
     font-size: 12px;
 }
 
-.side-controls { 
-    position: absolute; 
-    right: 15px; 
-    top: 110px; 
-    z-index: 1000; 
+.popup-desc {
+    color: var(--text-dim);
+    font-size: 12px;
+    line-height: 1.6;
+    margin: 0 0 12px 0;
 }
 
-.control-circle, 
-.mode-item {
-    width: 55px; 
-    height: 55px; 
-    background: white; 
-    border: none;
-    border-radius: 15px; 
-    margin-bottom: 10px; 
+.popup-contact {
     display: flex;
-    align-items: center; 
-    justify-content: center; 
-    font-size: 22px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.15); 
-    transition: 0.2s;
-}
-.mode-item.active { 
-    background: var(--primary); 
-    color: white; 
-    transform: scale(1.1); 
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 14px;
 }
 
-.mode-item[data-mode="moto"].active { 
-    background: var(--moto) !important; 
+.popup-contact span {
+    color: var(--text-muted);
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
-.bottom-dashboard {
-    position: absolute; 
-    bottom: 0; 
-    left: 0; 
-    right: 0;
-    background: white; 
-    padding: 25px 20px; 
-    z-index: 1000;
-    border-radius: 30px 30px 0 0; 
-    box-shadow: 0 -10px 30px rgba(0,0,0,0.1);
+.popup-contact span i {
+    color: var(--text-dim);
+    font-size: 13px;
 }
 
-.stat-label { 
-    font-size: 10px; 
-    font-weight: 700; 
-    color: #999; 
-    letter-spacing: 1px; 
+.btn-book {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: linear-gradient(135deg, var(--primary-orange), var(--primary-orange-light));
+    color: white;
+    border: none;
+    border-radius: var(--radius-sm);
+    padding: 12px 20px;
+    font-size: 13px;
+    font-weight: 700;
+    text-decoration: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    width: 100%;
 }
 
-.stat-value { 
-    font-size: 1.6rem; 
-    font-weight: 800; 
-    color: #333; 
-}
-.status-pulse {
-    width: 8px; 
-    height: 8px; 
-    background: #28a745; 
-    border-radius: 50%;
-    box-shadow: 0 0 0 rgba(40, 167, 69, 0.4); 
-    animation: pulse 2s infinite;
+.btn-book:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(255, 140, 0, 0.3);
+    color: white;
 }
 
-@keyframes pulse { 
-    0% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.7); } 
-    70% { box-shadow: 0 0 0 10px rgba(40, 167, 69, 0); } 
-    100% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0); } 
-}
-
-.leaflet-control-zoom, 
-.leaflet-routing-container, 
+/* ===== LEAFLET OVERRIDES ===== */
+.leaflet-control-zoom,
+.leaflet-routing-container,
 .leaflet-control-attribution { 
     display: none !important; 
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 576px) {
+    .header-content {
+        padding: 12px 16px;
+    }
+
+    .resort-name {
+        font-size: 13px;
+    }
+
+    .btn-exit span {
+        display: none;
+    }
+
+    .btn-exit {
+        padding: 8px 12px;
+    }
+
+    .side-controls {
+        right: 12px;
+        top: 90px;
+    }
+
+    .mode-panel {
+        padding: 10px 8px;
+    }
+
+    .mode-item {
+        width: 40px;
+        height: 40px;
+        font-size: 18px;
+    }
+
+    .dashboard-inner {
+        padding: 16px 18px;
+        gap: 12px;
+    }
+
+    .stat-box {
+        gap: 10px;
+    }
+
+    .stat-icon {
+        width: 38px;
+        height: 38px;
+        font-size: 18px;
+    }
+
+    .stat-value {
+        font-size: 1.25rem;
+    }
+
+    .stat-divider {
+        height: 32px;
+    }
+
+    .resort-popup {
+        width: 92%;
+        max-width: none;
+    }
 }

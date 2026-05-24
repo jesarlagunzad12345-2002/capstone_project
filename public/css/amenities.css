@@ -756,21 +756,10 @@ main > h1 {
    ============================================ */
 
 /* Both modals - wide close button only */
+/* Using Bootstrap default btn-outline-secondary hover (gray bg, white text) */
 #diningDetailsModal .btn-outline-secondary,
 #facilityDetailsModal .btn-outline-secondary {
-    border-color: var(--medium-gray);
-    color: var(--dark-gray-text);
-    font-weight: 500;
-    padding: 0.75rem 1.5rem;
-    transition: all 0.3s ease;
     width: 100%;
-}
-
-#diningDetailsModal .btn-outline-secondary:hover,
-#facilityDetailsModal .btn-outline-secondary:hover {
-    background: var(--gray);
-    border-color: var(--dark-gray-text);
-    color: var(--dark-gray);
 }
 
 /* ============================================
