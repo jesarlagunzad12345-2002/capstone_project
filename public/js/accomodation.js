@@ -31,7 +31,7 @@ async function loadRooms() {
 
 function renderAccommodations() {
     const wrapper = document.querySelector('.accommodations-wrapper');
-    
+
     const loader = document.getElementById('loadingState');
     if (loader) loader.remove();
 
@@ -45,7 +45,7 @@ function renderAccommodations() {
         `;
         return;
     }
-    
+
     wrapper.innerHTML = rooms.map((room, index) => {
         const isEven = index % 2 === 0;
         const statusBadge = room.status === 'available' 
@@ -53,13 +53,18 @@ function renderAccommodations() {
             : room.status === 'occupied' 
                 ? '<span class="badge bg-danger me-2">Occupied</span>' 
                 : '<span class="badge bg-warning text-dark me-2">Cleaning</span>';
-        
+
+        // Add booking schedule hint
+        const bookingHint = room.status !== 'available' 
+            ? `<p class="text-muted small mb-2"><i class="bi bi-calendar-check me-1 text-info"></i> Check booking schedule for available dates</p>` 
+            : '';
+
         const imageCol = `
             <div class="col-lg-6">
                 <img src="${room.image}" alt="${room.name}" class="img-fluid accommodation-img" style="width: 100%; height: 350px; object-fit: cover; border-radius: 12px;">
             </div>
         `;
-        
+
         const contentCol = `
             <div class="col-lg-6">
                 <div class="d-flex align-items-center mb-2">
@@ -68,6 +73,7 @@ function renderAccommodations() {
                 </div>
                 <h2>${room.name}</h2>
                 <p class="text-muted">Room ${room.room_id} • Up to ${room.occupancy} guests</p>
+                ${bookingHint}
                 <ul class="list-unstyled feature-list">
                     <li><i class="bi bi-people-fill me-2 text-primary"></i>${room.occupancy} Guest Capacity</li>
                     <li><i class="bi bi-tag-fill me-2 text-primary"></i>${room.category} Class</li>
@@ -81,7 +87,7 @@ function renderAccommodations() {
                 </div>
             </div>
         `;
-        
+
         return `
             <article class="accommodation-card" data-room="${room.room_id}">
                 <div class="row g-4 align-items-center">
@@ -95,15 +101,15 @@ function renderAccommodations() {
 async function openRoomModal(roomId) {
     try {
         const room = await apiGet(`/api/rooms/${roomId}`);
-        
+
         document.getElementById('modalTitle').textContent = room.name;
         document.getElementById('modalPrice').textContent = `₱${room.price}`;
         document.getElementById('modalBadge').textContent = room.category;
         document.getElementById('modalImage').src = room.image;
-        
+
         document.getElementById('modalDescription').textContent = 
             `${room.category} room for up to ${room.occupancy} guests. Room ${room.room_id}.`;
-        
+
         const bookBtn = document.getElementById('modalBookBtn');
         if (room.status === 'available') {
             bookBtn.href = `/booking?room=${room.room_id}`;
@@ -112,7 +118,7 @@ async function openRoomModal(roomId) {
             bookBtn.href = '#';
             bookBtn.classList.add('disabled');
         }
-        
+
         const featuresByCategory = {
             'Standard': [
                 'Queen/twin beds',
@@ -127,12 +133,12 @@ async function openRoomModal(roomId) {
                 'Nature views'
             ]
         };
-        
+
         const features = featuresByCategory[room.category] || featuresByCategory['Standard'];
         document.getElementById('modalFeatures').innerHTML = features.map(f => 
             `<li><i class="bi bi-check-circle-fill me-2 text-success"></i>${f}</li>`
         ).join('');
-        
+
         const amenitiesByCategory = {
             'Cottage': [
                 'Solar power',
@@ -147,12 +153,12 @@ async function openRoomModal(roomId) {
                 'Breakfast'
             ]
         };
-        
+
         const amenities = amenitiesByCategory[room.category] || amenitiesByCategory['Standard'];
         document.getElementById('modalAmenities').innerHTML = amenities.map(a => 
             `<li><i class="bi bi-check-circle-fill me-2 text-success"></i>${a}</li>`
         ).join('');
-        
+
         roomModal.show();
     } catch (err) {
         console.error('Error loading room details:', err);
@@ -161,18 +167,18 @@ async function openRoomModal(roomId) {
 
 function setupSearch() {
     const searchInput = document.querySelector('.search-input');
-    
+
     if (searchInput) {
         searchInput.addEventListener('input', function(e) {
             const searchTerm = e.target.value.toLowerCase();
             const cards = document.querySelectorAll('.accommodation-card');
             let visibleCount = 0;
-            
+
             cards.forEach(card => {
                 const title = card.querySelector('h2').textContent.toLowerCase();
                 const description = card.querySelector('p').textContent.toLowerCase();
                 const category = card.querySelector('.badge.bg-primary')?.textContent.toLowerCase() || '';
-                
+
                 if (title.includes(searchTerm) || description.includes(searchTerm) || category.includes(searchTerm)) {
                     card.style.display = 'block';
                     card.style.animation = 'fadeInUp 0.5s ease';
@@ -181,10 +187,10 @@ function setupSearch() {
                     card.style.display = 'none';
                 }
             });
-            
+
             const wrapper = document.querySelector('.accommodations-wrapper');
             let emptyState = document.getElementById('searchEmptyState');
-            
+
             if (visibleCount === 0 && searchTerm !== '') {
                 if (!emptyState) {
                     emptyState = document.createElement('div');

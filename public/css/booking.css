@@ -284,6 +284,145 @@ footer {
 }
 
 
+/* ============================================
+   BOOKING SCHEDULE STYLES - ALL GRAY
+   ============================================ */
+
+.booking-schedule-section {
+  background: var(--lighter-gray);
+  border-radius: 8px;
+  border: 1px solid var(--light-gray);
+  overflow: hidden;
+}
+
+.schedule-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.875rem 1rem;
+  background: var(--lighter-gray);
+  cursor: pointer;
+  transition: background 0.2s;
+  border-bottom: 1px solid var(--light-gray);
+}
+
+.schedule-header:hover {
+  background: #e2e8f0;
+}
+
+.schedule-header h6 {
+  color: var(--text-dark);
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.schedule-header i.bi-calendar3 {
+  color: var(--medium-gray);
+}
+
+.schedule-content {
+  max-height: 400px;
+  overflow-y: auto;
+  background: var(--lighter-gray);
+}
+
+.schedule-room-group {
+  border-bottom: 1px solid var(--light-gray);
+}
+
+.schedule-room-group:last-child {
+  border-bottom: none;
+}
+
+.schedule-room-name {
+  padding: 0.75rem 1rem;
+  background: #e2e8f0;
+  font-weight: 700;
+  color: var(--text-dark);
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.schedule-room-name i.bi-house-door-fill {
+  color: var(--medium-gray);
+}
+
+.schedule-dates {
+  padding: 0.5rem 1rem;
+}
+
+.schedule-date-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.6rem 0;
+  border-bottom: 1px dashed var(--light-gray);
+  font-size: 0.85rem;
+}
+
+.schedule-date-item:last-child {
+  border-bottom: none;
+}
+
+.schedule-date-range {
+  color: var(--medium-gray);
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.schedule-date-range i.bi-calendar-x-fill {
+  color: #ef4444;
+  font-size: 0.9rem;
+}
+
+.schedule-date-range i.bi-arrow-right {
+  color: var(--light-gray);
+  font-size: 0.8rem;
+}
+
+.schedule-guests {
+  background: #fef3c7;
+  color: #92400e;
+  padding: 0.2rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.schedule-badge-booked {
+  background: #fee2e2;
+  color: #991b1b;
+  padding: 0.2rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Scrollbar styling for schedule content */
+.schedule-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.schedule-content::-webkit-scrollbar-track {
+  background: var(--lighter-gray);
+}
+
+.schedule-content::-webkit-scrollbar-thumb {
+  background: var(--light-gray);
+  border-radius: 3px;
+}
+
+.schedule-content::-webkit-scrollbar-thumb:hover {
+  background: var(--medium-gray);
+}
+
+
+/* --- Responsive --- */
 @media (max-width: 991px) {
   .navbar-collapse {
     background: var(--dark-gray);

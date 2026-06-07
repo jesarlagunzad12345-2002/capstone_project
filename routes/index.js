@@ -26,7 +26,33 @@ async function addRevenueForBooking(bookingId) {
         if (bookings.length === 0) return;
 
         const booking = bookings[0];
-        const revenueDate = new Date(booking.checkin).toISOString().split('T')[0];
+
+        // FIX: Parse checkin date properly to avoid timezone issues
+        // Use the date string directly without time component to prevent UTC shift
+        const checkinStr = booking.checkin;
+        let revenueDate;
+
+        if (typeof checkinStr === 'string') {
+            // If it's already a string like "2026-06-05", use it directly
+            if (checkinStr.includes('T')) {
+                // Has time component, extract just the date part
+                revenueDate = checkinStr.split('T')[0];
+            } else if (checkinStr.includes(' ')) {
+                // Has space separator, extract date part
+                revenueDate = checkinStr.split(' ')[0];
+            } else {
+                // Already just a date string
+                revenueDate = checkinStr;
+            }
+        } else {
+            // Fallback: create date and format manually
+            const date = new Date(checkinStr);
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            revenueDate = `${year}-${month}-${day}`;
+        }
+
         const amount = parseFloat(booking.total_price) || 0;
         // Count only 1 guest per booking (the guest name), not the number of people
         const guestCount = 1;
@@ -116,6 +142,48 @@ function buildWhere(baseSql, filters) {
     }
     return { sql, params };
 }
+
+
+// ===================== BOOKING SCHEDULE API (Public) =====================
+router.get("/api/booking-schedule", async (req, res) => {
+    try {
+        // Get all approved bookings with their dates and room names
+        const bookings = await dbQuery(`
+            SELECT 
+                b.roomType,
+                b.checkin,
+                b.checkout,
+                b.people,
+                b.status
+            FROM bookings b
+            WHERE b.status = 'approved'
+            ORDER BY b.checkin ASC
+        `);
+
+        // Group by room/cottage and show date ranges
+        const schedule = {};
+
+        bookings.forEach(booking => {
+            const roomName = booking.roomType;
+
+            if (!schedule[roomName]) {
+                schedule[roomName] = [];
+            }
+
+            schedule[roomName].push({
+                checkin: booking.checkin,
+                checkout: booking.checkout,
+                guests: booking.people,
+                status: booking.status
+            });
+        });
+
+        res.json({ success: true, schedule });
+    } catch (err) {
+        console.error("❌ Booking schedule error:", err);
+        res.status(500).json({ error: "Failed to load booking schedule" });
+    }
+});
 
 
 // ===================== ROOMS API =====================

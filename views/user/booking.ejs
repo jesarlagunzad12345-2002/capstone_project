@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Book Your Stay | KML Mountain Resort</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <link rel="stylesheet" href="css/booking.css">
 </head>
 <body>
@@ -122,7 +123,38 @@
                                 </div>
                             </div>
 
-                    
+                            <!-- BOOKING SCHEDULE SECTION - Moved here between Stay Details and Special Requests -->
+                            <div class="form-section">
+                                <h3><i class="bi bi-calendar-week me-2 text-primary"></i>Booking Schedule</h3>
+                                <p class="text-muted small mb-3">Check which rooms are already reserved before booking your stay.</p>
+
+                                <div class="booking-schedule-section">
+                                    <div class="schedule-header" onclick="toggleSchedule()">
+                                        <h6 class="mb-0 fw-bold">
+                                            <i class="bi bi-calendar3 me-2 text-primary"></i>
+                                            View Booking Schedule
+                                        </h6>
+                                        <i class="bi bi-chevron-down" id="scheduleToggleIcon"></i>
+                                    </div>
+
+                                    <div class="schedule-content" id="scheduleContent" style="display: none;">
+                                        <div id="scheduleLoading" class="text-center py-4">
+                                            <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                                            <span class="ms-2 text-muted">Loading schedule...</span>
+                                        </div>
+
+                                        <div id="scheduleData" style="display: none;">
+                                            <!-- Schedule will be loaded here -->
+                                        </div>
+
+                                        <div id="scheduleEmpty" class="text-center py-4 text-muted" style="display: none;">
+                                            <i class="bi bi-calendar-check fs-1 text-success"></i>
+                                            <p class="mb-0 mt-2 fw-semibold">No bookings yet. All rooms are available!</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
                             <div class="form-section border-0">
                                 <h3>3. Special Requests</h3>
                                 <textarea name="requests" class="form-control custom-textarea" rows="5" placeholder="Tell us about any special requests (e.g., dietary requirements, celebration setup, extra pillows...)"></textarea>
@@ -189,6 +221,105 @@
             checkinDate.setDate(checkinDate.getDate() + 1);
             document.getElementById('checkout').min = checkinDate.toISOString().split('T')[0];
         });
+
+        // Toggle schedule visibility
+        function toggleSchedule() {
+            const content = document.getElementById('scheduleContent');
+            const icon = document.getElementById('scheduleToggleIcon');
+
+            if (content.style.display === 'none') {
+                content.style.display = 'block';
+                icon.classList.remove('bi-chevron-down');
+                icon.classList.add('bi-chevron-up');
+
+                // Load schedule if not already loaded
+                if (!content.dataset.loaded) {
+                    loadBookingSchedule();
+                    content.dataset.loaded = 'true';
+                }
+            } else {
+                content.style.display = 'none';
+                icon.classList.remove('bi-chevron-up');
+                icon.classList.add('bi-chevron-down');
+            }
+        }
+
+        // Fetch and display booking schedule
+        async function loadBookingSchedule() {
+            try {
+                const res = await fetch('/api/booking-schedule');
+                const data = await res.json();
+
+                document.getElementById('scheduleLoading').style.display = 'none';
+
+                if (!data.schedule || Object.keys(data.schedule).length === 0) {
+                    document.getElementById('scheduleEmpty').style.display = 'block';
+                    return;
+                }
+
+                const container = document.getElementById('scheduleData');
+                let html = '';
+
+                // Loop through each room/cottage
+                for (const [roomName, bookings] of Object.entries(data.schedule)) {
+                    html += `
+                        <div class="schedule-room-group">
+                            <div class="schedule-room-name">
+                                <i class="bi bi-house-door-fill"></i>
+                                ${roomName}
+                                <span class="ms-auto badge bg-secondary rounded-pill" style="font-size: 0.7rem;">
+                                    ${bookings.length} booking${bookings.length > 1 ? 's' : ''}
+                                </span>
+                            </div>
+                            <div class="schedule-dates">
+                    `;
+
+                    // Show each booking date range
+                    bookings.forEach(booking => {
+                        const checkin = new Date(booking.checkin).toLocaleDateString('en-US', {
+                            month: 'short', day: 'numeric', year: 'numeric'
+                        });
+                        const checkout = new Date(booking.checkout).toLocaleDateString('en-US', {
+                            month: 'short', day: 'numeric', year: 'numeric'
+                        });
+
+                        html += `
+                            <div class="schedule-date-item">
+                                <div class="schedule-date-range">
+                                    <i class="bi bi-calendar-x-fill text-danger"></i>
+                                    ${checkin} <i class="bi bi-arrow-right mx-1 text-muted"></i> ${checkout}
+                                </div>
+                                <div class="d-flex align-items-center gap-2">
+                                    <span class="schedule-guests">
+                                        <i class="bi bi-people-fill me-1"></i>${booking.guests} guest${booking.guests > 1 ? 's' : ''}
+                                    </span>
+                                    <span class="schedule-badge-booked">Booked</span>
+                                </div>
+                            </div>
+                        `;
+                    });
+
+                    html += `
+                            </div>
+                        </div>
+                    `;
+                }
+
+                container.innerHTML = html;
+                container.style.display = 'block';
+
+            } catch (err) {
+                console.error('Failed to load schedule:', err);
+                document.getElementById('scheduleLoading').style.display = 'none';
+                document.getElementById('scheduleData').innerHTML = `
+                    <div class="text-center py-4 text-danger">
+                        <i class="bi bi-exclamation-circle fs-1"></i>
+                        <p class="mb-0 mt-2 fw-semibold">Failed to load schedule. Please try again.</p>
+                    </div>
+                `;
+                document.getElementById('scheduleData').style.display = 'block';
+            }
+        }
     </script>
 </body>
 </html>
