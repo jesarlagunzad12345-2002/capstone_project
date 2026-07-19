@@ -14,6 +14,72 @@ const dbQuery = (sql, params = []) => new Promise((resolve, reject) => {
     db.query(sql, params, (err, results) => err ? reject(err) : resolve(results));
 });
 
+// ============================================
+// HELPER: Format date to YYYY-MM-DD for HTML date inputs
+// MySQL dates can be Date objects or strings - we need clean YYYY-MM-DD
+// ============================================
+function formatDateForInput(dateValue) {
+    if (!dateValue) return '';
+    
+    // If it's already a string in YYYY-MM-DD format, return it
+    if (typeof dateValue === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
+        return dateValue;
+    }
+    
+    // Parse the date (handles Date objects, ISO strings, MySQL datetime strings)
+    const date = new Date(dateValue);
+    if (isNaN(date.getTime())) return '';
+    
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    
+    return `${year}-${month}-${day}`;
+}
+
+// ============================================
+// HELPER: Calculate total price and nights for a booking
+// ============================================
+async function calculateBookingPrice(roomType, checkin, checkout) {
+    try {
+        // Get room price from database
+        const roomResults = await dbQuery(
+            "SELECT price, category, occupancy FROM rooms WHERE name = ? LIMIT 1", 
+            [roomType]
+        );
+        
+        const roomPrice = roomResults.length > 0 ? parseFloat(roomResults[0].price) : 0;
+        const roomCategory = roomResults.length > 0 ? roomResults[0].category : 'Room';
+        const maxOccupancy = roomResults.length > 0 ? parseInt(roomResults[0].occupancy) : 1;
+        
+        // Calculate nights
+        const checkinDate = new Date(checkin);
+        const checkoutDate = new Date(checkout);
+        const timeDiff = checkoutDate - checkinDate;
+        const nights = Math.max(1, Math.ceil(timeDiff / (1000 * 60 * 60 * 24)));
+        
+        // Calculate total price
+        const totalPrice = roomPrice * nights;
+        
+        return {
+            roomPrice,
+            roomCategory,
+            maxOccupancy,
+            nights,
+            totalPrice
+        };
+    } catch (err) {
+        console.error("❌ Error calculating booking price:", err);
+        return {
+            roomPrice: 0,
+            roomCategory: 'Room',
+            maxOccupancy: 1,
+            nights: 1,
+            totalPrice: 0
+        };
+    }
+}
+
 
 router.get("/bookings", checkAuth, async (req, res) => {
   const triggerApprove = req.session.triggerApprove || false;
@@ -30,10 +96,24 @@ router.get("/bookings", checkAuth, async (req, res) => {
   ['triggerApprove', 'guestName', 'guestEmail', 'guestRoom', 'guestIn', 'guestOut', 'guestPeople', 'guestRequests'].forEach(key => delete req.session[key]);
 
   try {
-    const bookings = await dbQuery("SELECT * FROM bookings ORDER BY id DESC");
+    // Load all bookings AND all available rooms from the database
+    const [bookings, rooms] = await Promise.all([
+      dbQuery("SELECT * FROM bookings ORDER BY id DESC"),
+      dbQuery("SELECT * FROM rooms WHERE status = 'available' ORDER BY category, name")
+    ]);
+    
+    // Format dates for each booking so EJS can use them in date inputs
+    const formattedBookings = bookings.map(booking => {
+        return {
+            ...booking,
+            checkinFormatted: formatDateForInput(booking.checkin),
+            checkoutFormatted: formatDateForInput(booking.checkout)
+        };
+    });
     
     res.render("admin/booking", { 
-      bookings: bookings || [],
+      bookings: formattedBookings || [],
+      rooms: rooms || [], // <-- Pass real rooms to EJS template
       triggerApprove, 
       guestName: gData.name, 
       guestEmail: gData.email,
@@ -83,16 +163,35 @@ router.post("/approve/:id", checkAuth, async (req, res) => {
   }
 });
 
+
+// ============================================
+// FIX: Recalculate total_price and nights when admin edits a booking
+// Also validates guest count against room occupancy
+// ============================================
 router.post("/update/:id", checkAuth, async (req, res) => {
   const bookingId = req.params.id;
   const { name, email, people, checkin, checkout, roomType, requests } = req.body;
   
   try {
+    // Step 1: Calculate new price and nights based on selected room and dates
+    const calc = await calculateBookingPrice(roomType, checkin, checkout);
+    
+    // Step 2: Validate guest count doesn't exceed room capacity
+    let guestCount = parseInt(people) || 1;
+    if (guestCount > calc.maxOccupancy && calc.maxOccupancy > 0) {
+        guestCount = calc.maxOccupancy;
+    }
+    
+    // Step 3: Update ALL booking fields including recalculated price and nights
     await dbQuery(
-      "UPDATE bookings SET name = ?, email = ?, people = ?, checkin = ?, checkout = ?, roomType = ?, requests = ? WHERE id = ?",
-      [name, email, people, checkin, checkout, roomType, requests || null, bookingId]
+      `UPDATE bookings 
+       SET name = ?, email = ?, people = ?, checkin = ?, checkout = ?, 
+           roomType = ?, requests = ?, total_price = ?, nights = ? 
+       WHERE id = ?`,
+      [name, email, guestCount, checkin, checkout, roomType, requests || null, calc.totalPrice, calc.nights, bookingId]
     );
-    console.log(`✅ Booking #${bookingId} updated.`);
+
+    console.log(`✅ Booking #${bookingId} updated. New total: ₱${calc.totalPrice} for ${calc.nights} night(s) in ${calc.roomCategory}`);
     res.redirect("/bookings");
   } catch (err) {
     console.error("❌ Update Error:", err);

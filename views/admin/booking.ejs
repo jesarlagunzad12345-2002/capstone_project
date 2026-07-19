@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/css/booking_admin.css">
-       <link rel="icon" type="image/png" sizes="32x32" href="img/logo.jpg">
+    <link rel="icon" type="image/png" sizes="32x32" href="img/logo.jpg">
 
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
     <script type="text/javascript">
@@ -63,6 +63,54 @@
           const bellDot = document.getElementById('bellDot');
           if (bellDot) bellDot.style.display = 'none';
       }
+
+      // ============================================
+      // DYNAMIC GUEST DROPDOWN: Updates based on room capacity
+      // Each room has a data-occupancy attribute with max guests
+      // ============================================
+      function updateGuestDropdown(bookingId) {
+          const roomSelect = document.getElementById('roomSelect' + bookingId);
+          const guestSelect = document.getElementById('guestSelect' + bookingId);
+          
+          if (!roomSelect || !guestSelect) return;
+          
+          // Get the selected option's max occupancy
+          const selectedOption = roomSelect.options[roomSelect.selectedIndex];
+          const maxOccupancy = parseInt(selectedOption.getAttribute('data-occupancy')) || 1;
+          const currentValue = parseInt(guestSelect.value) || 1;
+          
+          // Clear existing options
+          guestSelect.innerHTML = '';
+          
+          // Build new options from 1 to max occupancy
+          for (let i = 1; i <= maxOccupancy; i++) {
+              const option = document.createElement('option');
+              option.value = i;
+              option.textContent = i === 1 ? '1 Adult' : i + ' Adults';
+              
+              // Keep the current selection if it's still valid
+              if (i === currentValue) {
+                  option.selected = true;
+              }
+              
+              guestSelect.appendChild(option);
+          }
+          
+          // If current value exceeds new max, select the max
+          if (currentValue > maxOccupancy) {
+              guestSelect.value = maxOccupancy;
+          }
+      }
+
+      // Attach event listeners after DOM loads (avoids EJS in onchange attribute)
+      document.addEventListener('DOMContentLoaded', function() {
+          document.querySelectorAll('[data-booking-id]').forEach(function(select) {
+              select.addEventListener('change', function() {
+                  const bookingId = this.getAttribute('data-booking-id');
+                  updateGuestDropdown(bookingId);
+              });
+          });
+      });
     </script>
 </head>
 <body>
@@ -112,10 +160,6 @@
                 <button class="btn btn-light d-lg-none me-3" onclick="toggleSidebar()">
                     <i class="bi bi-list fs-4"></i>
                 </button>
-                <!-- <div class="search-bar d-none d-md-flex align-items-center">
-                    <i class="bi bi-search text-muted me-2"></i>
-                    <input type="text" placeholder="Search reservations...">
-                </div> -->
             </div>
             <div class="d-flex align-items-center gap-3">
                 <button class="btn border-0 position-relative text-muted" onclick="clearNotifications()">
@@ -183,68 +227,93 @@
                                 </td>
                             </tr>
 
-                                <div class="modal fade" id="editModal<%= booking.id %>" tabindex="-1" aria-hidden="true">
-                                    <div class="modal-dialog modal-dialog-centered">
-                                        <div class="modal-content border-0 shadow" style="border-radius: 24px;">
-                                            <form action="/update/<%= booking.id %>" method="POST">
-                                                <div class="modal-header border-bottom-0 pt-4 px-4">
-                                                    <h5 class="modal-title fw-bold">Edit Booking #<%= booking.id %></h5>
-                                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            <!-- EDIT MODAL for each pending booking -->
+                            <div class="modal fade" id="editModal<%= booking.id %>" tabindex="-1" aria-hidden="true">
+                                <div class="modal-dialog modal-dialog-centered">
+                                    <div class="modal-content border-0 shadow" style="border-radius: 24px;">
+                                        <form action="/update/<%= booking.id %>" method="POST">
+                                            <div class="modal-header border-bottom-0 pt-4 px-4">
+                                                <h5 class="modal-title fw-bold">Edit Booking #<%= booking.id %></h5>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                            </div>
+                                            <div class="modal-body px-4">
+                                                <div class="mb-3">
+                                                    <label class="form-label text-uppercase small fw-bold text-muted">Full Name</label>
+                                                    <input type="text" name="name" class="form-control py-2 bg-light border-0 rounded-3" value="<%= booking.name %>" required>
                                                 </div>
-                                                <div class="modal-body px-4">
-                                                    <div class="mb-3">
-                                                        <label class="form-label text-uppercase small fw-bold text-muted">Full Name</label>
-                                                        <input type="text" name="name" class="form-control py-2 bg-light border-0 rounded-3" value="<%= booking.name %>" required>
+                                                <div class="mb-3">
+                                                    <label class="form-label text-uppercase small fw-bold text-muted">Email</label>
+                                                    <input type="email" name="email" class="form-control py-2 bg-light border-0 rounded-3" value="<%= booking.email %>" required>
+                                                </div>
+                                                
+                                                <div class="row">
+                                                    <div class="col-6 mb-3">
+                                                        <label class="form-label text-uppercase small fw-bold text-muted">Room Type</label>
+                                                        <select name="roomType" id="roomSelect<%= booking.id %>" class="form-select py-2 bg-light border-0 rounded-3" required data-booking-id="<%= booking.id %>">
+                                                            <option value="">Choose room or cottage...</option>
+                                                            <% if (rooms && rooms.length > 0) { %>
+                                                                <% 
+                                                                    const categories = {};
+                                                                    rooms.forEach(room => {
+                                                                        if (!categories[room.category]) categories[room.category] = [];
+                                                                        categories[room.category].push(room);
+                                                                    });
+                                                                %>
+                                                                <% for (const [category, items] of Object.entries(categories)) { %>
+                                                                    <optgroup label="<%= category === 'Cottage' ? '🏡 Cottages' : '🏨 ' + category + ' Rooms' %>">
+                                                                        <% items.forEach(room => { %>
+                                                                            <option value="<%= room.name %>" data-occupancy="<%= room.occupancy %>" <%= booking.roomType === room.name ? 'selected' : '' %>>
+                                                                                <%= room.name %> — ₱<%= room.price %>/night (Max <%= room.occupancy %> guests)
+                                                                            </option>
+                                                                        <% }) %>
+                                                                    </optgroup>
+                                                                <% } %>
+                                                            <% } else { %>
+                                                                <option value="" disabled>No rooms available</option>
+                                                            <% } %>
+                                                        </select>
                                                     </div>
-                                                    <div class="mb-3">
-                                                        <label class="form-label text-uppercase small fw-bold text-muted">Email</label>
-                                                        <input type="email" name="email" class="form-control py-2 bg-light border-0 rounded-3" value="<%= booking.email %>" required>
+                                                    <div class="col-6 mb-3">
+                                                        <label class="form-label text-uppercase small fw-bold text-muted">Guests</label>
+                                                        <select name="people" id="guestSelect<%= booking.id %>" class="form-select py-2 bg-light border-0 rounded-3" required>
+                                                            <% 
+                                                                let selectedRoomMax = 10;
+                                                                if (rooms && rooms.length > 0) {
+                                                                    const foundRoom = rooms.find(r => r.name === booking.roomType);
+                                                                    if (foundRoom) selectedRoomMax = parseInt(foundRoom.occupancy) || 10;
+                                                                }
+                                                                for (let i = 1; i <= selectedRoomMax; i++) {
+                                                            %>
+                                                                <option value="<%= i %>" <%= booking.people == i ? 'selected' : '' %>><%= i === 1 ? '1 Adult' : i + ' Adults' %></option>
+                                                            <% } %>
+                                                        </select>
                                                     </div>
-                                                    
-                                                    <div class="row">
-                                                        <div class="col-6 mb-3">
-                                                            <label class="form-label text-uppercase small fw-bold text-muted">Room Type</label>
-                                                            <select name="roomType" class="form-select py-2 bg-light border-0 rounded-3" required>
-                                                                <option value="Micro Apartment" <%= booking.roomType === 'Micro Apartment' ? 'selected' : '' %>>Micro Apartment</option>
-                                                                <option value="Luxury Suite" <%= booking.roomType === 'Luxury Suite' ? 'selected' : '' %>>Luxury Suite</option>
-                                                                <option value="Cottage" <%= booking.roomType === 'Cottage' ? 'selected' : '' %>>Cottage</option>
-                                                            </select>
-                                                        </div>
-                                                        <div class="col-6 mb-3">
-                                                            <label class="form-label text-uppercase small fw-bold text-muted">Guests</label>
-                                                            <select name="people" class="form-select py-2 bg-light border-0 rounded-3" required>
-                                                                <option value="1" <%= booking.people == 1 ? 'selected' : '' %>>1 Adult</option>
-                                                                <option value="2" <%= booking.people == 2 ? 'selected' : '' %>>2 Adults</option>
-                                                                <option value="3" <%= booking.people == 3 ? 'selected' : '' %>>3 Adults</option>
-                                                                <option value="4" <%= booking.people == 4 ? 'selected' : '' %>>4 Adults</option>
-                                                            </select>
-                                                        </div>
-                                                    </div>
+                                                </div>
 
-                                                    <div class="row">
-                                                        <div class="col-6 mb-3">
-                                                            <label class="form-label text-uppercase small fw-bold text-muted">Check-In</label>
-                                                            <input type="date" name="checkin" class="form-control py-2 bg-light border-0 rounded-3" value="<%= booking.checkin %>" required>
-                                                        </div>
-                                                        <div class="col-6 mb-3">
-                                                            <label class="form-label text-uppercase small fw-bold text-muted">Check-Out</label>
-                                                            <input type="date" name="checkout" class="form-control py-2 bg-light border-0 rounded-3" value="<%= booking.checkout %>" required>
-                                                        </div>
+                                                <div class="row">
+                                                    <div class="col-6 mb-3">
+                                                        <label class="form-label text-uppercase small fw-bold text-muted">Check-In</label>
+                                                        <input type="date" name="checkin" class="form-control py-2 bg-light border-0 rounded-3" value="<%= booking.checkinFormatted %>" required>
                                                     </div>
+                                                    <div class="col-6 mb-3">
+                                                        <label class="form-label text-uppercase small fw-bold text-muted">Check-Out</label>
+                                                        <input type="date" name="checkout" class="form-control py-2 bg-light border-0 rounded-3" value="<%= booking.checkoutFormatted %>" required>
+                                                    </div>
+                                                </div>
 
-                                                    <div class="mb-3">
-                                                        <label class="form-label text-uppercase small fw-bold text-muted">Special Requests</label>
-                                                        <textarea name="requests" class="form-control py-2 bg-light border-0 rounded-3" rows="3" placeholder="No special requests"><%= booking.requests || '' %></textarea>
-                                                    </div>
+                                                <div class="mb-3">
+                                                    <label class="form-label text-uppercase small fw-bold text-muted">Special Requests</label>
+                                                    <textarea name="requests" class="form-control py-2 bg-light border-0 rounded-3" rows="3" placeholder="No special requests"><%= booking.requests || '' %></textarea>
                                                 </div>
-                                                <div class="modal-footer border-top-0 pb-4 px-4">
-                                                    <button type="button" class="btn btn-light w-100 py-2 fw-bold" data-bs-dismiss="modal">Cancel</button>
-                                                    <button type="submit" class="btn btn-dark w-100 py-2 fw-bold">Save Changes</button>
-                                                </div>
-                                            </form>
-                                        </div>
+                                            </div>
+                                            <div class="modal-footer border-top-0 pb-4 px-4">
+                                                <button type="button" class="btn btn-light w-100 py-2 fw-bold" data-bs-dismiss="modal">Cancel</button>
+                                                <button type="submit" class="btn btn-dark w-100 py-2 fw-bold">Save Changes</button>
+                                            </div>
+                                        </form>
                                     </div>
                                 </div>
+                            </div>
                             <% }) %>
                         </tbody>
                     </table>
