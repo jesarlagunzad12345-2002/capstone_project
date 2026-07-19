@@ -9,9 +9,106 @@
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/css/food.css">
     <link rel="icon" type="image/png" sizes="32x32" href="img/logo.jpg">
+
+    <style>
+        .content-search-wrapper {
+            position: relative;
+            width: 280px;
+            flex-shrink: 0;
+        }
+
+        .content-search-wrapper .search-input {
+            width: 100%;
+            min-width: 260px;
+        }
+
+        #categoryFilters {
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+        }
+
+        #categoryFilters::-webkit-scrollbar {
+            display: none;
+        }
+
+        #categoryFilters button {
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .section-tabs {
+            flex-wrap: nowrap !important;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+            gap: 0.5rem;
+        }
+
+        .section-tabs::-webkit-scrollbar {
+            display: none;
+        }
+
+        .section-tab {
+            white-space: nowrap;
+            flex-shrink: 0;
+            font-size: 0.85rem;
+            padding: 0.6rem 1rem;
+        }
+
+        @media (max-width: 992px) {
+            .content-search-wrapper {
+                width: 100%;
+                order: -1;
+                margin-bottom: 1rem;
+            }
+
+            .content-search-wrapper .search-input {
+                width: 100%;
+                min-width: 100%;
+            }
+
+            .section-tabs {
+                flex-direction: row !important;
+                flex-wrap: nowrap !important;
+                width: 100%;
+                overflow-x: auto;
+                gap: 0.5rem;
+            }
+
+            .section-tab {
+                width: auto;
+                justify-content: center;
+                flex-shrink: 0;
+                white-space: nowrap;
+                font-size: 0.85rem;
+                padding: 0.6rem 1rem;
+                flex: 0 0 auto;
+            }
+
+            #categoryFilters {
+                flex-wrap: nowrap;
+                width: auto;
+            }
+        }
+
+        @media (max-width: 576px) {
+            .section-tab {
+                min-width: auto;
+                padding: 0.5rem 0.8rem;
+                font-size: 0.8rem;
+                flex-shrink: 0;
+                white-space: nowrap;
+            }
+        }
+    </style>
 </head>
 <body>
 
+<div class="d-flex">
     <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
 
     <aside class="sidebar" id="sidebar">
@@ -43,14 +140,21 @@
 
     <div class="main-wrapper">
         <header class="justify-content-between align-items-center">
-            <div class="d-flex align-items-center gap-3">
-                <button class="btn btn-light d-lg-none" onclick="toggleSidebar()">
-                    <i class="bi bi-list fs-4"></i>
-                </button>
+            <!-- Toggle button at the very left -->
+            <button class="btn btn-light d-lg-none flex-shrink-0" onclick="toggleSidebar()" id="sidebarToggleBtn">
+                <i class="bi bi-list fs-4"></i>
+            </button>
+
+            <!-- Title + Badges - stays right next to toggle, never wraps below it -->
+            <div class="header-title-group">
                 <h3 class="h5 fw-bold mb-0">Food & Beverage</h3>
-                <span class="badge rounded-pill border border-success bg-success bg-opacity-10 text-success px-3">Kitchen Open</span>
+                <div class="header-badges gap-2">
+                    <span class="badge rounded-pill border border-success bg-success bg-opacity-10 text-success px-3">Kitchen Open</span>
+                </div>
             </div>
-            <div class="header-controls">
+
+            <!-- Add button pushed to right -->
+            <div class="header-controls ms-auto">
                 <button class="btn btn-dark fw-bold d-flex align-items-center gap-2 rounded-3 px-4" data-bs-toggle="modal" data-bs-target="#addItemModal" id="addBtn">
                     <i class="bi bi-plus-lg"></i> <span>Add Food Item</span>
                 </button>
@@ -58,7 +162,7 @@
         </header>
 
         <div class="content-scroll">
-            <div class="container-fluid">
+            <div class="container-fluid p-0">
 
                 <!-- Section Tabs -->
                 <div class="section-tabs mb-3">
@@ -81,8 +185,8 @@
                             <button class="btn btn-link btn-sm text-muted rounded-2 px-3 text-decoration-none" onclick="filterFood('Drinks')">Drinks</button>
                         </div>
 
-                        <div class="position-relative">
-                            <input type="text" placeholder="Search menu items..." class="search-input shadow-sm w-100" id="searchInput" onkeyup="searchFood()" style="min-width: 320px;">
+                        <div class="content-search-wrapper">
+                            <input type="text" placeholder="Search menu items..." class="search-input shadow-sm" id="searchInput" onkeyup="searchFood()">
                             <i class="bi bi-search position-absolute start-0 top-50 translate-middle-y ms-3 text-muted"></i>
                         </div>
                     </div>
@@ -98,8 +202,8 @@
                             <h5 class="fw-bold mb-0">Dining Spots</h5>
                             <p class="text-muted mb-0" style="font-size: 0.85rem;">Manage dining spots displayed in the amenities page</p>
                         </div>
-                        <div class="position-relative">
-                            <input type="text" placeholder="Search dining spots..." class="search-input shadow-sm w-100" id="diningSearchInput" onkeyup="searchDiningSpots()" style="min-width: 320px;">
+                        <div class="content-search-wrapper">
+                            <input type="text" placeholder="Search dining spots..." class="search-input shadow-sm" id="diningSearchInput" onkeyup="searchDiningSpots()">
                             <i class="bi bi-search position-absolute start-0 top-50 translate-middle-y ms-3 text-muted"></i>
                         </div>
                     </div>
@@ -115,237 +219,226 @@
             </div>
         </div>
     </div>
+</div>
 
-    <div class="toast-container" id="toastContainer"></div>
+<div class="toast-container" id="toastContainer"></div>
 
-    <!-- Add Food Item Modal -->
-    <div class="modal fade" id="addItemModal" tabindex="-1" aria-labelledby="addItemModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content border-0 rounded-4 overflow-hidden shadow">
-                <div class="modal-header border-bottom-0 bg-light p-4">
-                    <h5 class="modal-title fw-bold" id="addItemModalLabel">Add New Menu Item</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+<!-- Add Food Item Modal -->
+<div class="modal fade" id="addItemModal" tabindex="-1" aria-labelledby="addItemModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 rounded-4 overflow-hidden shadow">
+            <div class="modal-header border-bottom-0 bg-light p-4">
+                <h5 class="modal-title fw-bold" id="addItemModalLabel">Add New Menu Item</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <form id="addFoodForm" onsubmit="saveFoodItem(event)">
+                <div class="modal-body p-4">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label small fw-bold text-muted text-uppercase">Dish Name</label>
+                            <input type="text" class="form-control bg-light border-0 py-2 rounded-3" id="foodName" placeholder="Grilled Salmon" required>
+                        </div>
+
+                        <div class="col-sm-6">
+                            <label class="form-label small fw-bold text-muted text-uppercase">Category</label>
+                            <select class="form-select bg-light border-0 py-2 rounded-3" id="foodCategory" required>
+                                <option value="">Select Category</option>
+                                <option value="Breakfast">Breakfast</option>
+                                <option value="Main Course">Main Course</option>
+                                <option value="Desserts">Desserts</option>
+                                <option value="Drinks">Drinks</option>
+                            </select>
+                        </div>
+
+                        <div class="col-sm-6">
+                            <label class="form-label small fw-bold text-muted text-uppercase">Price (₱)</label>
+                            <input type="number" step="0.01" class="form-control bg-light border-0 py-2 rounded-3" id="foodPrice" placeholder="0.00" required>
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label small fw-bold text-muted text-uppercase">Popularity Tag</label>
+                            <select class="form-select bg-light border-0 py-2 rounded-3" id="foodPopularity" required>
+                                <option value="">Select Popularity</option>
+                                <option value="POPULAR">🔥 POPULAR</option>
+                                <option value="BEST SELLER">⭐ BEST SELLER</option>
+                                <option value="FRESHLY MADE">🌿 FRESHLY MADE</option>
+                                <option value="MUST TRY">💎 MUST TRY</option>
+                                <option value="JUST IN">✨ JUST IN</option>
+                            </select>
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label small fw-bold text-muted text-uppercase">Description</label>
+                            <textarea class="form-control bg-light border-0 rounded-3" id="foodDescription" rows="3" placeholder="Ingredients details..." required></textarea>
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label small fw-bold text-muted text-uppercase">Stock Status</label>
+                            <select class="form-select bg-light border-0 py-2 rounded-3" id="foodStockStatus" required>
+                                <option value="In Stock">Available</option>
+                                <option value="Out of Stock">Not Available</option>
+                            </select>
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label small fw-bold text-muted text-uppercase">Dish Image</label>
+                            <div class="upload-area p-4 rounded-4 bg-light text-center" id="uploadArea" onclick="document.getElementById('foodUpload').click()">
+                                <i class="bi bi-cloud-arrow-up h1 text-muted d-block" id="uploadIcon"></i>
+                                <p class="small text-muted mb-0 fw-semibold" id="uploadText">Click to upload food photo</p>
+                                <img id="imagePreview" class="file-preview" alt="Preview">
+                                <input type="file" class="d-none" id="foodUpload" accept="image/*" onchange="handleImageUpload(this)" required>
+                            </div>
+                            <input type="hidden" id="foodImageBase64">
+                        </div>
+                    </div>
                 </div>
 
-                <form id="addFoodForm" onsubmit="saveFoodItem(event)">
-                    <div class="modal-body p-4">
-                        <div class="row g-3">
-                            <div class="col-12">
-                                <label class="form-label small fw-bold text-muted text-uppercase">Dish Name</label>
-                                <input type="text" class="form-control bg-light border-0 py-2 rounded-3" id="foodName" placeholder="Grilled Salmon" required>
-                            </div>
-
-                            <div class="col-sm-6">
-                                <label class="form-label small fw-bold text-muted text-uppercase">Category</label>
-                                <select class="form-select bg-light border-0 py-2 rounded-3" id="foodCategory" required>
-                                    <option value="">Select Category</option>
-                                    <option value="Breakfast">Breakfast</option>
-                                    <option value="Main Course">Main Course</option>
-                                    <option value="Desserts">Desserts</option>
-                                    <option value="Drinks">Drinks</option>
-                                </select>
-                            </div>
-
-                            <div class="col-sm-6">
-                                <label class="form-label small fw-bold text-muted text-uppercase">Price (₱)</label>
-                                <input type="number" step="0.01" class="form-control bg-light border-0 py-2 rounded-3" id="foodPrice" placeholder="0.00" required>
-                            </div>
-
-                            <div class="col-12">
-                                <label class="form-label small fw-bold text-muted text-uppercase">Popularity Tag</label>
-                                <select class="form-select bg-light border-0 py-2 rounded-3" id="foodPopularity" required>
-                                    <option value="">Select Popularity</option>
-                                    <option value="POPULAR">🔥 POPULAR</option>
-                                    <option value="BEST SELLER">⭐ BEST SELLER</option>
-                                    <option value="FRESHLY MADE">🌿 FRESHLY MADE</option>
-                                    <option value="MUST TRY">💎 MUST TRY</option>
-                                    <option value="JUST IN">✨ JUST IN</option>
-                                </select>
-                            </div>
-
-                            <div class="col-12">
-                                <label class="form-label small fw-bold text-muted text-uppercase">Description</label>
-                                <textarea class="form-control bg-light border-0 rounded-3" id="foodDescription" rows="3" placeholder="Ingredients details..." required></textarea>
-                            </div>
-
-                            <div class="col-sm-6">
-                                <label class="form-label small fw-bold text-muted text-uppercase">Stock Status</label>
-                                <select class="form-select bg-light border-0 py-2 rounded-3" id="foodStockStatus" required>
-                                    <option value="In Stock">In Stock</option>
-                                    <option value="Low Stock">Low Stock</option>
-                                    <option value="Out of Stock">Out of Stock</option>
-                                </select>
-                            </div>
-
-                            <div class="col-sm-6">
-                                <label class="form-label small fw-bold text-muted text-uppercase">Stock Quantity</label>
-                                <input type="number" class="form-control bg-light border-0 py-2 rounded-3" id="foodStockQty" placeholder="0" value="10">
-                            </div>
-
-                            <div class="col-12">
-                                <label class="form-label small fw-bold text-muted text-uppercase">Dish Image</label>
-                                <div class="upload-area p-4 rounded-4 bg-light text-center" id="uploadArea" onclick="document.getElementById('foodUpload').click()">
-                                    <i class="bi bi-cloud-arrow-up h1 text-muted d-block" id="uploadIcon"></i>
-                                    <p class="small text-muted mb-0 fw-semibold" id="uploadText">Click to upload food photo</p>
-                                    <img id="imagePreview" class="file-preview" alt="Preview">
-                                    <input type="file" class="d-none" id="foodUpload" accept="image/*" onchange="handleImageUpload(this)" required>
-                                </div>
-                                <input type="hidden" id="foodImageBase64">
-                            </div>
+                <div class="modal-footer border-top-0 p-4 pt-0">
+                    <div class="row w-100 g-2">
+                        <div class="col-6">
+                            <button type="button" class="btn btn-light w-100 fw-bold py-2 rounded-3" data-bs-dismiss="modal" onclick="resetForm()">Cancel</button>
+                        </div>
+                        <div class="col-6">
+                            <button type="submit" class="btn btn-primary w-100 py-2 rounded-3" style="background: var(--accent-blue); color: var(--primary-dark); border:none; font-weight:700;">Save Dish</button>
                         </div>
                     </div>
-
-                    <div class="modal-footer border-top-0 p-4 pt-0">
-                        <div class="row w-100 g-2">
-                            <div class="col-6">
-                                <button type="button" class="btn btn-light w-100 fw-bold py-2 rounded-3" data-bs-dismiss="modal" onclick="resetForm()">Cancel</button>
-                            </div>
-                            <div class="col-6">
-                                <button type="submit" class="btn btn-primary w-100 py-2 rounded-3" style="background: var(--accent-blue); color: var(--primary-dark); border:none; font-weight:700;">Save Dish</button>
-                            </div>
-                        </div>
-                    </div>
-                </form>
-            </div>
+                </div>
+            </form>
         </div>
     </div>
+</div>
 
-    <!-- Add Dining Spot Modal -->
-    <div class="modal fade" id="addDiningSpotModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content border-0 rounded-4 overflow-hidden shadow">
-                <div class="modal-header border-bottom-0 bg-light p-4">
-                    <h5 class="modal-title fw-bold">Add Dining Spot</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+<!-- Add Dining Spot Modal -->
+<div class="modal fade" id="addDiningSpotModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 rounded-4 overflow-hidden shadow">
+            <div class="modal-header border-bottom-0 bg-light p-4">
+                <h5 class="modal-title fw-bold">Add Dining Spot</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <form id="addDiningSpotForm" onsubmit="saveDiningSpot(event)">
+                <div class="modal-body p-4">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label small fw-bold text-muted text-uppercase">Spot Name</label>
+                            <input type="text" class="form-control bg-light border-0 py-2 rounded-3" id="diningSpotName" placeholder="e.g. The KML Main Hall" required>
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label small fw-bold text-muted text-uppercase">Tag / Label</label>
+                            <input type="text" class="form-control bg-light border-0 py-2 rounded-3" id="diningSpotTag" placeholder="e.g. RESTAURANT INTERIOR" required>
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label small fw-bold text-muted text-uppercase">Description</label>
+                            <textarea class="form-control bg-light border-0 rounded-3" id="diningSpotDescription" rows="3" placeholder="Describe the dining spot..." required></textarea>
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label small fw-bold text-muted text-uppercase">Spot Image</label>
+                            <div class="upload-area p-4 rounded-4 bg-light text-center" id="diningUploadArea" onclick="document.getElementById('diningSpotUpload').click()">
+                                <i class="bi bi-cloud-arrow-up h1 text-muted d-block" id="diningUploadIcon"></i>
+                                <p class="small text-muted mb-0 fw-semibold" id="diningUploadText">Click to upload spot photo</p>
+                                <img id="diningSpotImagePreview" class="file-preview" alt="Preview">
+                                <input type="file" class="d-none" id="diningSpotUpload" accept="image/*" onchange="handleDiningSpotImageUpload(this)" required>
+                            </div>
+                            <input type="hidden" id="diningSpotImageBase64">
+                        </div>
+                    </div>
                 </div>
 
-                <form id="addDiningSpotForm" onsubmit="saveDiningSpot(event)">
-                    <div class="modal-body p-4">
-                        <div class="row g-3">
-                            <div class="col-12">
-                                <label class="form-label small fw-bold text-muted text-uppercase">Spot Name</label>
-                                <input type="text" class="form-control bg-light border-0 py-2 rounded-3" id="diningSpotName" placeholder="e.g. The KML Main Hall" required>
-                            </div>
-
-                            <div class="col-12">
-                                <label class="form-label small fw-bold text-muted text-uppercase">Tag / Label</label>
-                                <input type="text" class="form-control bg-light border-0 py-2 rounded-3" id="diningSpotTag" placeholder="e.g. RESTAURANT INTERIOR" required>
-                            </div>
-
-                            <div class="col-12">
-                                <label class="form-label small fw-bold text-muted text-uppercase">Description</label>
-                                <textarea class="form-control bg-light border-0 rounded-3" id="diningSpotDescription" rows="3" placeholder="Describe the dining spot..." required></textarea>
-                            </div>
-
-                            <div class="col-12">
-                                <label class="form-label small fw-bold text-muted text-uppercase">Spot Image</label>
-                                <div class="upload-area p-4 rounded-4 bg-light text-center" id="diningUploadArea" onclick="document.getElementById('diningSpotUpload').click()">
-                                    <i class="bi bi-cloud-arrow-up h1 text-muted d-block" id="diningUploadIcon"></i>
-                                    <p class="small text-muted mb-0 fw-semibold" id="diningUploadText">Click to upload spot photo</p>
-                                    <img id="diningSpotImagePreview" class="file-preview" alt="Preview">
-                                    <input type="file" class="d-none" id="diningSpotUpload" accept="image/*" onchange="handleDiningSpotImageUpload(this)" required>
-                                </div>
-                                <input type="hidden" id="diningSpotImageBase64">
-                            </div>
+                <div class="modal-footer border-top-0 p-4 pt-0">
+                    <div class="row w-100 g-2">
+                        <div class="col-6">
+                            <button type="button" class="btn btn-light w-100 fw-bold py-2 rounded-3" data-bs-dismiss="modal" onclick="resetDiningSpotForm()">Cancel</button>
+                        </div>
+                        <div class="col-6">
+                            <button type="submit" class="btn btn-primary w-100 py-2 rounded-3" style="background: var(--accent-blue); color: var(--primary-dark); border:none; font-weight:700;">Save Spot</button>
                         </div>
                     </div>
-
-                    <div class="modal-footer border-top-0 p-4 pt-0">
-                        <div class="row w-100 g-2">
-                            <div class="col-6">
-                                <button type="button" class="btn btn-light w-100 fw-bold py-2 rounded-3" data-bs-dismiss="modal" onclick="resetDiningSpotForm()">Cancel</button>
-                            </div>
-                            <div class="col-6">
-                                <button type="submit" class="btn btn-primary w-100 py-2 rounded-3" style="background: var(--accent-blue); color: var(--primary-dark); border:none; font-weight:700;">Save Spot</button>
-                            </div>
-                        </div>
-                    </div>
-                </form>
-            </div>
+                </div>
+            </form>
         </div>
     </div>
+</div>
 
-    <!-- Edit Item Modal -->
-    <div class="modal fade" id="editItemModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content border-0 rounded-4 overflow-hidden shadow">
-                <div class="modal-header border-bottom-0 bg-light p-4">
-                    <h5 class="modal-title fw-bold">Edit Menu Item</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+<!-- Edit Item Modal -->
+<div class="modal fade" id="editItemModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 rounded-4 overflow-hidden shadow">
+            <div class="modal-header border-bottom-0 bg-light p-4">
+                <h5 class="modal-title fw-bold">Edit Menu Item</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <form id="editFoodForm" onsubmit="updateFoodItem(event)">
+                <div class="modal-body p-4">
+                    <input type="hidden" id="editFoodId">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label small fw-bold text-muted text-uppercase">Dish Name</label>
+                            <input type="text" class="form-control bg-light border-0 py-2 rounded-3" id="editFoodName" required>
+                        </div>
+
+                        <div class="col-sm-6">
+                            <label class="form-label small fw-bold text-muted text-uppercase">Category</label>
+                            <select class="form-select bg-light border-0 py-2 rounded-3" id="editFoodCategory" required>
+                                <option value="Breakfast">Breakfast</option>
+                                <option value="Main Course">Main Course</option>
+                                <option value="Desserts">Desserts</option>
+                                <option value="Drinks">Drinks</option>
+                            </select>
+                        </div>
+
+                        <div class="col-sm-6">
+                            <label class="form-label small fw-bold text-muted text-uppercase">Price (₱)</label>
+                            <input type="number" step="0.01" class="form-control bg-light border-0 py-2 rounded-3" id="editFoodPrice" required>
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label small fw-bold text-muted text-uppercase">Popularity Tag</label>
+                            <select class="form-select bg-light border-0 py-2 rounded-3" id="editFoodPopularity" required>
+                                <option value="POPULAR">🔥 POPULAR</option>
+                                <option value="BEST SELLER">⭐ BEST SELLER</option>
+                                <option value="FRESHLY MADE">🌿 FRESHLY MADE</option>
+                                <option value="MUST TRY">💎 MUST TRY</option>
+                                <option value="JUST IN">✨ JUST IN</option>
+                            </select>
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label small fw-bold text-muted text-uppercase">Description</label>
+                            <textarea class="form-control bg-light border-0 rounded-3" id="editFoodDescription" rows="3" required></textarea>
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label small fw-bold text-muted text-uppercase">Stock Status</label>
+                            <select class="form-select bg-light border-0 py-2 rounded-3" id="editFoodStockStatus" required>
+                                <option value="In Stock">Available</option>
+                                <option value="Out of Stock">Not Available</option>
+                            </select>
+                        </div>
+                    </div>
                 </div>
 
-                <form id="editFoodForm" onsubmit="updateFoodItem(event)">
-                    <div class="modal-body p-4">
-                        <input type="hidden" id="editFoodId">
-                        <div class="row g-3">
-                            <div class="col-12">
-                                <label class="form-label small fw-bold text-muted text-uppercase">Dish Name</label>
-                                <input type="text" class="form-control bg-light border-0 py-2 rounded-3" id="editFoodName" required>
-                            </div>
-
-                            <div class="col-sm-6">
-                                <label class="form-label small fw-bold text-muted text-uppercase">Category</label>
-                                <select class="form-select bg-light border-0 py-2 rounded-3" id="editFoodCategory" required>
-                                    <option value="Breakfast">Breakfast</option>
-                                    <option value="Main Course">Main Course</option>
-                                    <option value="Desserts">Desserts</option>
-                                    <option value="Drinks">Drinks</option>
-                                </select>
-                            </div>
-
-                            <div class="col-sm-6">
-                                <label class="form-label small fw-bold text-muted text-uppercase">Price (₱)</label>
-                                <input type="number" step="0.01" class="form-control bg-light border-0 py-2 rounded-3" id="editFoodPrice" required>
-                            </div>
-
-                            <div class="col-12">
-                                <label class="form-label small fw-bold text-muted text-uppercase">Popularity Tag</label>
-                                <select class="form-select bg-light border-0 py-2 rounded-3" id="editFoodPopularity" required>
-                                    <option value="POPULAR">🔥 POPULAR</option>
-                                    <option value="BEST SELLER">⭐ BEST SELLER</option>
-                                    <option value="FRESHLY MADE">🌿 FRESHLY MADE</option>
-                                    <option value="MUST TRY">💎 MUST TRY</option>
-                                    <option value="JUST IN">✨ JUST IN</option>
-                                </select>
-                            </div>
-
-                            <div class="col-12">
-                                <label class="form-label small fw-bold text-muted text-uppercase">Description</label>
-                                <textarea class="form-control bg-light border-0 rounded-3" id="editFoodDescription" rows="3" required></textarea>
-                            </div>
-
-                            <div class="col-sm-6">
-                                <label class="form-label small fw-bold text-muted text-uppercase">Stock Status</label>
-                                <select class="form-select bg-light border-0 py-2 rounded-3" id="editFoodStockStatus" required>
-                                    <option value="In Stock">In Stock</option>
-                                    <option value="Low Stock">Low Stock</option>
-                                    <option value="Out of Stock">Out of Stock</option>
-                                </select>
-                            </div>
-
-                            <div class="col-sm-6">
-                                <label class="form-label small fw-bold text-muted text-uppercase">Stock Quantity</label>
-                                <input type="number" class="form-control bg-light border-0 py-2 rounded-3" id="editFoodStockQty">
-                            </div>
+                <div class="modal-footer border-top-0 p-4 pt-0">
+                    <div class="row w-100 g-2">
+                        <div class="col-6">
+                            <button type="button" class="btn btn-light w-100 fw-bold py-2 rounded-3" data-bs-dismiss="modal">Cancel</button>
+                        </div>
+                        <div class="col-6">
+                            <button type="submit" class="btn btn-primary w-100 py-2 rounded-3" style="background: var(--accent-blue); color: var(--primary-dark); border:none; font-weight:700;">Update Dish</button>
                         </div>
                     </div>
-
-                    <div class="modal-footer border-top-0 p-4 pt-0">
-                        <div class="row w-100 g-2">
-                            <div class="col-6">
-                                <button type="button" class="btn btn-light w-100 fw-bold py-2 rounded-3" data-bs-dismiss="modal">Cancel</button>
-                            </div>
-                            <div class="col-6">
-                                <button type="submit" class="btn btn-primary w-100 py-2 rounded-3" style="background: var(--accent-blue); color: var(--primary-dark); border:none; font-weight:700;">Update Dish</button>
-                            </div>
-                        </div>
-                    </div>
-                </form>
-            </div>
+                </div>
+            </form>
         </div>
     </div>
+</div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="/js/food.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="/js/food.js"></script>
 </body>
 </html>

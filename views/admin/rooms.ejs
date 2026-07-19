@@ -42,11 +42,12 @@
         }
 
         .section-tabs {
-            flex-wrap: nowrap;
+            flex-wrap: nowrap !important;
             overflow-x: auto;
             -webkit-overflow-scrolling: touch;
             scrollbar-width: none;
             -ms-overflow-style: none;
+            gap: 0.5rem;
         }
 
         .section-tabs::-webkit-scrollbar {
@@ -56,6 +57,8 @@
         .section-tab {
             white-space: nowrap;
             flex-shrink: 0;
+            font-size: 0.85rem;
+            padding: 0.6rem 1rem;
         }
 
         @media (max-width: 992px) {
@@ -72,14 +75,20 @@
 
             .section-tabs {
                 flex-direction: row !important;
-                width: auto;
+                flex-wrap: nowrap !important;
+                width: 100%;
+                overflow-x: auto;
+                gap: 0.5rem;
             }
 
             .section-tab {
                 width: auto;
-                justify-content: flex-start;
-                flex: 1;
-                min-width: 140px;
+                justify-content: center;
+                flex-shrink: 0;
+                white-space: nowrap;
+                font-size: 0.85rem;
+                padding: 0.6rem 1rem;
+                flex: 0 0 auto;
             }
 
             #categoryFilters {
@@ -90,9 +99,11 @@
 
         @media (max-width: 576px) {
             .section-tab {
-                min-width: 120px;
-                padding: 0.6rem 1rem;
-                font-size: 0.85rem;
+                min-width: auto;
+                padding: 0.5rem 0.8rem;
+                font-size: 0.8rem;
+                flex-shrink: 0;
+                white-space: nowrap;
             }
         }
     </style>
@@ -131,18 +142,23 @@
 
     <div class="main-wrapper">
         <header class="justify-content-between align-items-center">
-            <div class="d-flex align-items-center gap-3 flex-wrap">
-                <button class="btn btn-light d-lg-none" onclick="toggleSidebar()">
-                    <i class="bi bi-list fs-4"></i>
-                </button>
+            <!-- Toggle button at the very left -->
+            <button class="btn btn-light d-lg-none flex-shrink-0" onclick="toggleSidebar()" id="sidebarToggleBtn">
+                <i class="bi bi-list fs-4"></i>
+            </button>
+
+            <!-- Title + Badges - stays right next to toggle, never wraps below it -->
+            <div class="header-title-group">
                 <h3 class="h5 fw-bold mb-0">Inventory Management</h3>
-                <div class="d-none d-md-flex gap-2 flex-wrap">
+                <div class="header-badges gap-2">
                     <span class="badge badge-sky rounded-pill" id="totalRoomsBadge">Total: 0 Rooms</span>
                     <span class="badge badge-amber rounded-pill" id="totalCottagesBadge">Cottages: 0</span>
                     <span class="badge badge-emerald rounded-pill" id="availableRoomsBadge">Available: 0</span>
                 </div>
             </div>
-            <div class="header-controls">
+
+            <!-- Add button pushed to right -->
+            <div class="header-controls ms-auto">
                 <button class="btn btn-dark fw-bold d-flex align-items-center gap-2 rounded-3 px-4" data-bs-toggle="modal" data-bs-target="#addRoomModal" id="addBtn">
                     <i class="bi bi-plus-lg"></i> <span>Add Room or Cottage</span>
                 </button>

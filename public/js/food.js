@@ -114,7 +114,11 @@ function renderFoodItems() {
     }
 
     container.innerHTML = filtered.map(item => {
-        const isOutOfStock = item.stock_status === 'Out of Stock';
+        // Map DB values to display values
+        const displayStatus = item.stock_status === 'In Stock' ? 'Available' : 
+                              item.stock_status === 'Out of Stock' ? 'Not Available' : 
+                              item.stock_status;
+        const isNotAvailable = item.stock_status === 'Out of Stock';
         const stockColor = getStockColor(item.stock_status);
         const popClass = getPopularityClass(item.popularity);
         const popText = item.popularity || '';
@@ -122,21 +126,21 @@ function renderFoodItems() {
         return `
         <div class="col-12 col-sm-6 col-xl-4 col-xxl-3">
             <div class="food-card">
-                <div class="food-img-wrapper ${isOutOfStock ? 'out-of-stock' : ''}">
+                <div class="food-img-wrapper ${isNotAvailable ? 'out-of-stock' : ''}">
                     <img src="${item.image}" alt="${item.name}">
                     ${popText ? `<div class="popularity-tag ${popClass}">${popText}</div>` : ''}
-                    ${isOutOfStock ? '<div class="out-badge"><span>OUT OF STOCK</span></div>' : ''}
+                    ${isNotAvailable ? '<div class="out-badge"><span>NOT AVAILABLE</span></div>' : ''}
                 </div>
                 <div class="p-3">
                     <div class="d-flex justify-content-between align-items-start mb-2">
-                        <h6 class="fw-bold mb-0 ${isOutOfStock ? 'opacity-50' : ''}">${item.name}</h6>
-                        <span class="text-primary fw-bold ${isOutOfStock ? 'opacity-50' : ''}">₱${parseFloat(item.price).toFixed(2)}</span>
+                        <h6 class="fw-bold mb-0 ${isNotAvailable ? 'opacity-50' : ''}">${item.name}</h6>
+                        <span class="text-primary fw-bold ${isNotAvailable ? 'opacity-50' : ''}">₱${parseFloat(item.price).toFixed(2)}</span>
                     </div>
-                    <p class="text-muted small mb-4 ${isOutOfStock ? 'opacity-50' : ''}">${item.description}</p>
+                    <p class="text-muted small mb-4 ${isNotAvailable ? 'opacity-50' : ''}">${item.description}</p>
                     <div class="d-flex justify-content-between align-items-center pt-3 border-top">
                         <div>
                             <label class="d-block text-muted text-uppercase fw-bold" style="font-size: 10px;">Stock Status</label>
-                            <span class="small fw-bold ${stockColor}">${item.stock_status} ${item.stock_qty > 0 ? '(' + item.stock_qty + ')' : ''}</span>
+                            <span class="small fw-bold ${stockColor}">${displayStatus}</span>
                         </div>
                         <div class="btn-group btn-group-sm gap-1">
                             <button class="btn btn-light border" onclick="editFoodItem('${item.food_id}')"><i class="bi bi-pencil"></i></button>
@@ -158,7 +162,6 @@ async function saveFoodItem(event) {
     const popularity = document.getElementById('foodPopularity').value;
     const description = document.getElementById('foodDescription').value.trim();
     const stock_status = document.getElementById('foodStockStatus').value;
-    const stock_qty = parseInt(document.getElementById('foodStockQty').value) || 0;
     const image = document.getElementById('foodImageBase64').value || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600';
 
     if (!name || !category || !price || !popularity || !description) {
@@ -167,16 +170,19 @@ async function saveFoodItem(event) {
     }
 
     try {
-        await apiPost('/api/food-items', { 
-            name, 
-            category, 
-            price, 
-            popularity, 
-            description, 
-            stock_status, 
-            stock_qty, 
-            image 
-        });
+        // Build data object explicitly to ensure stock_qty is sent
+        const postData = { 
+            name: name, 
+            category: category, 
+            price: price, 
+            popularity: popularity, 
+            description: description, 
+            stock_status: stock_status, 
+            stock_qty: 0,
+            image: image 
+        };
+        console.log('Sending food item:', postData);
+        await apiPost('/api/food-items', postData);
         await loadFoodItems();
         resetForm();
         bootstrap.Modal.getInstance(document.getElementById('addItemModal')).hide();
@@ -200,7 +206,6 @@ async function editFoodItem(id) {
         document.getElementById('editFoodPopularity').value = item.popularity || 'POPULAR';
         document.getElementById('editFoodDescription').value = item.description;
         document.getElementById('editFoodStockStatus').value = item.stock_status;
-        document.getElementById('editFoodStockQty').value = item.stock_qty;
 
         new bootstrap.Modal(document.getElementById('editItemModal')).show();
     } catch (err) {
@@ -221,8 +226,9 @@ async function updateFoodItem(event) {
         popularity: document.getElementById('editFoodPopularity').value,
         description: document.getElementById('editFoodDescription').value.trim(),
         stock_status: document.getElementById('editFoodStockStatus').value,
-        stock_qty: parseInt(document.getElementById('editFoodStockQty').value) || 0
+        stock_qty: 0
     };
+    console.log('Updating food item:', data);
 
     try {
         await apiPut(`/api/food-items/${id}`, data);
@@ -508,7 +514,6 @@ function resetDiningSpotForm() {
 function getStockColor(status) {
     const colors = {
         'In Stock': 'text-success',
-        'Low Stock': 'text-warning',
         'Out of Stock': 'text-danger'
     };
     return colors[status] || 'text-muted';

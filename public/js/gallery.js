@@ -121,17 +121,21 @@ function showGallery() {
         if (list.length > 0) {
             hasResults = true;
             html += list.map(item => {
-                const isOutOfStock = item.stock_status === 'Out of Stock';
+                // Map DB values to display values
+                const displayStatus = item.stock_status === 'In Stock' ? 'Available' : 
+                                      item.stock_status === 'Out of Stock' ? 'Not Available' : 
+                                      item.stock_status;
+                const isNotAvailable = item.stock_status === 'Out of Stock';
                 const popClass = item.popularity ? 'badge-' + item.popularity.toLowerCase().replace(/\s+/g, '-') : '';
-                const stockClass = item.stock_status === 'In Stock' ? 'stock-in' : item.stock_status === 'Low Stock' ? 'stock-low' : 'stock-out';
+                const stockClass = item.stock_status === 'In Stock' ? 'stock-in' : 'stock-out';
 
                 return `
                 <div class="col-md-6 col-lg-4">
-                    <div class="dining-gallery-card ${isOutOfStock ? 'opacity-75' : ''}">
+                    <div class="dining-gallery-card ${isNotAvailable ? 'opacity-75' : ''}">
                         ${item.popularity ? `<span class="popularity-badge ${popClass}">${item.popularity}</span>` : ''}
                         <span class="dining-price-badge">₱${parseFloat(item.price).toFixed(2)}</span>
-                        <span class="dining-stock-badge ${stockClass}">${item.stock_status}</span>
-                        <img src="${item.image}" alt="${item.name}" style="${isOutOfStock ? 'filter: grayscale(0.6)' : ''}">
+                        <span class="dining-stock-badge ${stockClass}">${displayStatus}</span>
+                        <img src="${item.image}" alt="${item.name}" style="${isNotAvailable ? 'filter: grayscale(0.6)' : ''}">
                         <div class="dining-gallery-content">
                             <h4>${item.name}</h4>
                             <p class="dining-category"><i class="bi bi-tag-fill"></i> ${item.category}</p>
@@ -194,9 +198,15 @@ async function showFoodModal(foodId) {
         } else {
             popBadge.style.display = 'none';
         }
+
+        // Map DB stock_status to display text
+        const displayStatus = item.stock_status === 'In Stock' ? 'Available' : 
+                              item.stock_status === 'Out of Stock' ? 'Not Available' : 
+                              item.stock_status;
+
         const stockDetail = document.getElementById('modalFoodStockDetail');
-        stockDetail.innerHTML = `<i class="bi bi-box-seam"></i> ${item.stock_status}`;
-        stockDetail.className = item.stock_status === 'In Stock' ? 'text-success' : item.stock_status === 'Low Stock' ? 'text-warning' : 'text-danger';
+        stockDetail.innerHTML = `<i class="bi bi-box-seam"></i> ${displayStatus}`;
+        stockDetail.className = item.stock_status === 'In Stock' ? 'text-success' : 'text-danger';
 
         new bootstrap.Modal(document.getElementById('foodDetailsModal')).show();
     } catch (err) {

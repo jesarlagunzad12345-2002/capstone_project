@@ -357,7 +357,7 @@ router.get("/api/food-items/:id", async (req, res) => {
 });
 
 router.post("/api/food-items", checkAuth, async (req, res) => {
-    const { name, category, price, popularity, description, stock_status, stock_qty, image } = req.body;
+    const { name, category, price, popularity, description, stock_status, image } = req.body;
 
     try {
          const results = await dbQuery(
@@ -374,8 +374,8 @@ router.post("/api/food-items", checkAuth, async (req, res) => {
         const food_id = 'FD' + String(nextNum).padStart(3, '0');
 
         const result = await dbQuery(
-            "INSERT INTO food_items (food_id, name, category, price, popularity, description, stock_status, stock_qty, image, added_to_gallery) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)",
-            [food_id, name, category, price, popularity, description, stock_status, stock_qty, image]
+            "INSERT INTO food_items (food_id, name, category, price, popularity, description, stock_status, image, added_to_gallery) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)",
+            [food_id, name, category, price, popularity, description, stock_status, image]
         );
 
         res.json({ success: true, id: result.insertId, food_id });
@@ -386,10 +386,10 @@ router.post("/api/food-items", checkAuth, async (req, res) => {
 });
 
 router.put("/api/food-items/:id", checkAuth, async (req, res) => {
-    const { name, category, price, popularity, description, stock_status, stock_qty } = req.body;
+    const { name, category, price, popularity, description, stock_status } = req.body;
     try {
-        await dbQuery("UPDATE food_items SET name=?, category=?, price=?, popularity=?, description=?, stock_status=?, stock_qty=? WHERE food_id=?",
-            [name, category, price, popularity, description, stock_status, stock_qty, req.params.id]);
+        await dbQuery("UPDATE food_items SET name=?, category=?, price=?, popularity=?, description=?, stock_status=? WHERE food_id=?",
+            [name, category, price, popularity, description, stock_status, req.params.id]);
         res.json({ success: true });
     } catch (err) { console.error("❌ Error updating food item:", err); res.status(500).json({ error: "Failed to update food item" }); }
 });
@@ -423,7 +423,7 @@ router.get("/api/gallery", async (req, res) => {
         const [rooms, mountainViews, dining] = await Promise.all([
             (!type || type === 'all' || type === 'rooms') ? run("SELECT room_id as id, name, category, price, occupancy, status, image, 'room' as type FROM rooms WHERE added_to_gallery = 1") : Promise.resolve([]),
             (!type || type === 'all' || type === 'mountain') ? run("SELECT view_id as id, title as name, location, image, 'mountain' as type FROM mountain_views") : Promise.resolve([]),
-            (!type || type === 'all' || type === 'dining') ? run("SELECT food_id as id, name, category, price, popularity, description, stock_status, stock_qty, image, 'dining' as type FROM food_items WHERE added_to_gallery = 1") : Promise.resolve([])
+            (!type || type === 'all' || type === 'dining') ? run("SELECT food_id as id, name, category, price, popularity, description, stock_status, image, 'dining' as type FROM food_items WHERE added_to_gallery = 1") : Promise.resolve([])
         ]);
         res.json({ rooms, mountainViews, dining });
     } catch (err) { console.error("❌ Error fetching gallery data:", err); res.status(500).json({ error: "Failed to fetch gallery data" }); }

@@ -20,6 +20,7 @@ body {
     overflow-x: hidden;
 }
 
+/* --- SIDEBAR --- */
 .sidebar {
     width: var(--sidebar-width);
     background: var(--primary-dark);
@@ -87,6 +88,7 @@ body {
     z-index: 1050;
 }
 
+/* --- MAIN CONTENT AREA --- */
 .main-wrapper {
     margin-left: var(--sidebar-width);
     width: calc(100% - var(--sidebar-width));
@@ -109,6 +111,61 @@ header {
 }
 
 .content-scroll { padding: 1.5rem; flex-grow: 1; }
+
+/* ============================================
+   SIDEBAR TOGGLE BUTTON - Same as Rooms page
+   ============================================ */
+#sidebarToggleBtn {
+    padding: 0.5rem;
+    border-radius: 10px;
+    border: 1px solid var(--border-color);
+    background: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    flex-shrink: 0;
+    margin-right: 0.75rem;
+}
+
+#sidebarToggleBtn:hover {
+    background: var(--bg-body);
+    border-color: var(--accent-blue);
+}
+
+#sidebarToggleBtn i {
+    font-size: 1.4rem;
+    color: var(--text-main);
+}
+
+/* Header title group - holds title + badges together */
+.header-title-group {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.35rem;
+    flex-direction: column;
+    flex-grow: 1;
+    min-width: 0;
+}
+
+.header-title-group h3 {
+    white-space: nowrap;
+    flex-shrink: 0;
+    margin-bottom: 0;
+}
+
+.header-badges {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    flex-wrap: wrap;
+}
+
+.header-badges .badge {
+    font-size: 0.7rem;
+    padding: 0.4em 0.7em;
+}
 
 /* ============================================
    SECTION TABS - Same as Rooms page
@@ -291,7 +348,6 @@ header {
     color: var(--primary-dark);
 }
 
-/* FIXED: Description now shows full text with proper wrapping */
 .dining-spot-description {
     font-size: 0.85rem;
     color: #64748b;
@@ -384,7 +440,7 @@ header {
 .custom-toast.error { border-left: 4px solid var(--red); }
 
 /* ============================================
-   RESPONSIVE
+   RESPONSIVE - EXACTLY LIKE ROOMS PAGE
    ============================================ */
 @media (max-width: 992px) {
     .sidebar { margin-left: -280px; }
@@ -392,24 +448,109 @@ header {
     .sidebar.active + .sidebar-overlay { display: block; }
     .main-wrapper { margin-left: 0; width: 100%; }
 
+    /* Header stays in one row: [toggle] [title+badges] [button] */
     header {
-        flex-direction: column;
-        height: auto;
-        align-items: flex-start !important;
-        gap: 12px;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        height: auto !important;
+        align-items: center !important;
+        gap: 0;
+        padding: 0.75rem 1rem;
     }
-    .header-controls { width: 100%; }
-    .header-controls .btn-dark { width: 100%; justify-content: center; }
 
-    .section-tabs {
-        flex-direction: row;
+    /* Toggle button at far left */
+    #sidebarToggleBtn {
+        order: 0;
+        margin-right: 0.75rem;
+    }
+
+    /* Title group stays next to toggle, stacked vertically */
+    .header-title-group {
+        order: 1;
+        flex-grow: 1;
+        min-width: 0;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.25rem;
+    }
+
+    .header-title-group h3 {
+        font-size: 1.15rem;
+    }
+
+    .header-badges .badge {
+        font-size: 0.65rem;
+        padding: 0.35em 0.6em;
+    }
+
+    /* Add button at far right */
+    .header-controls {
+        order: 2;
+        margin-left: 0.5rem;
+        flex-shrink: 0;
+    }
+
+    /* Search input - full width on mobile */
+    .search-input {
+        width: 100% !important;
+        min-width: unset !important;
+        display: block !important;
+    }
+
+    /* Category filters scrollable */
+    #categoryFilters {
         overflow-x: auto;
         flex-wrap: nowrap;
+        width: 100%;
+        padding: 0.5rem;
+    }
+
+    #categoryFilters button {
+        white-space: nowrap;
+    }
+
+    /* Content padding */
+    .content-scroll {
+        padding: 1rem;
+    }
+
+    /* Section tabs scrollable, never stack */
+    .section-tabs {
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        width: 100%;
+        overflow-x: auto;
+        gap: 0.5rem;
     }
 
     .section-tab {
+        width: auto;
+        justify-content: center;
         white-space: nowrap;
         flex-shrink: 0;
+        font-size: 0.85rem;
+        padding: 0.6rem 1rem;
+    }
+}
+
+@media (max-width: 768px) {
+    /* Shrink the add button - hide text, show only icon */
+    .header-controls .btn-dark {
+        padding: 0.5rem 0.75rem !important;
+        font-size: 0.85rem;
+    }
+
+    .header-controls .btn-dark span {
+        display: none;
+    }
+
+    .header-title-group h3 {
+        font-size: 1.05rem;
+    }
+
+    .header-badges .badge {
+        font-size: 0.6rem;
+        padding: 0.3em 0.5em;
     }
 }
 
@@ -418,5 +559,29 @@ header {
     .modal-body { padding: 1.5rem !important; }
     .modal-footer { padding: 1.5rem !important; }
 
-    .dining-spot-img-wrapper { height: 160px; }
+    /* Very small screens: add button drops below, toggle+title stay on top row */
+    header {
+        flex-wrap: wrap !important;
+    }
+
+    .header-controls {
+        order: 3 !important;
+        width: 100%;
+        margin-left: 0 !important;
+        margin-top: 0.5rem;
+    }
+
+    .header-controls .btn-dark {
+        width: 100%;
+        justify-content: center;
+        font-size: 0.9rem;
+    }
+
+    .header-controls .btn-dark span {
+        display: inline;
+    }
+
+    .header-title-group h3 {
+        font-size: 1rem;
+    }
 }
