@@ -6,18 +6,12 @@ const getDb = () => require("../config/database");
 
 const checkAuth = (req, res, next) => req.session.isLoggedIn ? next() : res.redirect("/login");
 
-// Helper: Run SQL queries easily with promises
 const dbQuery = (sql, params = []) => new Promise((resolve, reject) => {
     getDb().query(sql, params, (err, results) => err ? reject(err) : resolve(results));
 });
 
-// ============================================
-// HELPER: Add revenue and guest count when booking is approved
-// This function is called from bookings.js when admin approves a booking
-// ============================================
 async function addRevenueForBooking(bookingId) {
     try {
-        // Get the booking details
         const bookings = await dbQuery(
             "SELECT total_price, people, checkin FROM bookings WHERE id = ?",
             [bookingId]
@@ -27,25 +21,18 @@ async function addRevenueForBooking(bookingId) {
 
         const booking = bookings[0];
 
-        // FIX: Parse checkin date properly to avoid timezone issues
-        // Use the date string directly without time component to prevent UTC shift
         const checkinStr = booking.checkin;
         let revenueDate;
 
         if (typeof checkinStr === 'string') {
-            // If it's already a string like "2026-06-05", use it directly
             if (checkinStr.includes('T')) {
-                // Has time component, extract just the date part
                 revenueDate = checkinStr.split('T')[0];
             } else if (checkinStr.includes(' ')) {
-                // Has space separator, extract date part
                 revenueDate = checkinStr.split(' ')[0];
             } else {
-                // Already just a date string
                 revenueDate = checkinStr;
             }
         } else {
-            // Fallback: create date and format manually
             const date = new Date(checkinStr);
             const year = date.getFullYear();
             const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -54,10 +41,8 @@ async function addRevenueForBooking(bookingId) {
         }
 
         const amount = parseFloat(booking.total_price) || 0;
-        // Count only 1 guest per booking (the guest name), not the number of people
         const guestCount = 1;
 
-        // Add to daily_revenue - increment both total_amount AND guest_count
         await dbQuery(
             `INSERT INTO daily_revenue (revenue_date, total_amount, guest_count, last_reset) 
              VALUES (?, ?, ?, NOW()) 
@@ -73,10 +58,8 @@ async function addRevenueForBooking(bookingId) {
     }
 }
 
-// Export the helper so bookings.js can use it
 router.addRevenueForBooking = addRevenueForBooking;
 
-// ===================== LOGIN / LOGOUT =====================
 router.get("/login", (req, res) => res.render("admin/login", { error: null }));
 
 router.post("/login", async (req, res) => {
@@ -101,7 +84,6 @@ router.post("/login", async (req, res) => {
 router.get("/logout", (req, res) => { req.session.destroy(); res.redirect("/login"); });
 
 
-// ===================== PAGE ROUTES =====================
 router.get("/admin-dashboard", checkAuth, (req, res) => res.render("admin/admin_dashbord"));
 router.get("/rooms", checkAuth, (req, res) => res.render("admin/rooms"));
 router.get("/form", checkAuth, (req, res) => res.render("admin/form"));
@@ -160,7 +142,6 @@ router.get("/api/booking-schedule", async (req, res) => {
             ORDER BY b.checkin ASC
         `);
 
-        // Group by room/cottage and show date ranges
         const schedule = {};
 
         bookings.forEach(booking => {
@@ -458,28 +439,10 @@ router.post("/create", async (req, res) => {
     }
 });
 
-
-// ============================================================
-//    DASHBOARD STATS, REVENUE LOG, TOTAL REVENUE (ALL TIME)
-// ============================================================
-
-/*
-    HOW IT WORKS:
-    1. Every time you APPROVE a booking, addRevenueForBooking() adds price + guests to daily_revenue
-    2. Total Revenue (All Time) = SUM of ALL daily_revenue rows
-    3. Revenue Log = list of all daily_revenue rows (each date's total)
-    4. Daily Guest Count = stored in daily_revenue.guest_count (persists even if bookings deleted)
-    5. When you DELETE a revenue log entry, the Total Revenue automatically decreases
-    6. Guest count in revenue log does NOT decrease when bookings are deleted
-*/
-
-
-// --- GET: Dashboard Stats (for the 3 main cards) ---
 router.get("/api/dashboard/stats", checkAuth, async (req, res) => {
     try {
         const today = new Date().toISOString().split('T')[0];
 
-        // 1. Get today's revenue
         const revenueResults = await dbQuery(
             "SELECT total_amount FROM daily_revenue WHERE revenue_date = ?", 
             [today]
@@ -529,11 +492,6 @@ router.get("/api/dashboard/stats", checkAuth, async (req, res) => {
 // --- GET: Revenue Log (list of all daily revenue with stored guest counts) ---
 router.get("/api/dashboard/revenue-log", checkAuth, async (req, res) => {
     try {
-        /*
-            guest_count is now STORED in daily_revenue table.
-            It gets incremented when a booking is approved.
-            It does NOT decrease when bookings are deleted.
-        */
         const log = await dbQuery(`
             SELECT 
                 id,
@@ -557,9 +515,6 @@ router.get("/api/dashboard/revenue-log", checkAuth, async (req, res) => {
 router.post("/api/dashboard/reset-revenue", checkAuth, async (req, res) => {
     try {
         const today = new Date().toISOString().split('T')[0];
-
-        // Reset today's revenue to 0 and update last_reset timestamp
-        // Also reset guest_count to 0 for today
         await dbQuery(
             `INSERT INTO daily_revenue (revenue_date, total_amount, guest_count, last_reset) 
              VALUES (?, 0, 0, NOW()) 
@@ -579,8 +534,6 @@ router.post("/api/dashboard/reset-revenue", checkAuth, async (req, res) => {
 router.delete("/api/dashboard/revenue-log/:id", checkAuth, async (req, res) => {
     try {
         const logId = req.params.id;
-
-        // Delete the specific daily_revenue row by its ID
         await dbQuery("DELETE FROM daily_revenue WHERE id = ?", [logId]);
 
         res.json({ success: true, message: "Revenue log entry deleted" });

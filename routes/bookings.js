@@ -14,19 +14,13 @@ const dbQuery = (sql, params = []) => new Promise((resolve, reject) => {
     db.query(sql, params, (err, results) => err ? reject(err) : resolve(results));
 });
 
-// ============================================
-// HELPER: Format date to YYYY-MM-DD for HTML date inputs
-// MySQL dates can be Date objects or strings - we need clean YYYY-MM-DD
-// ============================================
 function formatDateForInput(dateValue) {
     if (!dateValue) return '';
     
-    // If it's already a string in YYYY-MM-DD format, return it
     if (typeof dateValue === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
         return dateValue;
     }
     
-    // Parse the date (handles Date objects, ISO strings, MySQL datetime strings)
     const date = new Date(dateValue);
     if (isNaN(date.getTime())) return '';
     
@@ -37,9 +31,6 @@ function formatDateForInput(dateValue) {
     return `${year}-${month}-${day}`;
 }
 
-// ============================================
-// HELPER: Calculate total price and nights for a booking
-// ============================================
 async function calculateBookingPrice(roomType, checkin, checkout) {
     try {
         // Get room price from database
@@ -96,13 +87,11 @@ router.get("/bookings", checkAuth, async (req, res) => {
   ['triggerApprove', 'guestName', 'guestEmail', 'guestRoom', 'guestIn', 'guestOut', 'guestPeople', 'guestRequests'].forEach(key => delete req.session[key]);
 
   try {
-    // Load all bookings AND all available rooms from the database
     const [bookings, rooms] = await Promise.all([
       dbQuery("SELECT * FROM bookings ORDER BY id DESC"),
       dbQuery("SELECT * FROM rooms WHERE status = 'available' ORDER BY category, name")
     ]);
     
-    // Format dates for each booking so EJS can use them in date inputs
     const formattedBookings = bookings.map(booking => {
         return {
             ...booking,
@@ -113,7 +102,7 @@ router.get("/bookings", checkAuth, async (req, res) => {
     
     res.render("admin/booking", { 
       bookings: formattedBookings || [],
-      rooms: rooms || [], // <-- Pass real rooms to EJS template
+      rooms: rooms || [],
       triggerApprove, 
       guestName: gData.name, 
       guestEmail: gData.email,
@@ -141,7 +130,6 @@ router.post("/approve/:id", checkAuth, async (req, res) => {
     if (rows && rows.length > 0) {
       const row = rows[0];
 
-      // Add revenue and guest count using helper from index.js
       const indexRouter = require("./index");
       await indexRouter.addRevenueForBooking(bookingId);
 
@@ -163,26 +151,17 @@ router.post("/approve/:id", checkAuth, async (req, res) => {
   }
 });
 
-
-// ============================================
-// FIX: Recalculate total_price and nights when admin edits a booking
-// Also validates guest count against room occupancy
-// ============================================
 router.post("/update/:id", checkAuth, async (req, res) => {
   const bookingId = req.params.id;
   const { name, email, people, checkin, checkout, roomType, requests } = req.body;
   
   try {
-    // Step 1: Calculate new price and nights based on selected room and dates
     const calc = await calculateBookingPrice(roomType, checkin, checkout);
-    
-    // Step 2: Validate guest count doesn't exceed room capacity
     let guestCount = parseInt(people) || 1;
     if (guestCount > calc.maxOccupancy && calc.maxOccupancy > 0) {
         guestCount = calc.maxOccupancy;
     }
     
-    // Step 3: Update ALL booking fields including recalculated price and nights
     await dbQuery(
       `UPDATE bookings 
        SET name = ?, email = ?, people = ?, checkin = ?, checkout = ?, 
