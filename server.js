@@ -1,7 +1,7 @@
 const express = require("express");
 const bodyParser = require("body-parser");
 const session = require("express-session");
-const path = require('path'); 
+const path = require('path');
 const app = express();
 
 const routes = require("./routes");

@@ -1,5 +1,18 @@
 require('dotenv').config();
 const mysql = require('mysql2');
+const fs = require('fs');
+const path = require('path');
+
+// Check if CA certificate file exists (for Aiven)
+let sslConfig = {
+    rejectUnauthorized: true
+};
+
+// Try to read Aiven CA certificate if it exists
+const caCertPath = path.join(__dirname, 'ca.pem');
+if (fs.existsSync(caCertPath)) {
+    sslConfig.ca = fs.readFileSync(caCertPath);
+}
 
 const db = mysql.createPool({
     host: process.env.DB_HOST,
@@ -7,10 +20,7 @@ const db = mysql.createPool({
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
     port: process.env.DB_PORT || 3306,
-    ssl: {
-        rejectUnauthorized: true
-    },
-    
+    ssl: sslConfig,
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0
