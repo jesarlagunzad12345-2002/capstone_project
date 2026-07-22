@@ -19,7 +19,10 @@ app.use(session({
 
 app.use("/", routes);
 
-const port = 8080;
+const port = process.env.PORT || 8080;
 app.listen(port, () => {
   console.log(`🚀 KML Resort is LIVE at: http://localhost:${port}`);
 });
+
+
+module.exports = app;
