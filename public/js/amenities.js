@@ -136,7 +136,7 @@ async function showDiningModal(diningId) {
         
         // Update hours if available from API, else default
         document.getElementById('modalDiningHours').textContent = 
-            spot.hours || spot.opening_hours || 'Open Daily: 7:00 AM – 10:00 PM';
+            spot.hours || spot.opening_hours || 'Open at : WED-FRI (9:00 AM – 5:00 PM)' + '\nand SAT-SUN (8:00 AM – 6:00 PM)';
 
         new bootstrap.Modal(document.getElementById('diningDetailsModal')).show();
     } catch (err) {
@@ -156,7 +156,7 @@ async function showFacilityModal(facilityId) {
         
         // Update hours if available from API, else default
         document.getElementById('modalFacilityHours').textContent = 
-            facility.hours || facility.opening_hours || 'Open 24 Hours';
+            facility.hours || facility.opening_hours || 'SWIMMINGPOOL : Open at (9AM - 10PM)'+'\n'+'\nKTV : Open 24 Hours';
 
         new bootstrap.Modal(document.getElementById('facilityDetailsModal')).show();
     } catch (err) {

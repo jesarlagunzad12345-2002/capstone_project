@@ -77,8 +77,7 @@ function renderAccommodations() {
                 <ul class="list-unstyled feature-list">
                     <li><i class="bi bi-people-fill me-2 text-primary"></i>${room.occupancy} Guest Capacity</li>
                     <li><i class="bi bi-tag-fill me-2 text-primary"></i>${room.category} Class</li>
-                    <li><i class="bi bi-wifi me-2 text-primary"></i>Free Wi-Fi</li>
-                    <li><i class="bi bi-cup-hot me-2 text-primary"></i>Breakfast Included</li>
+
                 </ul>
                 <p class="price-tag"><strong>Price:</strong> ₱${room.price} / night</p>
                 <div class="d-flex gap-3">
@@ -123,12 +122,10 @@ async function openRoomModal(roomId) {
             'Standard': [
                 'Queen/twin beds',
                 'Hot shower',
-                'Cable TV',
-                'Mini fridge'
+                'Bathroom'
             ],
             'Cottage': [
                 'Private cottage',
-                'Kitchenette',
                 'Garden deck',
                 'Nature views'
             ]
@@ -141,13 +138,10 @@ async function openRoomModal(roomId) {
 
         const amenitiesByCategory = {
             'Cottage': [
-                'Solar power',
-                'Outdoor fire pit',
-                'Self-check-in',
-                'Hiking trail access'
+                'Basic bathroom (soap, shampoo)',
+                'Mountain view'
             ],
             'Standard': [
-                'Free Wi-Fi',
                 'Air Conditioning',
                 'Daily Housekeeping',
                 'Breakfast'
