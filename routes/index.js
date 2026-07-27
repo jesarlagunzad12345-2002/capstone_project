@@ -98,16 +98,24 @@ router.get("/amenities", (req, res) => res.render("user/amenities"));
 router.get("/location", (req, res) => res.render("user/location"));
 router.get("/live-map", (req, res) => res.render("admin/live-map"));
 
+// ===================== UPDATED: /booking GET route =====================
 router.get("/booking", async (req, res) => {
     const msg = req.session.msg || null;
-    ['msg','triggerApprove','guestName','guestEmail'].forEach(k => delete req.session[k]);
+    const err = req.session.error || null;  // NEW: capture error message
+    
+    // Clear both messages from session
+    ['msg', 'error', 'triggerApprove', 'guestName', 'guestEmail'].forEach(k => delete req.session[k]);
 
     try {
         const rooms = await dbQuery("SELECT * FROM rooms WHERE status = 'available' ORDER BY category, name");
-        res.render("user/booking", { message: msg, rooms: rooms || [] });
+        res.render("user/booking", { 
+            message: msg, 
+            error: err,      // NEW: pass error to template
+            rooms: rooms || [] 
+        });
     } catch (err) {
         console.error("❌ Error loading accommodations:", err);
-        res.render("user/booking", { message: msg, rooms: [] });
+        res.render("user/booking", { message: msg, error: null, rooms: [] });
     }
 });
 
@@ -129,7 +137,9 @@ function buildWhere(baseSql, filters) {
 // ===================== BOOKING SCHEDULE API (Public) =====================
 router.get("/api/booking-schedule", async (req, res) => {
     try {
-        // Get all approved bookings with their dates and room names
+        // Get only APPROVED bookings that are NOT outdated
+        // CURDATE() = today's date on the server
+        // This hides bookings whose checkout date has already passed
         const bookings = await dbQuery(`
             SELECT 
                 b.roomType,
@@ -139,6 +149,7 @@ router.get("/api/booking-schedule", async (req, res) => {
                 b.status
             FROM bookings b
             WHERE b.status = 'approved'
+              AND b.checkout >= CURDATE()
             ORDER BY b.checkin ASC
         `);
 
@@ -165,7 +176,6 @@ router.get("/api/booking-schedule", async (req, res) => {
         res.status(500).json({ error: "Failed to load booking schedule" });
     }
 });
-
 
 // ===================== ROOMS API =====================
 router.get("/api/rooms", async (req, res) => {
@@ -411,11 +421,31 @@ router.get("/api/gallery", async (req, res) => {
 });
 
 
-// ===================== BOOKING CREATION =====================
+// ===================== UPDATED: BOOKING CREATION with double-booking check =====================
 router.post("/create", async (req, res) => {
     const { name, email, people, checkin, checkout, roomType, requests } = req.body;
 
     try {
+        // NEW: Check for double booking before saving
+        const overlapCheck = await dbQuery(`
+            SELECT checkin, checkout 
+            FROM bookings 
+            WHERE roomType = ? 
+              AND status = 'approved'
+              AND checkin < ? 
+              AND checkout > ?
+            LIMIT 1
+        `, [roomType, checkout, checkin]);
+
+        if (overlapCheck.length > 0) {
+            const existing = overlapCheck[0];
+            const inStr = new Date(existing.checkin).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            const outStr = new Date(existing.checkout).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            
+            req.session.error = `"${roomType}" is already booked from ${inStr} to ${outStr}. Please choose another room or different dates.`;
+            return res.redirect("/booking");
+        }
+
         const checkinDate = new Date(checkin);
         const checkoutDate = new Date(checkout);
         const nights = Math.max(1, Math.ceil((checkoutDate - checkinDate) / (1000 * 60 * 60 * 24)));

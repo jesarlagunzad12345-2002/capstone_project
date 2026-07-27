@@ -72,8 +72,13 @@ async function calculateBookingPrice(roomType, checkin, checkout) {
 }
 
 
+// ===================== GET: Admin Bookings Page =====================
 router.get("/bookings", checkAuth, async (req, res) => {
   const triggerApprove = req.session.triggerApprove || false;
+  
+  // NEW: Read error message from session (for double-booking conflicts on edit)
+  const errorMsg = req.session.error || null;
+  
   const gData = {
     name: req.session.guestName || null,
     email: req.session.guestEmail || null,
@@ -84,7 +89,8 @@ router.get("/bookings", checkAuth, async (req, res) => {
     requests: req.session.guestRequests || null
   };
 
-  ['triggerApprove', 'guestName', 'guestEmail', 'guestRoom', 'guestIn', 'guestOut', 'guestPeople', 'guestRequests'].forEach(key => delete req.session[key]);
+  // Clear all session keys after reading them
+  ['triggerApprove', 'guestName', 'guestEmail', 'guestRoom', 'guestIn', 'guestOut', 'guestPeople', 'guestRequests', 'error'].forEach(key => delete req.session[key]);
 
   try {
     const [bookings, rooms] = await Promise.all([
@@ -110,7 +116,8 @@ router.get("/bookings", checkAuth, async (req, res) => {
       guestIn: gData.in, 
       guestOut: gData.out, 
       guestPeople: gData.people,
-      guestRequests: gData.requests
+      guestRequests: gData.requests,
+      error: errorMsg  // NEW: pass error to EJS template
     });
   } catch (err) {
     console.error("❌ SQL Error in /bookings:", err);
@@ -119,6 +126,7 @@ router.get("/bookings", checkAuth, async (req, res) => {
 });
 
 
+// ===================== POST: Approve Booking =====================
 router.post("/approve/:id", checkAuth, async (req, res) => {
   const bookingId = req.params.id;
 
@@ -151,11 +159,35 @@ router.post("/approve/:id", checkAuth, async (req, res) => {
   }
 });
 
+
+// ===================== UPDATED: POST: Edit Booking with double-booking check =====================
 router.post("/update/:id", checkAuth, async (req, res) => {
   const bookingId = req.params.id;
   const { name, email, people, checkin, checkout, roomType, requests } = req.body;
   
   try {
+    // NEW: Check for double booking BEFORE saving edits
+    // id != ? makes sure we don't count the booking we're currently editing
+    const overlapCheck = await dbQuery(`
+      SELECT checkin, checkout 
+      FROM bookings 
+      WHERE roomType = ? 
+        AND status = 'approved'
+        AND id != ?
+        AND checkin < ? 
+        AND checkout > ?
+      LIMIT 1
+    `, [roomType, bookingId, checkout, checkin]);
+
+    if (overlapCheck.length > 0) {
+      const existing = overlapCheck[0];
+      const inStr = new Date(existing.checkin).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      const outStr = new Date(existing.checkout).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      
+      req.session.error = `"${roomType}" is already booked from ${inStr} to ${outStr}. Please choose another room/cottage or different dates.`;
+      return res.redirect("/bookings");
+    }
+
     const calc = await calculateBookingPrice(roomType, checkin, checkout);
     let guestCount = parseInt(people) || 1;
     if (guestCount > calc.maxOccupancy && calc.maxOccupancy > 0) {
@@ -179,6 +211,7 @@ router.post("/update/:id", checkAuth, async (req, res) => {
 });
 
 
+// ===================== POST: Delete Booking =====================
 router.post("/delete/:id", checkAuth, async (req, res) => {
   try {
     await dbQuery("DELETE FROM bookings WHERE id = ?", [req.params.id]);

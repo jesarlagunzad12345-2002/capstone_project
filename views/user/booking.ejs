@@ -47,9 +47,19 @@
                             <p class="mb-0">Choose from our rooms and cottages. Prices are calculated automatically.</p>
                         </div>
 
+                        <!-- Success Message -->
                         <% if (message) { %>
                             <div class="alert alert-success alert-dismissible fade show m-4" role="alert">
                                 <strong>Success!</strong> <%= message %>
+                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            </div>
+                        <% } %>
+
+                        <!-- Error Message (for backend double-booking conflicts) -->
+                        <% if (error) { %>
+                            <div class="alert alert-danger alert-dismissible fade show m-4" role="alert">
+                                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                                <strong>Booking Conflict!</strong> <%= error %>
                                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                             </div>
                         <% } %>
@@ -122,9 +132,15 @@
                                         <h4 class="mb-0 text-primary">₱<span id="totalPrice">0</span></h4>
                                     </div>
                                 </div>
+
+                                <!-- Live conflict alert (shows instantly when dates overlap) -->
+                                <div class="alert alert-danger" id="conflictAlert" style="display: none;">
+                                    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                                    <span id="conflictMessage"></span>
+                                </div>
                             </div>
 
-                            <!-- BOOKING SCHEDULE SECTION - Moved here between Stay Details and Special Requests -->
+                            <!-- BOOKING SCHEDULE SECTION -->
                             <div class="form-section">
                                 <h3><i class="bi bi-calendar-week me-2 text-primary"></i>Booking Schedule</h3>
                                 <p class="text-muted small mb-3">Check which rooms are already reserved before booking your stay.</p>
@@ -161,7 +177,7 @@
                                 <textarea name="requests" class="form-control custom-textarea" rows="5" placeholder="Tell us about any special requests (e.g., dietary requirements, celebration setup, extra pillows...)"></textarea>
                             </div>
 
-                            <button type="submit" class="btn submit-booking-btn w-100 mt-4">Confirm Reservation Request</button>
+                            <button type="submit" class="btn submit-booking-btn w-100 mt-4" id="submitBtn">Confirm Reservation Request</button>
                         </form>
                     </section>
                 </div>
@@ -175,6 +191,9 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        // Global variable to store schedule data
+        let scheduleData = {};
+
         function calculateTotal() {
             const roomSelect = document.getElementById('roomType');
             const checkin = document.getElementById('checkin').value;
@@ -185,7 +204,6 @@
             const pricePerNight = parseFloat(selectedOption.getAttribute('data-price')) || 0;
             const maxOccupancy = parseInt(selectedOption.getAttribute('data-occupancy')) || 1;
             const category = selectedOption.getAttribute('data-category') || 'Room';
-
 
             if (people > maxOccupancy && maxOccupancy > 0) {
                 alert(`⚠️ ${category} "${selectedOption.text.split('—')[0].trim()}" can only accommodate ${maxOccupancy} guests. Please adjust.`);
@@ -211,6 +229,9 @@
             } else {
                 document.getElementById('priceDisplay').style.display = 'none';
             }
+
+            // Check for double booking every time user changes anything
+            checkDoubleBooking();
         }
 
         const today = new Date().toISOString().split('T')[0];
@@ -251,6 +272,11 @@
                 const res = await fetch('/api/booking-schedule');
                 const data = await res.json();
 
+                // Save schedule data globally so we can check for conflicts
+                if (data.schedule) {
+                    scheduleData = data.schedule;
+                }
+
                 document.getElementById('scheduleLoading').style.display = 'none';
 
                 if (!data.schedule || Object.keys(data.schedule).length === 0) {
@@ -261,7 +287,6 @@
                 const container = document.getElementById('scheduleData');
                 let html = '';
 
-                // Loop through each room/cottage
                 for (const [roomName, bookings] of Object.entries(data.schedule)) {
                     html += `
                         <div class="schedule-room-group">
@@ -275,7 +300,6 @@
                             <div class="schedule-dates">
                     `;
 
-                    // Show each booking date range
                     bookings.forEach(booking => {
                         const checkin = new Date(booking.checkin).toLocaleDateString('en-US', {
                             month: 'short', day: 'numeric', year: 'numeric'
@@ -321,6 +345,73 @@
                 document.getElementById('scheduleData').style.display = 'block';
             }
         }
+
+        // UPDATED: Check if selected room & dates overlap with an existing booking
+        // Now dynamically says "cottage" or "room" based on the selected option's category
+        function checkDoubleBooking() {
+            const roomSelect = document.getElementById('roomType');
+            const checkinVal = document.getElementById('checkin').value;
+            const checkoutVal = document.getElementById('checkout').value;
+            const conflictAlert = document.getElementById('conflictAlert');
+            const conflictMessage = document.getElementById('conflictMessage');
+            const submitBtn = document.getElementById('submitBtn');
+
+            // Hide warning by default
+            conflictAlert.style.display = 'none';
+            submitBtn.disabled = false;
+
+            // Need all three fields filled before we can check
+            if (!checkinVal || !checkoutVal || !roomSelect.value) return true;
+
+            const selectedRoom = roomSelect.value;
+            const newStart = new Date(checkinVal);
+            const newEnd = new Date(checkoutVal);
+
+            // NEW: Get the category from the selected dropdown option
+            const selectedOption = roomSelect.options[roomSelect.selectedIndex];
+            const category = selectedOption.getAttribute('data-category') || 'Room';
+            const typeLabel = category === 'Cottage' ? 'cottage' : 'room';
+
+            // Get existing bookings for this room
+            const roomBookings = scheduleData[selectedRoom] || [];
+
+            // Check each booking for date overlap
+            for (const booking of roomBookings) {
+                const existingStart = new Date(booking.checkin);
+                const existingEnd = new Date(booking.checkout);
+
+                // Overlap formula: newStart < existingEnd AND newEnd > existingStart
+                if (newStart < existingEnd && newEnd > existingStart) {
+                    // CONFLICT FOUND!
+                    const inStr = existingStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                    const outStr = existingEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+                    // UPDATED: Dynamic message using typeLabel
+                    conflictMessage.innerHTML = `
+                        <strong>"${selectedRoom}" is already booked from ${inStr} to ${outStr}.</strong><br>
+                        Please choose another ${typeLabel} or different dates.
+                    `;
+                    conflictAlert.style.display = 'block';
+                    submitBtn.disabled = true; // Block the submit button
+                    return false;
+                }
+            }
+
+            return true; // No conflict
+        }
+
+        // Prevent form submission if there's a conflict
+        document.getElementById('bookingForm').addEventListener('submit', function(e) {
+            if (!checkDoubleBooking()) {
+                e.preventDefault(); // Stop form from submitting
+                alert('⚠️ This accommodation is already booked for your selected dates. Please choose another one or change your dates.');
+            }
+        });
+
+        // Auto-load schedule on page load so we can check conflicts immediately
+        loadBookingSchedule().then(() => {
+            document.getElementById('scheduleContent').dataset.loaded = 'true';
+        });
     </script>
 </body>
 </html>

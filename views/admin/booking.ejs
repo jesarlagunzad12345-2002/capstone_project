@@ -170,6 +170,16 @@
         </header>
 
         <div class="container-fluid p-4">
+            
+            <!-- NEW: Error Message for double-booking conflicts when editing -->
+            <% if (error) { %>
+                <div class="alert alert-danger alert-dismissible fade show mb-4" role="alert" style="border-radius: 16px;">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                    <strong>Update Blocked!</strong> <%= error %>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            <% } %>
+
             <div class="mb-4">
                 <h1 class="h3 fw-bold text-dark mb-1">Pending Reservations</h1>
                 <p class="text-muted small">New requests waiting for approval.</p>
