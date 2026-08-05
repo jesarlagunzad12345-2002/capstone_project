@@ -137,11 +137,6 @@
                             <input type="email" id="cancelEmail" class="form-control" placeholder="juan@email.com" required>
                         </div>
 
-                        <div class="mb-3">
-                            <label class="form-label">Room / Cottage Booked</label>
-                            <input type="text" id="cancelRoom" class="form-control" placeholder="e.g. Deluxe Cabin" required>
-                        </div>
-
                         <div class="mb-4">
                             <label class="form-label">Reason (Optional)</label>
                             <textarea id="cancelReason" class="form-control" rows="3" placeholder="Change of plans, emergency, etc."></textarea>
@@ -184,7 +179,7 @@
         const submitBtn    = document.getElementById('cancelSubmitBtn');
 
         // ============================================
-        // NEW: Reusable function to update UI based on status
+        // Reusable function to update UI based on status
         // ============================================
         function updateCancelUI(status) {
             if (status === 'pending') {
@@ -213,7 +208,6 @@
             const status  = statusSelect.value;
             const name    = document.getElementById('cancelName').value.trim();
             const email   = document.getElementById('cancelEmail').value.trim();
-            const room    = document.getElementById('cancelRoom').value.trim();
             const checkin = document.getElementById('cancelCheckin').value;
             const reason  = document.getElementById('cancelReason').value.trim() || 'No reason provided';
 
@@ -231,7 +225,6 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 
                         email: email, 
-                        roomType: room,
                         checkin: checkin
                     })
                 });
@@ -258,13 +251,12 @@
                     to_email: ADMIN_EMAIL,
                     user_name: name,
                     booking_id: bookingId,
-                    room_type: room,
                     checkin_date: checkin,
                     status_type: status === 'pending' ? 'Pending Booking' : 'Approved Booking',
                     cancel_reason: reason,
                     message: status === 'pending'
-                        ? `[AUTO-CANCEL] Pending booking #${bookingId} was cancelled by ${name}. Room: ${room}, Check-in: ${checkin}, Reason: ${reason}`
-                        : `[CANCEL REQUEST] ${name} wants to cancel approved booking #${bookingId}. Room: ${room}, Check-in: ${checkin}, Reason: ${reason}`
+                        ? `[AUTO-CANCEL] Pending booking #${bookingId} was cancelled by ${name}. Check-in: ${checkin}, Reason: ${reason}`
+                        : `[CANCEL REQUEST] ${name} wants to cancel approved booking #${bookingId}. Check-in: ${checkin}, Reason: ${reason}`
                 };
 
                 // For PENDING: also send confirmation to customer
@@ -273,7 +265,6 @@
                         to_email: email,
                         user_name: name,
                         booking_id: bookingId,
-                        room_type: room,
                         checkin_date: checkin,
                         status_type: 'Pending Booking',
                         cancel_reason: reason,
@@ -297,10 +288,10 @@
                 }
 
                 // ============================================
-                // STEP 4: Reset form and restore UI  <-- BUG FIX HERE
+                // STEP 4: Reset form and restore UI
                 // ============================================
                 cancelForm.reset();
-                updateCancelUI('pending');  // Direct call instead of dispatchEvent
+                updateCancelUI('pending');
 
             } catch (err) {
                 console.error('❌ Error:', err);
