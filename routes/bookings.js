@@ -33,7 +33,6 @@ function formatDateForInput(dateValue) {
 
 async function calculateBookingPrice(roomType, checkin, checkout) {
     try {
-        // Get room price from database
         const roomResults = await dbQuery(
             "SELECT price, category, occupancy FROM rooms WHERE name = ? LIMIT 1", 
             [roomType]
@@ -43,13 +42,11 @@ async function calculateBookingPrice(roomType, checkin, checkout) {
         const roomCategory = roomResults.length > 0 ? roomResults[0].category : 'Room';
         const maxOccupancy = roomResults.length > 0 ? parseInt(roomResults[0].occupancy) : 1;
         
-        // Calculate nights
         const checkinDate = new Date(checkin);
         const checkoutDate = new Date(checkout);
         const timeDiff = checkoutDate - checkinDate;
         const nights = Math.max(1, Math.ceil(timeDiff / (1000 * 60 * 60 * 24)));
         
-        // Calculate total price
         const totalPrice = roomPrice * nights;
         
         return {
@@ -75,10 +72,11 @@ async function calculateBookingPrice(roomType, checkin, checkout) {
 // ===================== GET: Admin Bookings Page =====================
 router.get("/bookings", checkAuth, async (req, res) => {
   const triggerApprove = req.session.triggerApprove || false;
+  const triggerCancel = req.session.triggerCancel || false;  // NEW
   
-  // NEW: Read error message from session (for double-booking conflicts on edit)
   const errorMsg = req.session.error || null;
   
+  // Approval session data
   const gData = {
     name: req.session.guestName || null,
     email: req.session.guestEmail || null,
@@ -89,8 +87,20 @@ router.get("/bookings", checkAuth, async (req, res) => {
     requests: req.session.guestRequests || null
   };
 
+  // NEW: Cancel session data (for admin cancelling approved booking)
+  const cData = {
+    email: req.session.cancelGuestEmail || null,
+    name: req.session.cancelGuestName || null,
+    room: req.session.cancelGuestRoom || null,
+    checkin: req.session.cancelGuestCheckin || null,
+    id: req.session.cancelGuestId || null
+  };
+
   // Clear all session keys after reading them
-  ['triggerApprove', 'guestName', 'guestEmail', 'guestRoom', 'guestIn', 'guestOut', 'guestPeople', 'guestRequests', 'error'].forEach(key => delete req.session[key]);
+  ['triggerApprove', 'guestName', 'guestEmail', 'guestRoom', 'guestIn', 'guestOut', 
+   'guestPeople', 'guestRequests', 'error', 'triggerCancel', 'cancelGuestEmail', 
+   'cancelGuestName', 'cancelGuestRoom', 'cancelGuestCheckin', 'cancelGuestId']
+   .forEach(key => delete req.session[key]);
 
   try {
     const [bookings, rooms] = await Promise.all([
@@ -117,7 +127,14 @@ router.get("/bookings", checkAuth, async (req, res) => {
       guestOut: gData.out, 
       guestPeople: gData.people,
       guestRequests: gData.requests,
-      error: errorMsg  // NEW: pass error to EJS template
+      error: errorMsg,
+      // NEW: Pass cancel trigger data to template
+      triggerCancel,
+      cancelGuestEmail: cData.email,
+      cancelGuestName: cData.name,
+      cancelGuestRoom: cData.room,
+      cancelGuestCheckin: cData.checkin,
+      cancelGuestId: cData.id
     });
   } catch (err) {
     console.error("❌ SQL Error in /bookings:", err);
@@ -160,14 +177,12 @@ router.post("/approve/:id", checkAuth, async (req, res) => {
 });
 
 
-// ===================== UPDATED: POST: Edit Booking with double-booking check =====================
+// ===================== POST: Edit Booking =====================
 router.post("/update/:id", checkAuth, async (req, res) => {
   const bookingId = req.params.id;
   const { name, email, people, checkin, checkout, roomType, requests } = req.body;
   
   try {
-    // NEW: Check for double booking BEFORE saving edits
-    // id != ? makes sure we don't count the booking we're currently editing
     const overlapCheck = await dbQuery(`
       SELECT checkin, checkout 
       FROM bookings 
@@ -219,6 +234,93 @@ router.post("/delete/:id", checkAuth, async (req, res) => {
   } catch (err) {
     console.error("❌ Delete Error:", err);
     res.status(500).send("Delete failed: " + (err.message || "Unknown error"));
+  }
+});
+
+
+// ===================== NEW: POST: Admin Cancel Approved Booking =====================
+// Admin clicks "Cancel Booking" from Approved History dropdown
+// Stores guest data in session, deletes booking, then triggers EmailJS on page load
+router.post("/admin-cancel/:id", checkAuth, async (req, res) => {
+  try {
+    const rows = await dbQuery("SELECT * FROM bookings WHERE id = ?", [req.params.id]);
+    
+    if (rows.length > 0) {
+      const booking = rows[0];
+      
+      // Store data for EmailJS cancellation email to guest
+      req.session.triggerCancel = true;
+      req.session.cancelGuestEmail = booking.email;
+      req.session.cancelGuestName = booking.name;
+      req.session.cancelGuestRoom = booking.roomType;
+      req.session.cancelGuestCheckin = formatDateForInput(booking.checkin);
+      req.session.cancelGuestId = booking.id;
+    }
+    
+    // Delete the booking
+    await dbQuery("DELETE FROM bookings WHERE id = ?", [req.params.id]);
+    console.log(`✅ Admin cancelled approved booking #${req.params.id}`);
+    
+    res.redirect("/bookings");
+  } catch (err) {
+    console.error("❌ Admin Cancel Error:", err);
+    res.status(500).send("Cancel failed: " + (err.message || "Unknown error"));
+  }
+});
+
+
+// ===================== POST: Guest Cancel Booking (No Login Required) =====================
+router.post("/cancel-booking", async (req, res) => {
+  const { email, roomType, checkin } = req.body;
+  
+  if (!email || !roomType || !checkin) {
+    return res.status(400).json({ 
+      success: false, 
+      message: "Please fill in Email, Room Type, and Check-in Date." 
+    });
+  }
+
+  try {
+    const rows = await dbQuery(
+      "SELECT * FROM bookings WHERE email = ? AND roomType = ? AND DATE(checkin) = ? LIMIT 1", 
+      [email, roomType, checkin]
+    );
+    
+    if (rows.length === 0) {
+      return res.status(404).json({ 
+        success: false, 
+        message: "Booking not found. Please double-check your Email, Room Type, and Check-in Date." 
+      });
+    }
+    
+    const booking = rows[0];
+    
+    // CASE 1: Pending -> Delete immediately
+    if (booking.status !== 'approved') {
+      await dbQuery("DELETE FROM bookings WHERE id = ?", [booking.id]);
+      console.log(`✅ Guest cancelled pending booking #${booking.id} for ${email}`);
+      return res.json({ 
+        success: true, 
+        bookingId: booking.id,
+        message: "Your pending booking has been cancelled successfully." 
+      });
+    } 
+    // CASE 2: Approved -> Just verify; admin handles actual cancellation later
+    else {
+      console.log(`📧 Cancellation request received for approved booking #${booking.id} by ${email}`);
+      return res.json({ 
+        success: true, 
+        bookingId: booking.id,
+        message: "Your cancellation request has been submitted. Our admin team will contact you shortly." 
+      });
+    }
+    
+  } catch (err) {
+    console.error("❌ Guest Cancel Error:", err);
+    res.status(500).json({ 
+      success: false, 
+      message: "Server error. Please contact us directly." 
+    });
   }
 });
 

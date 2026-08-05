@@ -25,6 +25,7 @@
       }
 
       window.onload = function() {
+        // ===== APPROVE TRIGGER =====
         const shouldTrigger = "<%= triggerApprove %>";
         
         if (shouldTrigger === "true") {
@@ -57,6 +58,31 @@
                 .catch((err) => console.error("Email Error: ", err));
             }
         }
+
+        // ===== NEW: CANCEL TRIGGER (Admin cancelled approved booking) =====
+        const shouldTriggerCancel = "<%= triggerCancel %>";
+        
+        if (shouldTriggerCancel === "true") {
+            const cEmail = "<%= cancelGuestEmail %>";
+            const cName = "<%= cancelGuestName %>";
+
+            if (cEmail && cEmail !== "null" && cEmail !== "") {
+              const cancelParams = {
+                to_email: cEmail,
+                user_name: cName,
+                booking_id: "<%= cancelGuestId %>",
+                room_type: "<%= cancelGuestRoom %>" || "Standard",
+                checkin_date: "<%= cancelGuestCheckin %>",
+                status_type: "Approved Booking",
+                cancel_reason: "Cancelled by admin upon guest request",
+                message: "Your booking has been successfully cancelled by our admin team. We hope to welcome you again in the future!"
+              };
+
+              emailjs.send('service_kmlresort', 'template_kule5md', cancelParams)
+                .then(() => console.log("Cancellation email sent to guest."))
+                .catch((err) => console.error("Cancel Email Error: ", err));
+            }
+        }
       };
 
       function clearNotifications() {
@@ -66,7 +92,6 @@
 
       // ============================================
       // DYNAMIC GUEST DROPDOWN: Updates based on room capacity
-      // Each room has a data-occupancy attribute with max guests
       // ============================================
       function updateGuestDropdown(bookingId) {
           const roomSelect = document.getElementById('roomSelect' + bookingId);
@@ -74,21 +99,17 @@
           
           if (!roomSelect || !guestSelect) return;
           
-          // Get the selected option's max occupancy
           const selectedOption = roomSelect.options[roomSelect.selectedIndex];
           const maxOccupancy = parseInt(selectedOption.getAttribute('data-occupancy')) || 1;
           const currentValue = parseInt(guestSelect.value) || 1;
           
-          // Clear existing options
           guestSelect.innerHTML = '';
           
-          // Build new options from 1 to max occupancy
           for (let i = 1; i <= maxOccupancy; i++) {
               const option = document.createElement('option');
               option.value = i;
               option.textContent = i === 1 ? '1 Adult' : i + ' Adults';
               
-              // Keep the current selection if it's still valid
               if (i === currentValue) {
                   option.selected = true;
               }
@@ -96,13 +117,11 @@
               guestSelect.appendChild(option);
           }
           
-          // If current value exceeds new max, select the max
           if (currentValue > maxOccupancy) {
               guestSelect.value = maxOccupancy;
           }
       }
 
-      // Attach event listeners after DOM loads (avoids EJS in onchange attribute)
       document.addEventListener('DOMContentLoaded', function() {
           document.querySelectorAll('[data-booking-id]').forEach(function(select) {
               select.addEventListener('change', function() {
@@ -171,7 +190,6 @@
 
         <div class="container-fluid p-4">
             
-            <!-- NEW: Error Message for double-booking conflicts when editing -->
             <% if (error) { %>
                 <div class="alert alert-danger alert-dismissible fade show mb-4" role="alert" style="border-radius: 16px;">
                     <i class="bi bi-exclamation-triangle-fill me-2"></i>
@@ -237,7 +255,7 @@
                                 </td>
                             </tr>
 
-                            <!-- EDIT MODAL for each pending booking -->
+                            <!-- EDIT MODAL -->
                             <div class="modal fade" id="editModal<%= booking.id %>" tabindex="-1" aria-hidden="true">
                                 <div class="modal-dialog modal-dialog-centered">
                                     <div class="modal-content border-0 shadow" style="border-radius: 24px;">
@@ -339,6 +357,7 @@
                         <thead>
                             <tr>
                                 <th class="ps-4">GUEST</th>
+                                <th>EMAIL</th>
                                 <th>ROOM or COTTAGE</th>
                                 <th class="text-center">GUESTS</th>
                                 <th>PRICE</th>
@@ -356,6 +375,9 @@
                                         <%= shortDate(booking.checkin) %> - <%= shortDate(booking.checkout) %>
                                     </div>
                                 </td>
+                                <td class="email-cell">
+                                    <%= booking.email %>
+                                </td>
                                 <td class="small"><%= booking.roomType %></td>
                                 <td class="text-center"><span class="guest-badge"><%= booking.people %></span></td>
                                 <td><span class="price-tag"><%= formatPrice(booking.total_price) %></span></td>
@@ -369,10 +391,30 @@
                                     <% } %>
                                 </td>
                                 <td class="text-center"><span class="status-tag bg-success bg-opacity-10 text-success">Approved</span></td>
+                                <!-- NEW: 3-dot dropdown menu for Cancel / Remove -->
                                 <td class="text-end pe-4">
-                                    <form action="/delete/<%= booking.id %>" method="POST" onsubmit="return confirm('Remove from history?')">
-                                        <button class="btn btn-link text-danger p-0"><i class="bi bi-trash3"></i></button>
-                                    </form>
+                                    <div class="dropdown">
+                                        <button class="btn btn-light btn-sm border-0" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                            <i class="bi bi-three-dots-vertical text-muted"></i>
+                                        </button>
+                                        <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0" style="border-radius: 12px;">
+                                            <li>
+                                                <form action="/admin-cancel/<%= booking.id %>" method="POST" onsubmit="return confirm('Cancel this booking and notify guest via email?')">
+                                                    <button type="submit" class="dropdown-item text-danger fw-semibold">
+                                                        <i class="bi bi-x-circle me-2"></i>Cancel Booking
+                                                    </button>
+                                                </form>
+                                            </li>
+                                            <li><hr class="dropdown-divider"></li>
+                                            <li>
+                                                <form action="/delete/<%= booking.id %>" method="POST" onsubmit="return confirm('Remove from history?')">
+                                                    <button type="submit" class="dropdown-item text-muted">
+                                                        <i class="bi bi-trash3 me-2"></i>Remove Booking
+                                                    </button>
+                                                </form>
+                                            </li>
+                                        </ul>
+                                    </div>
                                 </td>
                             </tr>
                             <% }) %>

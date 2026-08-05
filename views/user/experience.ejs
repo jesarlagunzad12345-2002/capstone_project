@@ -7,6 +7,9 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="css/experience.css">
     <link rel="icon" type="image/png" sizes="32x32" href="img/logo.jpg">
+    
+    <!-- EmailJS SDK -->
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 </head>
 <body>
 
@@ -92,6 +95,67 @@
             <p class="mb-4">Your sanctuary is just a click away.</p>
             <a href="/booking" class="btn btn-lg cta-btn">Reserve Your Stay</a>
         </section>
+
+        <!-- ==================== CANCELLATION SECTION ==================== -->
+        <section class="cancellation-section" id="cancelBooking">
+            <div class="text-center mb-4">
+                <h2 class="section-title">Cancel Your Booking</h2>
+                <p class="text-muted">Need to change your plans? Handle it here.</p>
+            </div>
+            
+            <div class="row justify-content-center">
+                <div class="col-lg-6 col-md-8">
+                    <form id="cancelForm" class="cancel-form">
+                        
+                        <!-- Status selector -->
+                        <div class="mb-3">
+                            <label class="form-label">Booking Status</label>
+                            <select id="bookingStatus" class="form-select">
+                                <option value="pending">⏳ Not Yet Approved (Pending)</option>
+                                <option value="approved">✅ Already Approved</option>
+                            </select>
+                        </div>
+
+                        <!-- Dynamic note based on status -->
+                        <div id="statusNote" class="status-note pending-note">
+                            <strong>Instant Cancel:</strong> Your booking will be cancelled immediately and removed from our system.
+                        </div>
+
+                        <!-- Check-in Date -->
+                        <div class="mb-3">
+                            <label class="form-label">Check-in Date</label>
+                            <input type="date" id="cancelCheckin" class="form-control" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Full Name</label>
+                            <input type="text" id="cancelName" class="form-control" placeholder="Juan Dela Cruz" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Email Address</label>
+                            <input type="email" id="cancelEmail" class="form-control" placeholder="juan@email.com" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Room / Cottage Booked</label>
+                            <input type="text" id="cancelRoom" class="form-control" placeholder="e.g. Deluxe Cabin" required>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="form-label">Reason (Optional)</label>
+                            <textarea id="cancelReason" class="form-control" rows="3" placeholder="Change of plans, emergency, etc."></textarea>
+                        </div>
+
+                        <button type="submit" class="btn btn-danger cancel-btn" id="cancelSubmitBtn">
+                            Cancel My Booking
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </section>
+        <!-- ==================== END CANCELLATION SECTION ==================== -->
+
     </main>
 
     <footer class="text-center py-4">
@@ -99,5 +163,156 @@
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- ==================== CANCELLATION LOGIC ==================== -->
+    <script>
+        // Initialize EmailJS with your Public Key
+        (function() { 
+            emailjs.init({ publicKey: "EfvIkV0UtUXjEGOgu" }); 
+        })();
+
+        // ============================================
+        // CONFIG
+        // ============================================
+        const TEMPLATE_ID = 'template_kule5md';
+        const ADMIN_EMAIL = 'jesarlagunzad12345@gmail.com';
+
+        // Grab DOM elements
+        const cancelForm   = document.getElementById('cancelForm');
+        const statusSelect = document.getElementById('bookingStatus');
+        const statusNote   = document.getElementById('statusNote');
+        const submitBtn    = document.getElementById('cancelSubmitBtn');
+
+        // ============================================
+        // NEW: Reusable function to update UI based on status
+        // ============================================
+        function updateCancelUI(status) {
+            if (status === 'pending') {
+                submitBtn.textContent = 'Cancel My Booking';
+                submitBtn.className   = 'btn btn-danger cancel-btn';
+                statusNote.className  = 'status-note pending-note';
+                statusNote.innerHTML  = '<strong>Instant Cancel:</strong> Your booking will be cancelled immediately and removed from our system.';
+            } else {
+                submitBtn.textContent = 'Request Cancellation';
+                submitBtn.className   = 'btn btn-warning cancel-btn';
+                statusNote.className  = 'status-note approved-note';
+                statusNote.innerHTML  = '<strong>Request Only:</strong> This will notify our admin team. Please wait for a confirmation email once your request is processed.';
+            }
+        }
+
+        // Change UI when user picks Pending vs Approved
+        statusSelect.addEventListener('change', function() {
+            updateCancelUI(this.value);
+        });
+
+        // Handle form submission
+        cancelForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            // Collect form values
+            const status  = statusSelect.value;
+            const name    = document.getElementById('cancelName').value.trim();
+            const email   = document.getElementById('cancelEmail').value.trim();
+            const room    = document.getElementById('cancelRoom').value.trim();
+            const checkin = document.getElementById('cancelCheckin').value;
+            const reason  = document.getElementById('cancelReason').value.trim() || 'No reason provided';
+
+            // Show loading state
+            const originalText = submitBtn.textContent;
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Processing...';
+
+            try {
+                // ============================================
+                // STEP 1: Call backend to verify & find booking
+                // ============================================
+                const response = await fetch('/cancel-booking', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        email: email, 
+                        roomType: room,
+                        checkin: checkin
+                    })
+                });
+                
+                const result = await response.json();
+                
+                // If backend couldn't find the booking, stop here
+                if (!result.success) {
+                    alert('❌ ' + result.message);
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = originalText;
+                    return;
+                }
+                
+                // Backend found the booking! Get the real booking ID
+                const bookingId = result.bookingId;
+
+                // ============================================
+                // STEP 2: Send emails
+                // ============================================
+                
+                // Build admin params (sent for BOTH pending and approved)
+                const adminParams = {
+                    to_email: ADMIN_EMAIL,
+                    user_name: name,
+                    booking_id: bookingId,
+                    room_type: room,
+                    checkin_date: checkin,
+                    status_type: status === 'pending' ? 'Pending Booking' : 'Approved Booking',
+                    cancel_reason: reason,
+                    message: status === 'pending'
+                        ? `[AUTO-CANCEL] Pending booking #${bookingId} was cancelled by ${name}. Room: ${room}, Check-in: ${checkin}, Reason: ${reason}`
+                        : `[CANCEL REQUEST] ${name} wants to cancel approved booking #${bookingId}. Room: ${room}, Check-in: ${checkin}, Reason: ${reason}`
+                };
+
+                // For PENDING: also send confirmation to customer
+                if (status === 'pending') {
+                    const customerParams = {
+                        to_email: email,
+                        user_name: name,
+                        booking_id: bookingId,
+                        room_type: room,
+                        checkin_date: checkin,
+                        status_type: 'Pending Booking',
+                        cancel_reason: reason,
+                        message: 'Your booking has been successfully cancelled. We hope to welcome you again in the future!'
+                    };
+                    await emailjs.send('service_kmlresort', TEMPLATE_ID, customerParams);
+                    console.log('✅ Customer email sent to:', email);
+                }
+
+                // Always send admin notification
+                await emailjs.send('service_kmlresort', TEMPLATE_ID, adminParams);
+                console.log('✅ Admin email sent to:', ADMIN_EMAIL);
+
+                // ============================================
+                // STEP 3: Show success message
+                // ============================================
+                if (status === 'pending') {
+                    alert('✅ Your booking has been cancelled successfully!\n\nA confirmation email has been sent to ' + email);
+                } else {
+                    alert('✅ Your cancellation request has been submitted to our admin team!\n\nYou will receive a confirmation email once your request is processed.');
+                }
+
+                // ============================================
+                // STEP 4: Reset form and restore UI  <-- BUG FIX HERE
+                // ============================================
+                cancelForm.reset();
+                updateCancelUI('pending');  // Direct call instead of dispatchEvent
+
+            } catch (err) {
+                console.error('❌ Error:', err);
+                alert('❌ Something went wrong. Please try again or contact us directly.');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = statusSelect.value === 'pending' 
+                    ? 'Cancel My Booking' 
+                    : 'Request Cancellation';
+            }
+        });
+    </script>
+
 </body>
 </html>
