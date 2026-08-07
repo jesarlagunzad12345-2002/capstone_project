@@ -264,7 +264,7 @@ router.post("/admin-cancel/:id", checkAuth, async (req, res) => {
 // ===================== POST: Guest Cancel Booking (No Login Required) =====================
 // FIXED: Works for BOTH pending and approved — no roomType needed
 router.post("/cancel-booking", async (req, res) => {
-  const { email, checkin } = req.body;
+  const { email, checkin, verifyOnly } = req.body;
   
   // Only require email and checkin
   if (!email || !checkin) {
@@ -289,6 +289,16 @@ router.post("/cancel-booking", async (req, res) => {
     }
     
     const booking = rows[0];
+    
+    // ========== VERIFY ONLY: return status without touching the database ==========
+    if (verifyOnly) {
+      return res.json({ 
+        success: true, 
+        bookingId: booking.id,
+        roomType: booking.roomType || 'Standard',
+        status: booking.status || 'pending'
+      });
+    }
     
     // CASE 1: Pending -> Delete immediately
     if (booking.status !== 'approved') {

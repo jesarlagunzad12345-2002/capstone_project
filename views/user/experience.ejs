@@ -121,6 +121,9 @@
                             <strong>Instant Cancel:</strong> Your booking will be cancelled immediately and removed from our system.
                         </div>
 
+                        <!-- NEW: Mismatch warning message -->
+                        <div id="statusMismatchMsg" class="alert alert-warning d-none mt-2"></div>
+
                         <!-- Check-in Date -->
                         <div class="mb-3">
                             <label class="form-label">Check-in Date</label>
@@ -175,6 +178,7 @@
         const statusSelect = document.getElementById('bookingStatus');
         const statusNote   = document.getElementById('statusNote');
         const submitBtn    = document.getElementById('cancelSubmitBtn');
+        const mismatchMsg  = document.getElementById('statusMismatchMsg');
 
         function updateCancelUI(status) {
             if (status === 'pending') {
@@ -197,11 +201,14 @@
         cancelForm.addEventListener('submit', async function(e) {
             e.preventDefault();
 
-            const status  = statusSelect.value;
-            const name    = document.getElementById('cancelName').value.trim();
-            const email   = document.getElementById('cancelEmail').value.trim();
-            const checkin = document.getElementById('cancelCheckin').value;
-            const reason  = document.getElementById('cancelReason').value.trim() || 'No reason provided';
+            const status      = statusSelect.value;
+            const name        = document.getElementById('cancelName').value.trim();
+            const email       = document.getElementById('cancelEmail').value.trim();
+            const checkin     = document.getElementById('cancelCheckin').value;
+            const reason      = document.getElementById('cancelReason').value.trim() || 'No reason provided';
+
+            // Hide any previous mismatch message
+            mismatchMsg.className = 'alert alert-warning d-none mt-2';
 
             const originalText = submitBtn.textContent;
             submitBtn.disabled = true;
@@ -209,16 +216,52 @@
 
             try {
                 // ============================================
-                // STEP 1: Find booking by EMAIL + CHECKIN only
-                // Works for BOTH pending and approved
+                // STEP 1: Verify booking status first (no delete)
+                // ============================================
+                const verifyRes = await fetch('/cancel-booking', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: email, checkin: checkin, verifyOnly: true })
+                });
+                
+                const verifyResult = await verifyRes.json();
+                
+                if (!verifyResult.success) {
+                    alert('❌ ' + verifyResult.message);
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = originalText;
+                    return;
+                }
+                
+                // 'approved' or anything else = pending
+                const actualStatus = verifyResult.status === 'approved' ? 'approved' : 'pending';
+
+                // ============================================
+                // CHECK: Did the user pick the wrong option?
+                // ============================================
+                if (status === 'pending' && actualStatus === 'approved') {
+                    mismatchMsg.textContent = '⚠️ This option is for pending bookings only. Your booking is already approved. Please select "Already Approved" above.';
+                    mismatchMsg.className = 'alert alert-warning mt-2';
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = originalText;
+                    return;
+                }
+
+                if (status === 'approved' && actualStatus === 'pending') {
+                    mismatchMsg.textContent = '⚠️ This option is for approved bookings only. Your booking is still pending. Please select "Not Yet Approved (Pending)" above.';
+                    mismatchMsg.className = 'alert alert-warning mt-2';
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = originalText;
+                    return;
+                }
+
+                // ============================================
+                // STEP 2: Status matches — proceed with cancellation
                 // ============================================
                 const response = await fetch('/cancel-booking', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        email: email, 
-                        checkin: checkin
-                    })
+                    body: JSON.stringify({ email: email, checkin: checkin })
                 });
                 
                 const result = await response.json();
@@ -235,7 +278,7 @@
                 const room      = result.roomType || 'Standard';
 
                 // ============================================
-                // STEP 2: Send emails
+                // STEP 3: Send emails
                 // ============================================
                 
                 const adminParams = {
@@ -277,6 +320,7 @@
 
                 cancelForm.reset();
                 updateCancelUI('pending');
+                mismatchMsg.className = 'alert alert-warning d-none mt-2'; // hide warning on reset
 
             } catch (err) {
                 console.error('❌ Error:', err);
