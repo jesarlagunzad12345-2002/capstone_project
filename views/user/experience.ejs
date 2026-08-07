@@ -137,6 +137,8 @@
                             <input type="email" id="cancelEmail" class="form-control" placeholder="juan@email.com" required>
                         </div>
 
+                        <!-- ROOM TYPE REMOVED — fetched from database -->
+
                         <div class="mb-4">
                             <label class="form-label">Reason (Optional)</label>
                             <textarea id="cancelReason" class="form-control" rows="3" placeholder="Change of plans, emergency, etc."></textarea>
@@ -161,26 +163,19 @@
 
     <!-- ==================== CANCELLATION LOGIC ==================== -->
     <script>
-        // Initialize EmailJS with your Public Key
+        // Initialize EmailJS
         (function() { 
             emailjs.init({ publicKey: "EfvIkV0UtUXjEGOgu" }); 
         })();
 
-        // ============================================
-        // CONFIG
-        // ============================================
         const TEMPLATE_ID = 'template_kule5md';
         const ADMIN_EMAIL = 'jesarlagunzad12345@gmail.com';
 
-        // Grab DOM elements
         const cancelForm   = document.getElementById('cancelForm');
         const statusSelect = document.getElementById('bookingStatus');
         const statusNote   = document.getElementById('statusNote');
         const submitBtn    = document.getElementById('cancelSubmitBtn');
 
-        // ============================================
-        // Reusable function to update UI based on status
-        // ============================================
         function updateCancelUI(status) {
             if (status === 'pending') {
                 submitBtn.textContent = 'Cancel My Booking';
@@ -195,30 +190,27 @@
             }
         }
 
-        // Change UI when user picks Pending vs Approved
         statusSelect.addEventListener('change', function() {
             updateCancelUI(this.value);
         });
 
-        // Handle form submission
         cancelForm.addEventListener('submit', async function(e) {
             e.preventDefault();
 
-            // Collect form values
             const status  = statusSelect.value;
             const name    = document.getElementById('cancelName').value.trim();
             const email   = document.getElementById('cancelEmail').value.trim();
             const checkin = document.getElementById('cancelCheckin').value;
             const reason  = document.getElementById('cancelReason').value.trim() || 'No reason provided';
 
-            // Show loading state
             const originalText = submitBtn.textContent;
             submitBtn.disabled = true;
             submitBtn.textContent = 'Processing...';
 
             try {
                 // ============================================
-                // STEP 1: Call backend to verify & find booking
+                // STEP 1: Find booking by EMAIL + CHECKIN only
+                // Works for BOTH pending and approved
                 // ============================================
                 const response = await fetch('/cancel-booking', {
                     method: 'POST',
@@ -231,7 +223,6 @@
                 
                 const result = await response.json();
                 
-                // If backend couldn't find the booking, stop here
                 if (!result.success) {
                     alert('❌ ' + result.message);
                     submitBtn.disabled = false;
@@ -239,32 +230,33 @@
                     return;
                 }
                 
-                // Backend found the booking! Get the real booking ID
+                // Get room type from DATABASE response
                 const bookingId = result.bookingId;
+                const room      = result.roomType || 'Standard';
 
                 // ============================================
                 // STEP 2: Send emails
                 // ============================================
                 
-                // Build admin params (sent for BOTH pending and approved)
                 const adminParams = {
                     to_email: ADMIN_EMAIL,
                     user_name: name,
                     booking_id: bookingId,
+                    room_type: room,
                     checkin_date: checkin,
                     status_type: status === 'pending' ? 'Pending Booking' : 'Approved Booking',
                     cancel_reason: reason,
                     message: status === 'pending'
-                        ? `[AUTO-CANCEL] Pending booking #${bookingId} was cancelled by ${name}. Check-in: ${checkin}, Reason: ${reason}`
-                        : `[CANCEL REQUEST] ${name} wants to cancel approved booking #${bookingId}. Check-in: ${checkin}, Reason: ${reason}`
+                        ? `[AUTO-CANCEL] Pending booking #${bookingId} was cancelled by ${name}. Room: ${room}, Check-in: ${checkin}, Reason: ${reason}`
+                        : `[CANCEL REQUEST] ${name} wants to cancel approved booking #${bookingId}. Room: ${room}, Check-in: ${checkin}, Reason: ${reason}`
                 };
 
-                // For PENDING: also send confirmation to customer
                 if (status === 'pending') {
                     const customerParams = {
                         to_email: email,
                         user_name: name,
                         booking_id: bookingId,
+                        room_type: room,
                         checkin_date: checkin,
                         status_type: 'Pending Booking',
                         cancel_reason: reason,
@@ -274,22 +266,15 @@
                     console.log('✅ Customer email sent to:', email);
                 }
 
-                // Always send admin notification
                 await emailjs.send('service_kmlresort', TEMPLATE_ID, adminParams);
                 console.log('✅ Admin email sent to:', ADMIN_EMAIL);
 
-                // ============================================
-                // STEP 3: Show success message
-                // ============================================
                 if (status === 'pending') {
                     alert('✅ Your booking has been cancelled successfully!\n\nA confirmation email has been sent to ' + email);
                 } else {
                     alert('✅ Your cancellation request has been submitted to our admin team!\n\nYou will receive a confirmation email once your request is processed.');
                 }
 
-                // ============================================
-                // STEP 4: Reset form and restore UI
-                // ============================================
                 cancelForm.reset();
                 updateCancelUI('pending');
 

@@ -121,7 +121,6 @@ async function openRoomModal(roomId) {
         const featuresByCategory = {
             'Standard': [
                 'Queen/twin beds',
-                'Hot shower',
                 'Bathroom'
             ],
             'Cottage': [
@@ -138,13 +137,11 @@ async function openRoomModal(roomId) {
 
         const amenitiesByCategory = {
             'Cottage': [
-                'Basic bathroom (soap, shampoo)',
                 'Mountain view'
             ],
             'Standard': [
                 'Air Conditioning',
                 'Daily Housekeeping',
-                'Breakfast'
             ]
         };
 

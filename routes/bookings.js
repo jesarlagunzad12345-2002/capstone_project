@@ -72,11 +72,10 @@ async function calculateBookingPrice(roomType, checkin, checkout) {
 // ===================== GET: Admin Bookings Page =====================
 router.get("/bookings", checkAuth, async (req, res) => {
   const triggerApprove = req.session.triggerApprove || false;
-  const triggerCancel = req.session.triggerCancel || false;  // NEW
+  const triggerCancel = req.session.triggerCancel || false;
   
   const errorMsg = req.session.error || null;
   
-  // Approval session data
   const gData = {
     name: req.session.guestName || null,
     email: req.session.guestEmail || null,
@@ -87,7 +86,6 @@ router.get("/bookings", checkAuth, async (req, res) => {
     requests: req.session.guestRequests || null
   };
 
-  // NEW: Cancel session data (for admin cancelling approved booking)
   const cData = {
     email: req.session.cancelGuestEmail || null,
     name: req.session.cancelGuestName || null,
@@ -96,7 +94,6 @@ router.get("/bookings", checkAuth, async (req, res) => {
     id: req.session.cancelGuestId || null
   };
 
-  // Clear all session keys after reading them
   ['triggerApprove', 'guestName', 'guestEmail', 'guestRoom', 'guestIn', 'guestOut', 
    'guestPeople', 'guestRequests', 'error', 'triggerCancel', 'cancelGuestEmail', 
    'cancelGuestName', 'cancelGuestRoom', 'cancelGuestCheckin', 'cancelGuestId']
@@ -128,7 +125,6 @@ router.get("/bookings", checkAuth, async (req, res) => {
       guestPeople: gData.people,
       guestRequests: gData.requests,
       error: errorMsg,
-      // NEW: Pass cancel trigger data to template
       triggerCancel,
       cancelGuestEmail: cData.email,
       cancelGuestName: cData.name,
@@ -238,9 +234,7 @@ router.post("/delete/:id", checkAuth, async (req, res) => {
 });
 
 
-// ===================== NEW: POST: Admin Cancel Approved Booking =====================
-// Admin clicks "Cancel Booking" from Approved History dropdown
-// Stores guest data in session, deletes booking, then triggers EmailJS on page load
+// ===================== POST: Admin Cancel Approved Booking =====================
 router.post("/admin-cancel/:id", checkAuth, async (req, res) => {
   try {
     const rows = await dbQuery("SELECT * FROM bookings WHERE id = ?", [req.params.id]);
@@ -248,7 +242,6 @@ router.post("/admin-cancel/:id", checkAuth, async (req, res) => {
     if (rows.length > 0) {
       const booking = rows[0];
       
-      // Store data for EmailJS cancellation email to guest
       req.session.triggerCancel = true;
       req.session.cancelGuestEmail = booking.email;
       req.session.cancelGuestName = booking.name;
@@ -257,7 +250,6 @@ router.post("/admin-cancel/:id", checkAuth, async (req, res) => {
       req.session.cancelGuestId = booking.id;
     }
     
-    // Delete the booking
     await dbQuery("DELETE FROM bookings WHERE id = ?", [req.params.id]);
     console.log(`✅ Admin cancelled approved booking #${req.params.id}`);
     
@@ -270,26 +262,29 @@ router.post("/admin-cancel/:id", checkAuth, async (req, res) => {
 
 
 // ===================== POST: Guest Cancel Booking (No Login Required) =====================
+// FIXED: Works for BOTH pending and approved — no roomType needed
 router.post("/cancel-booking", async (req, res) => {
-  const { email, roomType, checkin } = req.body;
+  const { email, checkin } = req.body;
   
-  if (!email || !roomType || !checkin) {
+  // Only require email and checkin
+  if (!email || !checkin) {
     return res.status(400).json({ 
       success: false, 
-      message: "Please fill in Email, Room Type, and Check-in Date." 
+      message: "Please fill in Email and Check-in Date." 
     });
   }
 
   try {
+    // Search by email + checkin only (no roomType)
     const rows = await dbQuery(
-      "SELECT * FROM bookings WHERE email = ? AND roomType = ? AND DATE(checkin) = ? LIMIT 1", 
-      [email, roomType, checkin]
+      "SELECT * FROM bookings WHERE email = ? AND DATE(checkin) = ? LIMIT 1", 
+      [email, checkin]
     );
     
     if (rows.length === 0) {
       return res.status(404).json({ 
         success: false, 
-        message: "Booking not found. Please double-check your Email, Room Type, and Check-in Date." 
+        message: "No booking found with this email and check-in date." 
       });
     }
     
@@ -302,6 +297,7 @@ router.post("/cancel-booking", async (req, res) => {
       return res.json({ 
         success: true, 
         bookingId: booking.id,
+        roomType: booking.roomType || 'Standard',
         message: "Your pending booking has been cancelled successfully." 
       });
     } 
@@ -311,6 +307,7 @@ router.post("/cancel-booking", async (req, res) => {
       return res.json({ 
         success: true, 
         bookingId: booking.id,
+        roomType: booking.roomType || 'Standard',
         message: "Your cancellation request has been submitted. Our admin team will contact you shortly." 
       });
     }
