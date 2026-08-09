@@ -1,6 +1,8 @@
+require('dotenv').config();
 const express = require("express");
 const router = express.Router();
 const bcrypt = require("bcrypt");
+const emailjs = require('@emailjs/nodejs'); // EmailJS for OTP
 const bookingRoutes = require("./bookings");
 const getDb = () => require("../config/database");
 
@@ -82,30 +84,143 @@ async function addRevenueForBooking(bookingId) {
 
 router.addRevenueForBooking = addRevenueForBooking;
 
-router.get("/login", (req, res) => res.render("admin/login", { error: null }));
+// ===================== LOGIN & LOGOUT =====================
+
+router.get("/login", (req, res) => res.render("admin/login", { error: null, success: req.query.reset === 'success' }));
 
 router.post("/login", async (req, res) => {
     const { username, password } = req.body;
     try {
         const admins = await dbQuery("SELECT * FROM admin WHERE username = ?", [username]);
-        if (admins.length === 0) return res.render("admin/login", { error: "Invalid username or password" });
+        if (admins.length === 0) return res.render("admin/login", { error: "Invalid username or password", success: false });
 
         if (await bcrypt.compare(password, admins[0].password_hash)) {
             req.session.isLoggedIn = true;
             req.session.adminUsername = admins[0].username;
             res.redirect("/admin-dashboard");
         } else {
-            res.render("admin/login", { error: "Invalid username or password" });
+            res.render("admin/login", { error: "Invalid username or password", success: false });
         }
     } catch (err) {
         console.error("❌ Login error:", err);
-        res.render("admin/login", { error: "System error. Please try again." });
+        res.render("admin/login", { error: "System error. Please try again.", success: false });
     }
 });
 
 router.get("/logout", (req, res) => { req.session.destroy(); res.redirect("/login"); });
 
 
+// ===================== PASSWORD RECOVERY (OTP via EmailJS) =====================
+
+// Step 1: Send verification code to admin email
+router.post("/forgot-password", async (req, res) => {
+    const { username } = req.body;
+    try {
+        const admins = await dbQuery("SELECT * FROM admin WHERE username = ?", [username]);
+        if (admins.length === 0) {
+            return res.json({ success: false, error: "Username not found" });
+        }
+
+        const admin = admins[0];
+        if (!admin.email) {
+            return res.json({ success: false, error: "No email registered for this account" });
+        }
+
+        // Generate random 6-digit code
+        const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
+        const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+
+        // Save code to database
+        await dbQuery(
+            "UPDATE admin SET reset_code = ?, reset_code_expires = ? WHERE id = ?",
+            [resetCode, expiresAt, admin.id]
+        );
+
+        // Send email via EmailJS — now using process.env
+        await emailjs.send(
+            process.env.EMAILJS_SERVICE_ID,
+            process.env.EMAILJS_TEMPLATE_ID,
+            {
+                email: admin.email,
+                to_name: admin.username,
+                verification_code: resetCode
+            },
+            {
+                publicKey: process.env.EMAILJS_PUBLIC_KEY,
+                privateKey: process.env.EMAILJS_PRIVATE_KEY
+            }
+        );
+
+        res.json({ success: true, message: "Verification code sent" });
+    } catch (err) {
+        console.error("❌ EmailJS send error:", err);
+        res.json({ success: false, error: "Failed to send code. Check server console." });
+    }
+});
+
+// Step 2: Verify the 6-digit code
+router.post("/verify-code", async (req, res) => {
+    const { username, code } = req.body;
+    try {
+        const admins = await dbQuery(
+            "SELECT * FROM admin WHERE username = ? AND reset_code = ?",
+            [username, code]
+        );
+
+        if (admins.length === 0) {
+            return res.json({ success: false, error: "Invalid verification code" });
+        }
+
+        const now = new Date();
+        const expires = new Date(admins[0].reset_code_expires);
+
+        if (now > expires) {
+            return res.json({ success: false, error: "Code has expired. Request a new one." });
+        }
+
+        res.json({ success: true });
+    } catch (err) {
+        console.error("❌ Verify code error:", err);
+        res.json({ success: false, error: "Verification failed" });
+    }
+});
+
+// Step 3: Reset password after code is verified
+router.post("/reset-password", async (req, res) => {
+    const { username, code, newPassword, confirmPassword } = req.body;
+
+    if (newPassword !== confirmPassword) {
+        return res.json({ success: false, error: "Passwords do not match" });
+    }
+
+    try {
+        const admins = await dbQuery(
+            "SELECT * FROM admin WHERE username = ? AND reset_code = ?",
+            [username, code]
+        );
+
+        if (admins.length === 0) {
+            return res.json({ success: false, error: "Invalid request. Please start over." });
+        }
+
+        // Hash the new password
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+        // Update password and clear reset code
+        await dbQuery(
+            "UPDATE admin SET password_hash = ?, reset_code = NULL, reset_code_expires = NULL WHERE username = ?",
+            [hashedPassword, username]
+        );
+
+        res.json({ success: true, message: "Password updated successfully!" });
+    } catch (err) {
+        console.error("❌ Reset password error:", err);
+        res.json({ success: false, error: "Failed to update password" });
+    }
+});
+
+
+// ===================== ADMIN DASHBOARD ROUTES =====================
 router.get("/admin-dashboard", checkAuth, (req, res) => res.render("admin/admin_dashbord"));
 router.get("/rooms", checkAuth, (req, res) => res.render("admin/rooms"));
 router.get("/form", checkAuth, (req, res) => res.render("admin/form"));
@@ -155,7 +270,7 @@ function buildWhere(baseSql, filters) {
 }
 
 
-// ===================== BOOKING SCHEDULE API (Public) — UPDATED =====================
+// ===================== BOOKING SCHEDULE API (Public) =====================
 router.get("/api/booking-schedule", async (req, res) => {
     try {
         const now = new Date();
@@ -184,17 +299,12 @@ router.get("/api/booking-schedule", async (req, res) => {
             let isExpired = false;
             
             if (isCottage) {
-                // 🏡 COTTAGE: Remove from schedule when checkout time is reached
-                // e.g., Aug 9, 8AM–5PM → disappears after 5:00 PM
                 isExpired = now >= checkout;
             } else {
-                // 🏨 ROOM: Remove from schedule 22 hours after check-in
-                // e.g., checked in Aug 9 at 2PM → disappears Aug 10 at 12PM
                 const hoursSinceCheckin = (now - checkin) / (1000 * 60 * 60);
                 isExpired = hoursSinceCheckin >= 22;
             }
             
-            // Only add to schedule if NOT expired
             if (!isExpired) {
                 const roomName = booking.roomType;
 
@@ -462,7 +572,7 @@ router.get("/api/gallery", async (req, res) => {
 });
 
 
-// ===================== UPDATED: /create with Email Verification + Room Auto-Checkout + Cottage day-use + Mon/Tue block =====================
+// ===================== /create with Email Verification + Room Auto-Checkout + Cottage day-use + Mon/Tue block =====================
 router.post("/create", async (req, res) => {
     const { name, email, people, roomType, requests, checkin, checkout, bookingDate, checkinTime, checkoutTime } = req.body;
 

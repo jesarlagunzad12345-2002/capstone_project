@@ -9,6 +9,10 @@
     <style>
         body { background: #1a1a1a; height: 100vh; display: flex; align-items: center; }
         .login-card { border-radius: 15px; border: none; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .step-section { display: none; animation: fadeIn 0.3s ease; }
+        .step-section.active { display: block; }
+        .code-input { letter-spacing: 8px; font-size: 1.5rem; text-align: center; font-weight: bold; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
 <body>
@@ -16,32 +20,249 @@
         <div class="row justify-content-center">
             <div class="col-md-4">
                 <div class="card login-card p-4">
-                    <div class="text-center mb-4">
-                        <h2 class="fw-bold text-dark"><i class="bi bi-lock-fill text-warning"></i> KML ADMIN</h2>
-                        <p class="text-muted small">Authorized Access Only</p>
+
+                    <!-- ========== LOGIN FORM ========== -->
+                    <div id="loginSection" class="step-section active">
+                        <div class="text-center mb-4">
+                            <h2 class="fw-bold text-dark"><i class="bi bi-lock-fill text-warning"></i> KML ADMIN</h2>
+                            <p class="text-muted small">Authorized Access Only</p>
+                        </div>
+
+                        <% if (error) { %>
+                            <div class="alert alert-danger py-2 small text-center"><%= error %></div>
+                        <% } %>
+                        <% if (success) { %>
+                            <div class="alert alert-success py-2 small text-center">Password reset successful! Please log in.</div>
+                        <% } %>
+
+                        <form action="/login" method="POST">
+                            <div class="mb-3">
+                                <label class="form-label small fw-bold">Username</label>
+                                <input type="text" name="username" class="form-control" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label small fw-bold">Password</label>
+                                <input type="password" name="password" class="form-control" required>
+                            </div>
+                            <button type="submit" class="btn btn-warning w-100 fw-bold py-2 mt-2">LOGIN</button>
+                        </form>
+
+                        <div class="text-center mt-3">
+                            <a href="#" onclick="showSection('forgotSection'); return false;" class="text-warning small text-decoration-none">Forgot Password?</a>
+                        </div>
+                        <div class="text-center mt-2">
+                            <a href="/" class="text-muted small text-decoration-none"><i class="bi bi-arrow-left"></i> Back to Home</a>
+                        </div>
                     </div>
 
-                    <% if (error) { %>
-                        <div class="alert alert-danger py-2 small text-center"><%= error %></div>
-                    <% } %>
+                    <!-- ========== STEP 1: FORGOT PASSWORD ========== -->
+                    <div id="forgotSection" class="step-section">
+                        <div class="text-center mb-4">
+                            <h2 class="fw-bold text-dark"><i class="bi bi-envelope-fill text-warning"></i></h2>
+                            <h4 class="fw-bold">Forgot Password?</h4>
+                            <p class="text-muted small">Enter your username. We'll send a 6-digit code to your registered email.</p>
+                        </div>
 
-                    <form action="/login" method="POST">
-                        <div class="mb-3">
-                            <label class="form-label small fw-bold">Username</label>
-                            <input type="text" name="username" class="form-control" required>
+                        <div class="alert alert-danger py-2 small text-center d-none" id="forgotError"></div>
+
+                        <form onsubmit="return handleForgot(event);">
+                            <div class="mb-3">
+                                <label class="form-label small fw-bold">Username</label>
+                                <input type="text" id="forgotUsername" class="form-control" required placeholder="Enter your username">
+                            </div>
+                            <button type="submit" class="btn btn-warning w-100 fw-bold py-2" id="sendCodeBtn">
+                                <span class="spinner-border spinner-border-sm d-none" id="sendSpinner"></span>
+                                Send Verification Code
+                            </button>
+                        </form>
+                        <div class="text-center mt-3">
+                            <a href="#" onclick="showSection('loginSection'); return false;" class="text-muted small text-decoration-none"><i class="bi bi-arrow-left"></i> Back to Login</a>
                         </div>
-                        <div class="mb-3">
-                            <label class="form-label small fw-bold">Password</label>
-                            <input type="password" name="password" class="form-control" required>
-                        </div>
-                        <button type="submit" class="btn btn-warning w-100 fw-bold py-2 mt-2">LOGIN</button>
-                    </form>
-                    <div class="text-center mt-3">
-                        <a href="/" class="text-muted small text-decoration-none"><i class="bi bi-arrow-left"></i> Back to Home</a>
                     </div>
+
+                    <!-- ========== STEP 2: VERIFY CODE ========== -->
+                    <div id="verifySection" class="step-section">
+                        <div class="text-center mb-4">
+                            <h2 class="fw-bold text-dark"><i class="bi bi-shield-lock-fill text-warning"></i></h2>
+                            <h4 class="fw-bold">Verify Code</h4>
+                            <p class="text-muted small">Enter the 6-digit code from your email. Expires in 15 minutes.</p>
+                        </div>
+
+                        <div class="alert alert-danger py-2 small text-center d-none" id="verifyError"></div>
+
+                        <form onsubmit="return handleVerify(event);">
+                            <input type="hidden" id="verifyUsername">
+                            <div class="mb-3">
+                                <label class="form-label small fw-bold">6-Digit Code</label>
+                                <input type="text" id="verifyCode" class="form-control code-input" maxlength="6" required placeholder="000000" pattern="\d{6}">
+                            </div>
+                            <button type="submit" class="btn btn-warning w-100 fw-bold py-2" id="verifyBtn">
+                                <span class="spinner-border spinner-border-sm d-none" id="verifySpinner"></span>
+                                Verify Code
+                            </button>
+                        </form>
+                        <div class="text-center mt-3">
+                            <a href="#" onclick="showSection('forgotSection'); return false;" class="text-muted small text-decoration-none">Didn't receive it? Resend</a>
+                        </div>
+                    </div>
+
+                    <!-- ========== STEP 3: RESET PASSWORD ========== -->
+                    <div id="resetSection" class="step-section">
+                        <div class="text-center mb-4">
+                            <h2 class="fw-bold text-dark"><i class="bi bi-key-fill text-warning"></i></h2>
+                            <h4 class="fw-bold">Reset Password</h4>
+                            <p class="text-muted small">Enter your new password below.</p>
+                        </div>
+
+                        <div class="alert alert-danger py-2 small text-center d-none" id="resetError"></div>
+
+                        <form onsubmit="return handleReset(event);">
+                            <input type="hidden" id="resetUsername">
+                            <input type="hidden" id="resetCodeVal">
+                            <div class="mb-3">
+                                <label class="form-label small fw-bold">New Password</label>
+                                <input type="password" id="newPassword" class="form-control" required minlength="6">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label small fw-bold">Confirm Password</label>
+                                <input type="password" id="confirmPassword" class="form-control" required minlength="6">
+                            </div>
+                            <button type="submit" class="btn btn-warning w-100 fw-bold py-2" id="resetBtn">
+                                <span class="spinner-border spinner-border-sm d-none" id="resetSpinner"></span>
+                                Update Password
+                            </button>
+                        </form>
+                        <div class="text-center mt-3">
+                            <a href="#" onclick="showSection('loginSection'); return false;" class="text-muted small text-decoration-none"><i class="bi bi-arrow-left"></i> Back to Login</a>
+                        </div>
+                    </div>
+
                 </div>
             </div>
         </div>
     </div>
+
+    <script>
+        // Show/hide sections
+        function showSection(id) {
+            document.querySelectorAll('.step-section').forEach(el => el.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+            document.querySelectorAll('.alert-danger').forEach(el => el.classList.add('d-none'));
+        }
+
+        function showError(id, msg) {
+            const el = document.getElementById(id);
+            el.textContent = msg;
+            el.classList.remove('d-none');
+        }
+
+        // Step 1: Send verification code
+        async function handleForgot(e) {
+            e.preventDefault();
+            const username = document.getElementById('forgotUsername').value.trim();
+            const btn = document.getElementById('sendCodeBtn');
+            const spinner = document.getElementById('sendSpinner');
+
+            btn.disabled = true;
+            spinner.classList.remove('d-none');
+
+            try {
+                const res = await fetch('/forgot-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    document.getElementById('verifyUsername').value = username;
+                    showSection('verifySection');
+                } else {
+                    showError('forgotError', data.error);
+                }
+            } catch (err) {
+                showError('forgotError', 'Network error. Please try again.');
+            }
+
+            btn.disabled = false;
+            spinner.classList.add('d-none');
+            return false;
+        }
+
+        // Step 2: Verify the code
+        async function handleVerify(e) {
+            e.preventDefault();
+            const username = document.getElementById('verifyUsername').value;
+            const code = document.getElementById('verifyCode').value.trim();
+            const btn = document.getElementById('verifyBtn');
+            const spinner = document.getElementById('verifySpinner');
+
+            btn.disabled = true;
+            spinner.classList.remove('d-none');
+
+            try {
+                const res = await fetch('/verify-code', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, code })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    document.getElementById('resetUsername').value = username;
+                    document.getElementById('resetCodeVal').value = code;
+                    showSection('resetSection');
+                } else {
+                    showError('verifyError', data.error);
+                }
+            } catch (err) {
+                showError('verifyError', 'Network error. Please try again.');
+            }
+
+            btn.disabled = false;
+            spinner.classList.add('d-none');
+            return false;
+        }
+
+        // Step 3: Reset password
+        async function handleReset(e) {
+            e.preventDefault();
+            const username = document.getElementById('resetUsername').value;
+            const code = document.getElementById('resetCodeVal').value;
+            const newPassword = document.getElementById('newPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            const btn = document.getElementById('resetBtn');
+            const spinner = document.getElementById('resetSpinner');
+
+            if (newPassword !== confirmPassword) {
+                showError('resetError', 'Passwords do not match');
+                return false;
+            }
+
+            btn.disabled = true;
+            spinner.classList.remove('d-none');
+
+            try {
+                const res = await fetch('/reset-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, code, newPassword, confirmPassword })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    window.location.href = '/login?reset=success';
+                } else {
+                    showError('resetError', data.error);
+                }
+            } catch (err) {
+                showError('resetError', 'Network error. Please try again.');
+            }
+
+            btn.disabled = false;
+            spinner.classList.add('d-none');
+            return false;
+        }
+    </script>
 </body>
 </html>
