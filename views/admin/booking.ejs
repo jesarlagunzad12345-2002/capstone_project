@@ -26,6 +26,20 @@
           return (h * 60) + m;
       }
 
+      // Auto-calculate checkout for rooms: next day, skipping Mon/Tue
+      function getAutoCheckout(checkinStr) {
+          const [year, month, day] = checkinStr.split('-').map(Number);
+          const date = new Date(year, month - 1, day);
+          date.setDate(date.getDate() + 1);
+          while (date.getDay() === 1 || date.getDay() === 2) {
+              date.setDate(date.getDate() + 1);
+          }
+          const y = date.getFullYear();
+          const m = String(date.getMonth() + 1).padStart(2, '0');
+          const d = String(date.getDate()).padStart(2, '0');
+          return `${y}-${m}-${d}`;
+      }
+
       window.onload = function() {
         const shouldTrigger = "<%= typeof triggerApprove !== 'undefined' ? triggerApprove : false %>";
         if (shouldTrigger === "true") {
@@ -137,14 +151,12 @@
               hiddenCheckout.value = date + ' ' + outTime + ':00';
           } else {
               const checkinInput = document.getElementById('editCheckinDate' + bookingId);
-              const checkoutInput = document.getElementById('editCheckoutDate' + bookingId);
-              if (!checkinInput || !checkoutInput) { alert('Error: Date fields missing.'); return false; }
+              if (!checkinInput) { alert('Error: Date field missing.'); return false; }
               const checkin = checkinInput.value;
-              const checkout = checkoutInput.value;
-              if (!checkin || !checkout) { alert('Please select check-in and check-out dates.'); return false; }
-              if (new Date(checkout) <= new Date(checkin)) { alert('Check-out date must be after check-in date.'); return false; }
+              if (!checkin) { alert('Please select a check-in date.'); return false; }
+              // Auto-calculate checkout: next day, skip Mon/Tue
               hiddenCheckin.value = checkin;
-              hiddenCheckout.value = checkout;
+              hiddenCheckout.value = getAutoCheckout(checkin);
           }
           return true;
       }
@@ -386,19 +398,15 @@
                                                     }
                                                 %>
 
-                                                <!-- ROOM FIELDS -->
+                                                <!-- ROOM FIELDS: Check-in Date Only -->
                                                 <% if (!isCottage) { %>
                                                 <div class="row" id="editRoomFields<%= booking.id %>">
                                                 <% } else { %>
                                                 <div class="row" id="editRoomFields<%= booking.id %>" style="display:none;">
                                                 <% } %>
-                                                    <div class="col-6 mb-3">
+                                                    <div class="col-12 mb-3">
                                                         <label class="form-label text-uppercase small fw-bold text-muted">Check-In Date</label>
                                                         <input type="date" id="editCheckinDate<%= booking.id %>" class="form-control py-2 bg-light border-0 rounded-3" value="<%= booking.checkinFormatted %>">
-                                                    </div>
-                                                    <div class="col-6 mb-3">
-                                                        <label class="form-label text-uppercase small fw-bold text-muted">Check-Out Date</label>
-                                                        <input type="date" id="editCheckoutDate<%= booking.id %>" class="form-control py-2 bg-light border-0 rounded-3" value="<%= booking.checkoutFormatted %>">
                                                     </div>
                                                 </div>
 

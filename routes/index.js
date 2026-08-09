@@ -18,6 +18,20 @@ function isMondayOrTuesday(dateString) {
     return dayOfWeek === 1 || dayOfWeek === 2; // 1=Mon, 2=Tue
 }
 
+// ===================== HELPER: Auto-checkout for rooms (next day, skip Mon/Tue) =====================
+function getAutoCheckout(checkinStr) {
+    const [year, month, day] = checkinStr.split('-').map(Number);
+    const date = new Date(year, month - 1, day);
+    date.setDate(date.getDate() + 1);
+    while (date.getDay() === 1 || date.getDay() === 2) {
+        date.setDate(date.getDate() + 1);
+    }
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+}
+
 async function addRevenueForBooking(bookingId) {
     try {
         const bookings = await dbQuery(
@@ -141,17 +155,21 @@ function buildWhere(baseSql, filters) {
 }
 
 
-// ===================== BOOKING SCHEDULE API (Public) =====================
+// ===================== BOOKING SCHEDULE API (Public) — UPDATED =====================
 router.get("/api/booking-schedule", async (req, res) => {
     try {
+        const now = new Date();
+        
         const bookings = await dbQuery(`
             SELECT 
                 b.roomType,
                 b.checkin,
                 b.checkout,
                 b.people,
-                b.status
+                b.status,
+                r.category
             FROM bookings b
+            LEFT JOIN rooms r ON b.roomType = r.name
             WHERE b.checkout >= CURDATE()
             ORDER BY b.checkin ASC
         `);
@@ -159,18 +177,38 @@ router.get("/api/booking-schedule", async (req, res) => {
         const schedule = {};
 
         bookings.forEach(booking => {
-            const roomName = booking.roomType;
-
-            if (!schedule[roomName]) {
-                schedule[roomName] = [];
+            const checkin = new Date(booking.checkin);
+            const checkout = new Date(booking.checkout);
+            const isCottage = booking.category === 'Cottage';
+            
+            let isExpired = false;
+            
+            if (isCottage) {
+                // 🏡 COTTAGE: Remove from schedule when checkout time is reached
+                // e.g., Aug 9, 8AM–5PM → disappears after 5:00 PM
+                isExpired = now >= checkout;
+            } else {
+                // 🏨 ROOM: Remove from schedule 22 hours after check-in
+                // e.g., checked in Aug 9 at 2PM → disappears Aug 10 at 12PM
+                const hoursSinceCheckin = (now - checkin) / (1000 * 60 * 60);
+                isExpired = hoursSinceCheckin >= 22;
             }
+            
+            // Only add to schedule if NOT expired
+            if (!isExpired) {
+                const roomName = booking.roomType;
 
-            schedule[roomName].push({
-                checkin: booking.checkin,
-                checkout: booking.checkout,
-                guests: booking.people,
-                status: booking.status
-            });
+                if (!schedule[roomName]) {
+                    schedule[roomName] = [];
+                }
+
+                schedule[roomName].push({
+                    checkin: booking.checkin,
+                    checkout: booking.checkout,
+                    guests: booking.people,
+                    status: booking.status
+                });
+            }
         });
 
         res.json({ success: true, schedule });
@@ -424,13 +462,22 @@ router.get("/api/gallery", async (req, res) => {
 });
 
 
-// ===================== UPDATED: /create with Cottage day-use support + Mon/Tue block + double booking fix =====================
+// ===================== UPDATED: /create with Email Verification + Room Auto-Checkout + Cottage day-use + Mon/Tue block =====================
 router.post("/create", async (req, res) => {
     const { name, email, people, roomType, requests, checkin, checkout, bookingDate, checkinTime, checkoutTime } = req.body;
 
     console.log("📥 /create received:", { 
         roomType, bookingDate, checkinTime, checkoutTime, checkin, checkout 
     });
+
+    // ===================== STEP 1: CHECK EMAIL VERIFICATION =====================
+    if (!req.session.verificationCodes || 
+        !req.session.verificationCodes[email] || 
+        !req.session.verificationCodes[email].verified) {
+        
+        req.session.error = "Please verify your email address before booking. Click 'Send Code' and enter the verification code.";
+        return res.redirect("/booking");
+    }
 
     try {
         const roomResults = await dbQuery("SELECT price, category, occupancy FROM rooms WHERE name = ? LIMIT 1", [roomType]);
@@ -461,7 +508,7 @@ router.post("/create", async (req, res) => {
 
             console.log("🕐 Cottage datetime strings:", { finalCheckin, finalCheckout });
 
-            // FIX: Check ALL bookings (pending + approved) for same-day double booking
+            // Check ALL bookings (pending + approved) for same-day double booking
             const overlapCheck = await dbQuery(`
                 SELECT checkin, checkout FROM bookings 
                 WHERE roomType = ? AND DATE(checkin) = DATE(?)
@@ -479,27 +526,30 @@ router.post("/create", async (req, res) => {
             nights = 0;
 
         } else {
-            if (!checkin || !checkout) {
-                req.session.error = "Please select check-in and check-out dates.";
+            // ROOMS: Only check-in date needed — auto-calculate checkout
+            if (!checkin) {
+                req.session.error = "Please select a check-in date.";
                 return res.redirect("/booking");
             }
 
-            // BLOCK MONDAY & TUESDAY for checkin and checkout
+            // BLOCK MONDAY & TUESDAY for checkin
             if (isMondayOrTuesday(checkin)) {
                 req.session.error = "Check-in cannot be on Monday or Tuesday. We are closed those days.";
                 return res.redirect("/booking");
             }
-            if (isMondayOrTuesday(checkout)) {
-                req.session.error = "Check-out cannot be on Monday or Tuesday. We are closed those days.";
-                return res.redirect("/booking");
-            }
 
-            // FIX: Check ALL bookings (pending + approved) for date overlap
+            // Auto-calculate checkout (next day, skip Mon/Tue)
+            finalCheckin = checkin;
+            finalCheckout = getAutoCheckout(checkin);
+
+            console.log("🛏️ Room auto-checkout:", { finalCheckin, finalCheckout });
+
+            // Check ALL bookings (pending + approved) for date overlap
             const overlapCheck = await dbQuery(`
                 SELECT checkin, checkout FROM bookings 
                 WHERE roomType = ? AND checkin < ? AND checkout > ?
                 LIMIT 1
-            `, [roomType, checkout, checkin]);
+            `, [roomType, finalCheckout, finalCheckin]);
 
             if (overlapCheck.length > 0) {
                 const existing = overlapCheck[0];
@@ -509,15 +559,15 @@ router.post("/create", async (req, res) => {
                 return res.redirect("/booking");
             }
 
-            const checkinDate = new Date(checkin);
-            const checkoutDate = new Date(checkout);
+            const checkinDate = new Date(finalCheckin);
+            const checkoutDate = new Date(finalCheckout);
             nights = Math.max(1, Math.ceil((checkoutDate - checkinDate) / (1000 * 60 * 60 * 24)));
             const roomPrice = roomResults.length > 0 ? parseFloat(roomResults[0].price) : 0;
             totalPrice = roomPrice * nights;
-
-            finalCheckin = checkin;
-            finalCheckout = checkout;
         }
+
+        // Clear verification code after successful booking (one-time use)
+        delete req.session.verificationCodes[email];
 
         await dbQuery(
             "INSERT INTO bookings (name, email, people, checkin, checkout, roomType, requests, status, total_price, nights) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)",

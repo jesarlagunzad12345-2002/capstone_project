@@ -8,6 +8,13 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <link rel="stylesheet" href="css/booking.css">
     <link rel="icon" type="image/jpeg" sizes="32x32" href="img/logo.jpg">
+    
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+    <script type="text/javascript">
+        (function() { 
+            emailjs.init({ publicKey: "nerxCEIOup7atDE6q" }); 
+        })();
+    </script>
 </head>
 <body>
 
@@ -68,15 +75,48 @@
                                 <h3>1. Personal Information</h3>
                                 <div class="mb-3">
                                     <label class="form-label fw-semibold">Full Name</label>
-                                    <input type="text" name="name" class="form-control custom-input" placeholder="Enter your full name" required>
+                                    <input type="text" name="name" id="name" class="form-control custom-input" placeholder="Enter your full name" required>
                                 </div>
+                                
                                 <div class="mb-3">
                                     <label class="form-label fw-semibold">Email Address</label>
-                                    <input type="email" name="email" class="form-control custom-input" placeholder="Enter your email" required>
+                                    <div class="input-group">
+                                        <input type="email" name="email" id="email" class="form-control custom-input" placeholder="Enter your email" required onchange="resetVerification()">
+                                        <button type="button" class="btn btn-primary" id="sendCodeBtn" onclick="sendVerificationCode()">
+                                            <i class="bi bi-send me-1"></i> Send Code
+                                        </button>
+                                    </div>
+                                    <div id="emailStatus" class="form-text mt-1"></div>
                                 </div>
+
+                                <!-- VERIFICATION CODE INPUT -->
+                                <div class="mb-3" id="codeSection" style="display: none;">
+                                    <label class="form-label fw-semibold">Verification Code</label>
+                                    <div class="input-group">
+                                        <input type="text" id="verificationCodeInput" class="form-control custom-input" placeholder="Enter 6-digit code" maxlength="6">
+                                        <button type="button" class="btn btn-success" id="verifyBtn" onclick="verifyCode()">
+                                            <i class="bi bi-check-circle me-1"></i> Verify
+                                        </button>
+                                    </div>
+                                    <div id="codeStatus" class="form-text mt-1"></div>
+                                </div>
+
+                                <!-- VERIFICATION BANNER: Shows only when email is verified -->
+                                <div class="mb-3" id="verifiedBanner" style="display: none;">
+                                    <div class="alert alert-success d-flex align-items-center mb-0" role="alert">
+                                        <i class="bi bi-shield-check fs-4 me-3"></i>
+                                        <div>
+                                            <strong>Email Verified!</strong><br>
+                                            <span class="small">You can now proceed with your booking.</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Hidden field to track verification state -->
+                                <input type="hidden" id="emailVerified" value="false">
                             </div>
 
-                            <div class="form-section">
+                            <div class="form-section" id="bookingDetailsSection">
                                 <h3>2. Stay Details</h3>
                                 <div class="mb-3">
                                     <label class="form-label fw-semibold">Number of People</label>
@@ -110,19 +150,14 @@
                                     </select>
                                 </div>
 
-                                <!-- ROOMS: Check-in / Check-out Dates -->
                                 <div class="row g-3 mb-3" id="roomDateFields">
-                                    <div class="col-md-6">
+                                    <div class="col-md-12">
                                         <label class="form-label fw-semibold">Check-in Date</label>
                                         <input type="date" name="checkin" id="checkin" class="form-control custom-input" onchange="validateAndCalculate()">
                                     </div>
-                                    <div class="col-md-6">
-                                        <label class="form-label fw-semibold">Check-out Date</label>
-                                        <input type="date" name="checkout" id="checkout" class="form-control custom-input" onchange="validateAndCalculate()">
-                                    </div>
                                 </div>
+                                <input type="hidden" name="checkout" id="checkoutHidden">
 
-                                <!-- COTTAGES: Booking Date + Check-in/Check-out Times -->
                                 <div class="row g-3 mb-3" id="cottageFields" style="display: none;">
                                     <div class="col-md-4">
                                         <label class="form-label fw-semibold">Booking Date</label>
@@ -186,7 +221,11 @@
                                 <textarea name="requests" class="form-control custom-textarea" rows="5" placeholder="Tell us about any special requests..."></textarea>
                             </div>
 
-                            <button type="submit" class="btn submit-booking-btn w-100 mt-4" id="submitBtn">Confirm Reservation Request</button>
+                            <!-- Submit button is DISABLED by default until email is verified -->
+                            <button type="submit" class="btn submit-booking-btn w-100 mt-4" id="submitBtn" disabled>
+                                <i class="bi bi-lock-fill me-2" id="submitLockIcon"></i>
+                                <span id="submitBtnText">Verify Email to Book</span>
+                            </button>
                         </form>
                     </section>
                 </div>
@@ -202,14 +241,181 @@
     <script>
         let scheduleData = {};
 
+        // ============================================
+        // EMAIL VERIFICATION FUNCTIONS
+        // ============================================
+
+        // Reset everything when email changes
+        function resetVerification() {
+            document.getElementById('emailVerified').value = 'false';
+            document.getElementById('codeSection').style.display = 'none';
+            document.getElementById('verifiedBanner').style.display = 'none';
+            document.getElementById('emailStatus').innerHTML = '';
+            document.getElementById('codeStatus').innerHTML = '';
+            document.getElementById('verificationCodeInput').value = '';
+            document.getElementById('sendCodeBtn').style.display = 'block';
+            document.getElementById('sendCodeBtn').disabled = false;
+            document.getElementById('sendCodeBtn').innerHTML = '<i class="bi bi-send me-1"></i> Send Code';
+            document.getElementById('email').readOnly = false;
+
+            // Lock the submit button again
+            lockSubmitButton();
+        }
+
+        // Lock submit button (not verified)
+        function lockSubmitButton() {
+            const btn = document.getElementById('submitBtn');
+            const btnText = document.getElementById('submitBtnText');
+            const lockIcon = document.getElementById('submitLockIcon');
+
+            btn.disabled = true;
+            btnText.textContent = 'Verify Email to Book';
+            lockIcon.className = 'bi bi-lock-fill me-2';
+        }
+
+        // Unlock submit button (verified)
+        function unlockSubmitButton() {
+            const btn = document.getElementById('submitBtn');
+            const btnText = document.getElementById('submitBtnText');
+            const lockIcon = document.getElementById('submitLockIcon');
+
+            btn.disabled = false;
+            btnText.textContent = 'Confirm Reservation Request';
+            lockIcon.className = 'bi bi-check-circle-fill me-2';
+        }
+
+        // Send verification code to email
+        async function sendVerificationCode() {
+            const emailInput = document.getElementById('email');
+            const email = emailInput.value.trim();
+            const btn = document.getElementById('sendCodeBtn');
+            const status = document.getElementById('emailStatus');
+
+            // Check if email looks valid
+            if (!email || !email.includes('@') || !email.includes('.')) {
+                status.innerHTML = '<span class="text-danger"><i class="bi bi-exclamation-circle me-1"></i>Please enter a valid email address.</span>';
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Sending...';
+
+            try {
+                // Ask server to generate a code
+                const res = await fetch('/api/request-verification-code', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: email })
+                });
+                const data = await res.json();
+
+                if (!data.success) {
+                    status.innerHTML = `<span class="text-danger">${data.message}</span>`;
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="bi bi-send me-1"></i> Send Code';
+                    return;
+                }
+
+                console.log("✅ Server generated code:", data.code);
+
+                // Send the code via EmailJS
+                await emailjs.send('service_p0pcn2h', 'template_i8uz2wj', {
+                    email: email,
+                    verification_code: data.code,
+                    user_name: document.getElementById('name').value || 'Guest'
+                });
+
+                // Show the code input field
+                document.getElementById('codeSection').style.display = 'block';
+                status.innerHTML = '<span class="text-success"><i class="bi bi-check-circle me-1"></i>Code sent! Check your inbox (and spam folder).</span>';
+
+                // Start 60-second countdown for resend
+                let seconds = 60;
+                btn.innerHTML = `Resend (${seconds}s)`;
+                const timer = setInterval(() => {
+                    seconds--;
+                    if (seconds > 0) {
+                        btn.innerHTML = `Resend (${seconds}s)`;
+                    } else {
+                        clearInterval(timer);
+                        btn.disabled = false;
+                        btn.innerHTML = '<i class="bi bi-send me-1"></i> Resend Code';
+                    }
+                }, 1000);
+
+            } catch (err) {
+                console.error('EmailJS Error:', err);
+                status.innerHTML = '<span class="text-danger"><i class="bi bi-x-circle me-1"></i>Failed to send email. Please try again.</span>';
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-send me-1"></i> Send Code';
+            }
+        }
+
+        // Check if the code user entered is correct
+        async function verifyCode() {
+            const email = document.getElementById('email').value.trim();
+            const code = document.getElementById('verificationCodeInput').value.trim();
+            const btn = document.getElementById('verifyBtn');
+            const status = document.getElementById('codeStatus');
+
+            // Code must be 6 digits
+            if (!code || code.length !== 6 || isNaN(code)) {
+                status.innerHTML = '<span class="text-danger"><i class="bi bi-exclamation-circle me-1"></i>Please enter the 6-digit code.</span>';
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Checking...';
+
+            try {
+                // Send code to server to verify
+                const res = await fetch('/api/verify-code', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: email, code: code })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    // VERIFIED! Update everything
+                    document.getElementById('emailVerified').value = 'true';
+                    document.getElementById('email').readOnly = true;
+                    document.getElementById('codeSection').style.display = 'none';
+                    document.getElementById('sendCodeBtn').style.display = 'none';
+
+                    // Show the green verified banner
+                    document.getElementById('verifiedBanner').style.display = 'block';
+
+                    status.innerHTML = '<span class="text-success"><i class="bi bi-shield-check me-1"></i>Email verified! You can now complete your booking.</span>';
+                    document.getElementById('email').classList.add('is-valid');
+
+                    // Unlock the submit button so user can book
+                    unlockSubmitButton();
+
+                } else {
+                    // Wrong code
+                    status.innerHTML = `<span class="text-danger"><i class="bi bi-x-circle me-1"></i>${data.message}</span>`;
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="bi bi-check-circle me-1"></i> Verify';
+                }
+            } catch (err) {
+                console.error('❌ Verify error:', err);
+                status.innerHTML = '<span class="text-danger">Server error. Please refresh and try again.</span>';
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-check-circle me-1"></i> Verify';
+            }
+        }
+
+        // ============================================
+        // BOOKING LOGIC
+        // ============================================
+
         function timeToMinutes(timeStr) {
             if (!timeStr) return 0;
             const [h, m] = timeStr.split(':').map(Number);
             return (h * 60) + m;
         }
 
-        // ===================== BLOCK MONDAY & TUESDAY =====================
-        // 0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat
         function isMondayOrTuesday(dateString) {
             if (!dateString) return false;
             const [year, month, day] = dateString.split('-').map(Number);
@@ -232,11 +438,23 @@
             return `${y}-${m}-${d}`;
         }
 
+        function getAutoCheckout(checkinStr) {
+            const [year, month, day] = checkinStr.split('-').map(Number);
+            const date = new Date(year, month - 1, day);
+            date.setDate(date.getDate() + 1);
+            while (date.getDay() === 1 || date.getDay() === 2) {
+                date.setDate(date.getDate() + 1);
+            }
+            const y = date.getFullYear();
+            const m = String(date.getMonth() + 1).padStart(2, '0');
+            const d = String(date.getDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        }
+
         const today = new Date().toISOString().split('T')[0];
         const validToday = getNextValidDate(today);
 
         document.getElementById('checkin').min = validToday;
-        document.getElementById('checkout').min = validToday;
         document.getElementById('bookingDate').min = validToday;
         document.getElementById('bookingDate').value = validToday;
 
@@ -245,17 +463,6 @@
                 this.value = '';
                 showBlockedAlert('Check-in cannot be on Monday or Tuesday. We are closed those days.');
                 return;
-            }
-            const checkinDate = new Date(this.value);
-            checkinDate.setDate(checkinDate.getDate() + 1);
-            const nextDay = checkinDate.toISOString().split('T')[0];
-            document.getElementById('checkout').min = nextDay;
-        });
-
-        document.getElementById('checkout').addEventListener('change', function() {
-            if (isMondayOrTuesday(this.value)) {
-                this.value = '';
-                showBlockedAlert('Check-out cannot be on Monday or Tuesday. We are closed those days.');
             }
         });
 
@@ -275,7 +482,6 @@
         }
 
         function validateAndCalculate() {
-            // Clear blocked day alert when user changes dates
             document.getElementById('blockedDayAlert').style.display = 'none';
             calculateTotal();
         }
@@ -290,7 +496,6 @@
             document.getElementById('cottageFields').style.display = isCottage ? 'flex' : 'none';
 
             document.getElementById('checkin').required = !isCottage;
-            document.getElementById('checkout').required = !isCottage;
             document.getElementById('bookingDate').required = isCottage;
             document.getElementById('checkinTime').required = isCottage;
             document.getElementById('checkoutTime').required = isCottage;
@@ -328,15 +533,9 @@
                 }
             } else {
                 const checkin = document.getElementById('checkin').value;
-                const checkout = document.getElementById('checkout').value;
-
-                if (checkin && checkout && price > 0) {
+                if (checkin && price > 0) {
                     const start = new Date(checkin);
-                    const end = new Date(checkout);
-                    if (end <= start) {
-                        document.getElementById('priceDisplay').style.display = 'none';
-                        return;
-                    }
+                    const end = new Date(getAutoCheckout(checkin));
                     const nights = Math.max(1, Math.ceil((end - start) / (1000 * 60 * 60 * 24)));
                     const total = price * nights;
                     document.getElementById('totalPrice').textContent = total.toLocaleString();
@@ -367,10 +566,44 @@
             }
         }
 
+        // ============================================
+        // UPDATED: Auto-filter expired bookings
+        // ============================================
         async function loadBookingSchedule() {
             try {
                 const res = await fetch('/api/booking-schedule');
                 const data = await res.json();
+                
+                // AUTO-FILTER: Remove expired bookings based on time rules
+                const now = new Date();
+                
+                if (data.schedule) {
+                    for (const [roomName, bookings] of Object.entries(data.schedule)) {
+                        data.schedule[roomName] = bookings.filter(booking => {
+                            const cinDate = new Date(booking.checkin);
+                            const coutDate = new Date(booking.checkout);
+                            
+                            // COTTAGE = same-day booking (day-use)
+                            // ROOM = overnight (different days)
+                            const isCottage = cinDate.toDateString() === coutDate.toDateString();
+                            
+                            if (isCottage) {
+                                // Cottage: remove after checkout time ends
+                                return now < coutDate;
+                            } else {
+                                // Room: remove 22 hours after check-in
+                                const hoursSinceCheckin = (now - cinDate) / (1000 * 60 * 60);
+                                return hoursSinceCheckin < 22;
+                            }
+                        });
+                        
+                        // Clean up empty rooms from schedule
+                        if (data.schedule[roomName].length === 0) {
+                            delete data.schedule[roomName];
+                        }
+                    }
+                }
+                
                 if (data.schedule) scheduleData = data.schedule;
                 document.getElementById('scheduleLoading').style.display = 'none';
 
@@ -389,13 +622,11 @@
                         const sameDay = cinDate.toDateString() === coutDate.toDateString();
                         
                         if (sameDay) {
-                            // Cottage day-use: show time range
                             const cinTime = cinDate.toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit', hour12:true});
                             const coutTime = coutDate.toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit', hour12:true});
                             const dateStr = cinDate.toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
                             html += `<div class="schedule-date-item"><div class="schedule-date-range"><i class="bi bi-calendar-x-fill text-danger"></i> ${dateStr} | ${cinTime} - ${coutTime}</div><div class="d-flex align-items-center gap-2"><span class="schedule-guests"><i class="bi bi-people-fill me-1"></i>${booking.guests} guest${booking.guests > 1 ? 's' : ''}</span><span class="schedule-badge-booked">Booked</span></div></div>`;
                         } else {
-                            // Room: show date range
                             const checkin = cinDate.toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
                             const checkout = coutDate.toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
                             html += `<div class="schedule-date-item"><div class="schedule-date-range"><i class="bi bi-calendar-x-fill text-danger"></i> ${checkin} <i class="bi bi-arrow-right mx-1 text-muted"></i> ${checkout}</div><div class="d-flex align-items-center gap-2"><span class="schedule-guests"><i class="bi bi-people-fill me-1"></i>${booking.guests} guest${booking.guests > 1 ? 's' : ''}</span><span class="schedule-badge-booked">Booked</span></div></div>`;
@@ -417,7 +648,13 @@
             const submitBtn = document.getElementById('submitBtn');
 
             conflictAlert.style.display = 'none';
-            submitBtn.disabled = false;
+
+            // Keep button disabled if email is NOT verified
+            const isVerified = document.getElementById('emailVerified').value === 'true';
+            if (!isVerified) {
+                submitBtn.disabled = true;
+            }
+
             if (!roomSelect.value) return true;
 
             const selectedOption = roomSelect.options[roomSelect.selectedIndex];
@@ -426,7 +663,6 @@
             const isCottage = (category === 'Cottage');
             const roomBookings = scheduleData[selectedRoom] || [];
 
-            // Also check blocked days client-side
             if (isCottage) {
                 const bookingDate = document.getElementById('bookingDate').value;
                 if (bookingDate && isMondayOrTuesday(bookingDate)) {
@@ -437,15 +673,8 @@
                 }
             } else {
                 const checkinVal = document.getElementById('checkin').value;
-                const checkoutVal = document.getElementById('checkout').value;
                 if (checkinVal && isMondayOrTuesday(checkinVal)) {
                     conflictMessage.innerHTML = '<strong>Check-in cannot be on Monday or Tuesday.</strong><br>We are closed those days.';
-                    conflictAlert.style.display = 'block';
-                    submitBtn.disabled = true;
-                    return false;
-                }
-                if (checkoutVal && isMondayOrTuesday(checkoutVal)) {
-                    conflictMessage.innerHTML = '<strong>Check-out cannot be on Monday or Tuesday.</strong><br>We are closed those days.';
                     conflictAlert.style.display = 'block';
                     submitBtn.disabled = true;
                     return false;
@@ -467,10 +696,9 @@
                 }
             } else {
                 const checkinVal = document.getElementById('checkin').value;
-                const checkoutVal = document.getElementById('checkout').value;
-                if (!checkinVal || !checkoutVal) return true;
+                if (!checkinVal) return true;
                 const newStart = new Date(checkinVal);
-                const newEnd = new Date(checkoutVal);
+                const newEnd = new Date(getAutoCheckout(checkinVal));
                 for (const booking of roomBookings) {
                     const existingStart = new Date(booking.checkin);
                     const existingEnd = new Date(booking.checkout);
@@ -484,15 +712,34 @@
                     }
                 }
             }
+
+            // If we get here, no conflicts — but only unlock if verified
+            if (isVerified) {
+                submitBtn.disabled = false;
+            }
             return true;
         }
 
+        // ============================================
+        // FORM SUBMIT HANDLER
+        // ============================================
+
         document.getElementById('bookingForm').addEventListener('submit', function(e) {
+            // FIRST CHECK: Is email verified?
+            const isVerified = document.getElementById('emailVerified').value === 'true';
+            if (!isVerified) {
+                e.preventDefault();
+                alert('⚠️ Please verify your email address before submitting your booking.');
+                return;
+            }
+
+            // SECOND CHECK: Any double booking conflicts?
             if (!checkDoubleBooking()) {
                 e.preventDefault();
                 alert('⚠️ This accommodation is already booked or the selected date is not available.');
                 return;
             }
+
             const roomSelect = document.getElementById('roomType');
             const selectedOption = roomSelect.options[roomSelect.selectedIndex];
             const category = selectedOption.getAttribute('data-category') || 'Room';
@@ -519,10 +766,9 @@
                 }
             } else {
                 const checkin = document.getElementById('checkin').value;
-                const checkout = document.getElementById('checkout').value;
-                if (!checkin || !checkout) {
+                if (!checkin) {
                     e.preventDefault();
-                    alert('⚠️ Please select check-in and check-out dates.');
+                    alert('⚠️ Please select a check-in date.');
                     return;
                 }
                 if (isMondayOrTuesday(checkin)) {
@@ -530,14 +776,11 @@
                     alert('⚠️ Check-in cannot be on Monday or Tuesday. We are closed those days.');
                     return;
                 }
-                if (isMondayOrTuesday(checkout)) {
-                    e.preventDefault();
-                    alert('⚠️ Check-out cannot be on Monday or Tuesday. We are closed those days.');
-                    return;
-                }
+                document.getElementById('checkoutHidden').value = getAutoCheckout(checkin);
             }
         });
 
+        // Load schedule on page load
         loadBookingSchedule().then(() => {
             document.getElementById('scheduleContent').dataset.loaded = 'true';
         });

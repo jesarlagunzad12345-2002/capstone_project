@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Guest Experience | KML Mountain Resort</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <link rel="stylesheet" href="css/experience.css">
     <link rel="icon" type="image/png" sizes="32x32" href="img/logo.jpg">
     
@@ -53,8 +54,8 @@
             <div class="row g-4">
                 <div class="col-md-6 col-lg-3">
                     <article class="experience-card h-100">
-                        <h3>08:00 AM — The Morning Ascent</h3>
-                        <p>Start your day with our signature 12-minute hike from the main road. It's a brief, refreshing trek that transitions you from the noise of the world to our mountain sanctuary.</p>
+                        <h3>08:00 AM — Morning Refresh</h3>
+                        <p>Morning RefreshGentle morning stretch on the terrace or a quiet stroll through nature. Begin your day with crisp mountain air, fresh coffee, and uninterrupted quiet before your day unfolds</p>
                     </article>
                 </div>
                 <div class="col-md-6 col-lg-3">
@@ -83,7 +84,7 @@
             <div class="row justify-content-center">
                 <div class="col-lg-8">
                     <blockquote class="testimonial-quote">
-                        <p>"The 12-minute hike was the perfect way to start my stay. I felt like I was entering a different world, yet I could still join my Zoom calls without a hitch!"</p>
+                        <p>"I felt like I was entering a different world, yet I could still join my Zoom calls without a hitch!"</p>
                         <cite>— Happy Traveler</cite>
                     </blockquote>
                 </div>
@@ -121,7 +122,7 @@
                             <strong>Instant Cancel:</strong> Your booking will be cancelled immediately and removed from our system.
                         </div>
 
-                        <!-- NEW: Mismatch warning message -->
+                        <!-- Mismatch warning message -->
                         <div id="statusMismatchMsg" class="alert alert-warning d-none mt-2"></div>
 
                         <!-- Check-in Date -->
@@ -135,20 +136,54 @@
                             <input type="text" id="cancelName" class="form-control" placeholder="Juan Dela Cruz" required>
                         </div>
 
+                        <!-- Email + Verification -->
                         <div class="mb-3">
                             <label class="form-label">Email Address</label>
-                            <input type="email" id="cancelEmail" class="form-control" placeholder="juan@email.com" required>
+                            <div class="input-group">
+                                <input type="email" id="cancelEmail" class="form-control" placeholder="juan@email.com" required onchange="resetVerification()">
+                                <button type="button" class="btn btn-primary" id="sendCodeBtn" onclick="sendVerificationCode()">
+                                    <i class="bi bi-send me-1"></i> Send Code
+                                </button>
+                            </div>
+                            <div id="emailStatus" class="form-text mt-1"></div>
                         </div>
 
-                        <!-- ROOM TYPE REMOVED — fetched from database -->
+                        <!-- Verification Code Input -->
+                        <div class="mb-3" id="codeSection" style="display: none;">
+                            <label class="form-label fw-semibold">Verification Code</label>
+                            <div class="input-group">
+                                <input type="text" id="verificationCodeInput" class="form-control" placeholder="Enter 6-digit code" maxlength="6">
+                                <button type="button" class="btn btn-success" id="verifyBtn" onclick="verifyCode()">
+                                    <i class="bi bi-check-circle me-1"></i> Verify
+                                </button>
+                            </div>
+                            <div id="codeStatus" class="form-text mt-1"></div>
+                        </div>
+
+                        <!-- Verified Banner -->
+                        <div class="mb-3" id="verifiedBanner" style="display: none;">
+                            <div class="alert alert-success d-flex align-items-center mb-0" role="alert">
+                                <i class="bi bi-shield-check fs-4 me-3"></i>
+                                <div>
+                                    <strong>Email Verified!</strong><br>
+                                    <span class="small">You can now proceed with cancellation.</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Hidden tracker -->
+                        <input type="hidden" id="emailVerified" value="false">
 
                         <div class="mb-4">
                             <label class="form-label">Reason (Optional)</label>
                             <textarea id="cancelReason" class="form-control" rows="3" placeholder="Change of plans, emergency, etc."></textarea>
                         </div>
 
-                        <button type="submit" class="btn btn-danger cancel-btn" id="cancelSubmitBtn">
-                            Cancel My Booking
+                        <!-- Submit button: LOCKED until verified -->
+                        <!-- Base classes stay, only color/text changes via JS -->
+                        <button type="submit" class="btn cancel-btn w-100" id="cancelSubmitBtn" disabled>
+                            <i class="bi bi-lock-fill me-2" id="submitIcon"></i>
+                            <span id="submitText">Verify Email to Cancel</span>
                         </button>
                     </form>
                 </div>
@@ -166,7 +201,9 @@
 
     <!-- ==================== CANCELLATION LOGIC ==================== -->
     <script>
-        // Initialize EmailJS
+        // ============================================
+        // 1. INITIALIZE CANCELLATION EMAILJS ACCOUNT
+        // ============================================
         (function() { 
             emailjs.init({ publicKey: "EfvIkV0UtUXjEGOgu" }); 
         })();
@@ -174,32 +211,229 @@
         const TEMPLATE_ID = 'template_kule5md';
         const ADMIN_EMAIL = 'kmlresort@gmail.com';
 
+        // DOM refs
         const cancelForm   = document.getElementById('cancelForm');
         const statusSelect = document.getElementById('bookingStatus');
         const statusNote   = document.getElementById('statusNote');
         const submitBtn    = document.getElementById('cancelSubmitBtn');
+        const submitText   = document.getElementById('submitText');
+        const submitIcon   = document.getElementById('submitIcon');
         const mismatchMsg  = document.getElementById('statusMismatchMsg');
 
-        function updateCancelUI(status) {
+        // ============================================
+        // 2. BUTTON STATE MANAGER (FIXED)
+        // ============================================
+        // 🐛 BUG FIX: Old code used className = '...' which wiped all classes
+        // and caused flickering/glitches when switching options.
+        // Now we use classList to ONLY swap the color class safely.
+
+        function setButtonState(state) {
+            // state = 'locked' | 'pending' | 'approved'
+            
+            // Always keep these base classes: btn, cancel-btn, w-100
+            // Only remove/add Bootstrap color classes
+            
+            if (state === 'locked') {
+                submitBtn.disabled = true;
+                submitText.textContent = 'Verify Email to Cancel';
+                submitIcon.className = 'bi bi-lock-fill me-2';
+                
+                submitBtn.classList.remove('btn-danger', 'btn-warning');
+                submitBtn.classList.add('btn-secondary');
+                return;
+            }
+            
+            submitBtn.disabled = false;
+            submitIcon.className = 'bi bi-check-circle-fill me-2';
+            
+            if (state === 'pending') {
+                submitText.textContent = 'Cancel My Booking';
+                submitBtn.classList.remove('btn-secondary', 'btn-warning');
+                submitBtn.classList.add('btn-danger');
+            } else {
+                submitText.textContent = 'Request Cancellation';
+                submitBtn.classList.remove('btn-secondary', 'btn-danger');
+                submitBtn.classList.add('btn-warning');
+            }
+        }
+
+        function refreshButton() {
+            const isVerified = document.getElementById('emailVerified').value === 'true';
+            if (!isVerified) {
+                setButtonState('locked');
+            } else {
+                setButtonState(statusSelect.value); // 'pending' or 'approved'
+            }
+        }
+
+        function updateStatusNote(status) {
             if (status === 'pending') {
-                submitBtn.textContent = 'Cancel My Booking';
-                submitBtn.className   = 'btn btn-danger cancel-btn';
                 statusNote.className  = 'status-note pending-note';
                 statusNote.innerHTML  = '<strong>Instant Cancel:</strong> Your booking will be cancelled immediately and removed from our system.';
             } else {
-                submitBtn.textContent = 'Request Cancellation';
-                submitBtn.className   = 'btn btn-warning cancel-btn';
                 statusNote.className  = 'status-note approved-note';
                 statusNote.innerHTML  = '<strong>Request Only:</strong> This will notify our admin team. Please wait for a confirmation email once your request is processed.';
             }
         }
 
+        // When user changes Pending / Approved dropdown
         statusSelect.addEventListener('change', function() {
-            updateCancelUI(this.value);
+            updateStatusNote(this.value);
+            refreshButton();
         });
 
+        // ============================================
+        // 3. EMAIL VERIFICATION FUNCTIONS
+        // ============================================
+
+        function resetVerification() {
+            document.getElementById('emailVerified').value = 'false';
+            document.getElementById('codeSection').style.display = 'none';
+            document.getElementById('verifiedBanner').style.display = 'none';
+            document.getElementById('emailStatus').innerHTML = '';
+            document.getElementById('codeStatus').innerHTML = '';
+            document.getElementById('verificationCodeInput').value = '';
+            
+            const sendBtn = document.getElementById('sendCodeBtn');
+            sendBtn.style.display = 'block';
+            sendBtn.disabled = false;
+            sendBtn.innerHTML = '<i class="bi bi-send me-1"></i> Send Code';
+            
+            document.getElementById('cancelEmail').readOnly = false;
+            refreshButton();
+        }
+
+        async function sendVerificationCode() {
+            const emailInput = document.getElementById('cancelEmail');
+            const email = emailInput.value.trim();
+            const btn = document.getElementById('sendCodeBtn');
+            const status = document.getElementById('emailStatus');
+
+            if (!email || !email.includes('@') || !email.includes('.')) {
+                status.innerHTML = '<span class="text-danger"><i class="bi bi-exclamation-circle me-1"></i>Please enter a valid email address.</span>';
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Sending...';
+
+            try {
+                // Ask server to generate code
+                const res = await fetch('/api/request-verification-code', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: email })
+                });
+                const data = await res.json();
+
+                if (!data.success) {
+                    status.innerHTML = `<span class="text-danger">${data.message}</span>`;
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="bi bi-send me-1"></i> Send Code';
+                    return;
+                }
+
+                console.log("✅ Server generated code:", data.code);
+
+                // 🔑 SWITCH to verification EmailJS account
+                emailjs.init({ publicKey: "nerxCEIOup7atDE6q" });
+
+                // Send code via EmailJS
+                await emailjs.send('service_p0pcn2h', 'template_i8uz2wj', {
+                    email: email,
+                    verification_code: data.code,
+                    user_name: document.getElementById('cancelName').value || 'Guest'
+                });
+
+                // Show code input
+                document.getElementById('codeSection').style.display = 'block';
+                status.innerHTML = '<span class="text-success"><i class="bi bi-check-circle me-1"></i>Code sent! Check your inbox (and spam folder).</span>';
+
+                // 60-second countdown
+                let seconds = 60;
+                btn.innerHTML = `Resend (${seconds}s)`;
+                const timer = setInterval(() => {
+                    seconds--;
+                    if (seconds > 0) {
+                        btn.innerHTML = `Resend (${seconds}s)`;
+                    } else {
+                        clearInterval(timer);
+                        btn.disabled = false;
+                        btn.innerHTML = '<i class="bi bi-send me-1"></i> Resend Code';
+                    }
+                }, 1000);
+
+            } catch (err) {
+                console.error('EmailJS Error:', err);
+                status.innerHTML = '<span class="text-danger"><i class="bi bi-x-circle me-1"></i>Failed to send email. Please try again.</span>';
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-send me-1"></i> Send Code';
+            }
+        }
+
+        async function verifyCode() {
+            const email = document.getElementById('cancelEmail').value.trim();
+            const code = document.getElementById('verificationCodeInput').value.trim();
+            const btn = document.getElementById('verifyBtn');
+            const status = document.getElementById('codeStatus');
+
+            if (!code || code.length !== 6 || isNaN(code)) {
+                status.innerHTML = '<span class="text-danger"><i class="bi bi-exclamation-circle me-1"></i>Please enter the 6-digit code.</span>';
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Checking...';
+
+            try {
+                const res = await fetch('/api/verify-code', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: email, code: code })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    // ✅ VERIFIED!
+                    document.getElementById('emailVerified').value = 'true';
+                    document.getElementById('cancelEmail').readOnly = true;
+                    document.getElementById('codeSection').style.display = 'none';
+                    document.getElementById('sendCodeBtn').style.display = 'none';
+
+                    // Show green banner
+                    document.getElementById('verifiedBanner').style.display = 'block';
+
+                    status.innerHTML = '<span class="text-success"><i class="bi bi-shield-check me-1"></i>Email verified! You can now proceed.</span>';
+                    document.getElementById('cancelEmail').classList.add('is-valid');
+
+                    // 🔓 Unlock button with correct style for current status
+                    refreshButton();
+
+                } else {
+                    status.innerHTML = `<span class="text-danger"><i class="bi bi-x-circle me-1"></i>${data.message}</span>`;
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="bi bi-check-circle me-1"></i> Verify';
+                }
+            } catch (err) {
+                console.error('❌ Verify error:', err);
+                status.innerHTML = '<span class="text-danger">Server error. Please refresh and try again.</span>';
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-check-circle me-1"></i> Verify';
+            }
+        }
+
+        // ============================================
+        // 4. FORM SUBMIT HANDLER
+        // ============================================
         cancelForm.addEventListener('submit', async function(e) {
             e.preventDefault();
+
+            // 🛡️ Must be verified
+            const isVerified = document.getElementById('emailVerified').value === 'true';
+            if (!isVerified) {
+                alert('⚠️ Please verify your email address before submitting a cancellation.');
+                return;
+            }
 
             const status      = statusSelect.value;
             const name        = document.getElementById('cancelName').value.trim();
@@ -207,17 +441,15 @@
             const checkin     = document.getElementById('cancelCheckin').value;
             const reason      = document.getElementById('cancelReason').value.trim() || 'No reason provided';
 
-            // Hide any previous mismatch message
             mismatchMsg.className = 'alert alert-warning d-none mt-2';
 
-            const originalText = submitBtn.textContent;
+            const originalHTML = submitBtn.innerHTML;
             submitBtn.disabled = true;
-            submitBtn.textContent = 'Processing...';
+            submitText.textContent = 'Processing...';
+            submitIcon.className = 'spinner-border spinner-border-sm me-2';
 
             try {
-                // ============================================
                 // STEP 1: Verify booking status first (no delete)
-                // ============================================
                 const verifyRes = await fetch('/cancel-booking', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -228,36 +460,28 @@
                 
                 if (!verifyResult.success) {
                     alert('❌ ' + verifyResult.message);
-                    submitBtn.disabled = false;
-                    submitBtn.textContent = originalText;
+                    refreshButton();
                     return;
                 }
                 
-                // 'approved' or anything else = pending
                 const actualStatus = verifyResult.status === 'approved' ? 'approved' : 'pending';
 
-                // ============================================
-                // CHECK: Did the user pick the wrong option?
-                // ============================================
+                // CHECK: Did user pick the wrong option?
                 if (status === 'pending' && actualStatus === 'approved') {
                     mismatchMsg.textContent = '⚠️ This option is for pending bookings only. Your booking is already approved. Please select "Already Approved" above.';
                     mismatchMsg.className = 'alert alert-warning mt-2';
-                    submitBtn.disabled = false;
-                    submitBtn.textContent = originalText;
+                    refreshButton();
                     return;
                 }
 
                 if (status === 'approved' && actualStatus === 'pending') {
                     mismatchMsg.textContent = '⚠️ This option is for approved bookings only. Your booking is still pending. Please select "Not Yet Approved (Pending)" above.';
                     mismatchMsg.className = 'alert alert-warning mt-2';
-                    submitBtn.disabled = false;
-                    submitBtn.textContent = originalText;
+                    refreshButton();
                     return;
                 }
 
-                // ============================================
                 // STEP 2: Status matches — proceed with cancellation
-                // ============================================
                 const response = await fetch('/cancel-booking', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -268,19 +492,16 @@
                 
                 if (!result.success) {
                     alert('❌ ' + result.message);
-                    submitBtn.disabled = false;
-                    submitBtn.textContent = originalText;
+                    refreshButton();
                     return;
                 }
                 
-                // Get room type from DATABASE response
                 const bookingId = result.bookingId;
                 const room      = result.roomType || 'Standard';
 
-                // ============================================
                 // STEP 3: Send emails
-                // ============================================
-                
+                emailjs.init({ publicKey: "EfvIkV0UtUXjEGOgu" });
+
                 const adminParams = {
                     to_email: ADMIN_EMAIL,
                     user_name: name,
@@ -319,19 +540,19 @@
                 }
 
                 cancelForm.reset();
-                updateCancelUI('pending');
-                mismatchMsg.className = 'alert alert-warning d-none mt-2'; // hide warning on reset
+                resetVerification();
+                updateStatusNote('pending');
 
             } catch (err) {
                 console.error('❌ Error:', err);
                 alert('❌ Something went wrong. Please try again or contact us directly.');
             } finally {
-                submitBtn.disabled = false;
-                submitBtn.textContent = statusSelect.value === 'pending' 
-                    ? 'Cancel My Booking' 
-                    : 'Request Cancellation';
+                refreshButton();
             }
         });
+
+        // Init button on page load
+        refreshButton();
     </script>
 
 </body>

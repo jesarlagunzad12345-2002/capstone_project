@@ -39,6 +39,25 @@ function isMondayOrTuesday(dateString) {
     return dayOfWeek === 1 || dayOfWeek === 2; // 1=Mon, 2=Tue
 }
 
+// ===================== HELPER: Auto-checkout for rooms =====================
+function getAutoCheckout(checkinStr) {
+    const [year, month, day] = checkinStr.split('-').map(Number);
+    const date = new Date(year, month - 1, day);
+    date.setDate(date.getDate() + 1);
+    while (date.getDay() === 1 || date.getDay() === 2) {
+        date.setDate(date.getDate() + 1);
+    }
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+}
+
+// ===================== HELPER: Generate 6-digit verification code =====================
+function generateVerificationCode() {
+    return Math.floor(100000 + Math.random() * 900000).toString();
+}
+
 // ===================== UPDATED: Cottage day-use support =====================
 async function calculateBookingPrice(roomType, checkin, checkout, bookingDate, checkinTime, checkoutTime) {
     try {
@@ -205,16 +224,18 @@ router.post("/update/:id", checkAuth, async (req, res) => {
     const roomCategory = roomInfo.length > 0 ? roomInfo[0].category : 'Room';
     const isCottage = (roomCategory === 'Cottage');
 
+    let finalCheckin = checkin;
+    let finalCheckout = checkout;
+
     if (!isCottage) {
       // BLOCK MONDAY & TUESDAY
       if (isMondayOrTuesday(checkin)) {
         req.session.error = "Check-in cannot be on Monday or Tuesday. We are closed those days.";
         return res.redirect("/bookings");
       }
-      if (isMondayOrTuesday(checkout)) {
-        req.session.error = "Check-out cannot be on Monday or Tuesday. We are closed those days.";
-        return res.redirect("/bookings");
-      }
+      
+      // Auto-calculate checkout for rooms (next day, skip Mon/Tue)
+      finalCheckout = getAutoCheckout(checkin);
 
       // Room: check date overlap against ALL bookings (pending + approved)
       const overlapCheck = await dbQuery(`
@@ -225,7 +246,7 @@ router.post("/update/:id", checkAuth, async (req, res) => {
           AND checkin < ? 
           AND checkout > ?
         LIMIT 1
-      `, [roomType, bookingId, checkout, checkin]);
+      `, [roomType, bookingId, finalCheckout, finalCheckin]);
 
       if (overlapCheck.length > 0) {
         const existing = overlapCheck[0];
@@ -262,7 +283,7 @@ router.post("/update/:id", checkAuth, async (req, res) => {
       }
     }
 
-    const calc = await calculateBookingPrice(roomType, checkin, checkout);
+    const calc = await calculateBookingPrice(roomType, finalCheckin, finalCheckout);
     let guestCount = parseInt(people) || 1;
     if (guestCount > calc.maxOccupancy && calc.maxOccupancy > 0) {
         guestCount = calc.maxOccupancy;
@@ -273,7 +294,7 @@ router.post("/update/:id", checkAuth, async (req, res) => {
        SET name = ?, email = ?, people = ?, checkin = ?, checkout = ?, 
            roomType = ?, requests = ?, total_price = ?, nights = ? 
        WHERE id = ?`,
-      [name, email, guestCount, checkin, checkout, roomType, requests || null, calc.totalPrice, calc.nights, bookingId]
+      [name, email, guestCount, finalCheckin, finalCheckout, roomType, requests || null, calc.totalPrice, calc.nights, bookingId]
     );
 
     console.log(`✅ Booking #${bookingId} updated. New total: ₱${calc.totalPrice} for ${calc.nights} night(s) in ${calc.roomCategory}`);
@@ -386,5 +407,70 @@ router.post("/cancel-booking", async (req, res) => {
     });
   }
 });
+
+
+// ===================== EMAIL VERIFICATION ROUTES =====================
+
+// POST: Request verification code
+router.post("/api/request-verification-code", async (req, res) => {
+    const { email } = req.body;
+    
+    if (!email || !email.includes('@')) {
+        return res.json({ success: false, message: "Please enter a valid email address." });
+    }
+
+    try {
+        const code = generateVerificationCode();
+        
+        // Store code in session with expiry (10 minutes)
+        if (!req.session.verificationCodes) {
+            req.session.verificationCodes = {};
+        }
+        
+        req.session.verificationCodes[email] = {
+            code: code,
+            verified: false,
+            expires: Date.now() + (10 * 60 * 1000) // 10 minutes from now
+        };
+
+        // Return the code so the FRONTEND can send it via EmailJS
+        res.json({ 
+            success: true, 
+            code: code,
+            message: "Code generated successfully." 
+        });
+        
+    } catch (err) {
+        console.error("❌ Verification Code Error:", err);
+        res.json({ success: false, message: "Server error. Please try again." });
+    }
+});
+
+// POST: Verify the code entered by user
+router.post("/api/verify-code", async (req, res) => {
+    const { email, code } = req.body;
+    
+    if (!req.session.verificationCodes || !req.session.verificationCodes[email]) {
+        return res.json({ success: false, message: "No verification code found. Please request a new one." });
+    }
+
+    const record = req.session.verificationCodes[email];
+    
+    // Check if expired
+    if (Date.now() > record.expires) {
+        delete req.session.verificationCodes[email];
+        return res.json({ success: false, message: "Code expired. Please request a new one." });
+    }
+
+    // Check if code matches
+    if (record.code !== code.trim()) {
+        return res.json({ success: false, message: "Invalid code. Please try again." });
+    }
+
+    // Mark as verified
+    record.verified = true;
+    res.json({ success: true, message: "Email verified successfully!" });
+});
+
 
 module.exports = router;
