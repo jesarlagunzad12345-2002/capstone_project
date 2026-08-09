@@ -33,7 +33,7 @@ body {
 }
 
 /* ============================================
-   HEADER & NAVIGATION - MATCHING EXPERIENCE
+   HEADER & NAVIGATION
    ============================================ */
 header {
   background: linear-gradient(135deg, var(--black) 0%, var(--dark-gray) 100%);
@@ -100,7 +100,6 @@ header {
   width: 100%;
 }
 
-/* Header Actions - Matching Experience */
 .header-actions {
   display: flex;
   gap: 1rem;
@@ -148,13 +147,13 @@ header {
 }
 
 /* ============================================
-   MAIN CONTENT - FULL HEIGHT NO SCROLL
+   MAIN CONTENT
    ============================================ */
-main {
+main.container {
   flex: 1;
   max-width: 1400px;
   margin: 0 auto;
-  padding: 2rem;
+  padding: 1rem 2rem !important;
   width: 100%;
   display: flex;
   flex-direction: column;
@@ -165,22 +164,25 @@ main .row {
   flex: 1;
   height: 100%;
   align-items: stretch;
+  margin: 0;
 }
 
 main .col-lg-5 {
   display: flex;
   flex-direction: column;
   justify-content: center;
+  padding: 0 1rem;
 }
 
 main .col-lg-7 {
   display: flex;
   flex-direction: column;
   height: 100%;
+  padding: 0 1rem;
 }
 
 /* ============================================
-   SECTION STYLES - COMPACT
+   SECTION STYLES
    ============================================ */
 main h1 {
   font-size: 2.5rem;
@@ -190,17 +192,17 @@ main h1 {
   -webkit-text-fill-color: transparent;
   background-clip: text;
   line-height: 1.2;
-  margin-bottom: 1.5rem;
+  margin-bottom: 1rem;
   letter-spacing: -1px;
 }
 
 .info-card {
-  padding: 1rem 1.25rem;
+  padding: 0.75rem 1rem;
   background: var(--light-gray);
   border-radius: 8px;
   border-left: 4px solid var(--primary-blue);
   transition: all 0.3s ease;
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.5rem;
 }
 
 .info-card:last-of-type {
@@ -215,15 +217,15 @@ main h1 {
 
 .info-card h2 {
   color: var(--black);
-  font-size: 1.1rem;
-  margin-bottom: 0.5rem;
+  font-size: 1rem;
+  margin-bottom: 0.25rem;
   font-weight: 600;
 }
 
 .info-card p {
   color: var(--text-muted);
-  font-size: 0.9rem;
-  line-height: 1.6;
+  font-size: 0.85rem;
+  line-height: 1.5;
   margin-bottom: 0;
 }
 
@@ -234,8 +236,8 @@ main h1 {
 }
 
 .contact-list li {
-  padding: 0.3rem 0;
-  font-size: 0.9rem;
+  padding: 0.2rem 0;
+  font-size: 0.85rem;
   display: flex;
   align-items: center;
 }
@@ -252,14 +254,14 @@ main h1 {
   background: linear-gradient(135deg, var(--dark-blue) 0%, var(--primary-blue) 100%);
   color: var(--white);
   border: none;
-  padding: 0.875rem 1.5rem;
+  padding: 0.75rem 1.5rem;
   border-radius: 6px;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.3s ease;
   box-shadow: 0 4px 15px rgba(3, 105, 161, 0.2);
-  margin-top: 1rem;
+  margin-top: 0.75rem;
 }
 
 .map-btn:hover {
@@ -269,7 +271,7 @@ main h1 {
 }
 
 /* ============================================
-   MAP CONTAINER - FULL HEIGHT RIGHT SIDE
+   MAP CONTAINER
    ============================================ */
 #map-container {
   flex: 1;
@@ -285,6 +287,7 @@ main h1 {
   position: relative;
   overflow: hidden;
   height: 100%;
+  margin-bottom: 1.5rem;
 }
 
 #map-container::before {
@@ -306,16 +309,16 @@ main h1 {
 }
 
 /* ============================================
-   FOOTER - COMPACT
+   FOOTER - MATCHES ACCOMMODATION PAGE
    ============================================ */
 footer {
-  background: var(--black);
-  color: var(--text-light);
-  text-align: center;
-  padding: 1rem;
-  font-size: 0.85rem;
-  border-top: 2px solid var(--primary-blue);
   flex-shrink: 0;
+  background: linear-gradient(135deg, var(--black) 0%, var(--dark-gray) 100%);
+  color: #e2e8f0;
+  text-align: center;
+  padding: 2rem;
+  font-size: 0.9rem;
+  letter-spacing: 0.5px;
 }
 
 footer p {
@@ -323,12 +326,19 @@ footer p {
 }
 
 /* ============================================
-   RESPONSIVE DESIGN
+   RESPONSIVE - ALLOW SCROLL ON MOBILE
    ============================================ */
 @media (max-width: 991px) {
   html, body {
     height: auto;
     overflow: auto;
+  }
+
+  /* FIXED: Keep flex so footer sticks, but allow page to grow */
+  body {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
   }
 
   .navbar-collapse {
@@ -349,13 +359,23 @@ footer p {
     width: 100%;
   }
 
-  main {
-    padding: 1.5rem;
+  main.container {
+    padding: 1rem !important;
+    flex: 1;
     height: auto;
+    overflow: visible;
+    display: block;
   }
 
   main .row {
     height: auto;
+    display: block;
+  }
+
+  main .col-lg-5,
+  main .col-lg-7 {
+    height: auto;
+    display: block;
   }
 
   main h1 {
@@ -363,13 +383,15 @@ footer p {
     margin-bottom: 1rem;
   }
 
+  /* FIXED: Map gets explicit height so it's visible */
   #map-container {
     height: 350px;
     margin-top: 1.5rem;
+    flex: none;
   }
 
   .info-card {
-    padding: 0.875rem 1rem;
+    padding: 0.75rem 1rem;
     margin-bottom: 0.5rem;
   }
 
@@ -399,10 +421,6 @@ footer p {
 
   .nav-link {
     font-size: 0.85rem;
-  }
-
-  main {
-    padding: 1rem;
   }
 
   main h1 {

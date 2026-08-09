@@ -9,8 +9,8 @@
     <link rel="stylesheet" href="css/location.css">
     <link rel="icon" type="image/png" sizes="32x32" href="img/logo.jpg">
     <style>
+        /* FIXED: Removed height: 100% to let CSS file control it */
         #map-container {
-            height: 500px;
             width: 100%;
             border-radius: 12px;
             overflow: hidden;
@@ -51,30 +51,30 @@
         </nav>
     </header>
 
-    <main class="container py-5">
-        <div class="row g-5">
+    <main class="container">
+        <div class="row g-4">
             <section class="col-lg-5">
-                <h1 class="display-4 fw-bold mb-4">FOLLOW THE PATH TO NATURE</h1>
+                <h1 class="display-4 fw-bold mb-3">FOLLOW THE PATH TO NATURE</h1>
                 
-                <article class="info-card mb-4">
+                <article class="info-card mb-3">
                     <h2>Our Address</h2>
                     <p>KML Mountain Road, Peak Sanctuary, Western Visayas, Philippines</p>
                 </article>
 
-                <article class="info-card mb-4">
+                <article class="info-card mb-3">
                     <h2>Getting Here</h2>
                     <p>Located just a 12-minute hike from the nearest main road. We recommend lightweight gear for the ascent.</p>
                 </article>
 
-                <article class="info-card mb-4">
+                <article class="info-card mb-3">
                     <h2>Contact Details</h2>
                     <ul class="list-unstyled contact-list">
                         <li>Email: hello@kmlresort.com</li>
                         <li>Phone: +63 912 345 6789</li>
                     </ul>
                 </article>
-                <button id="goToLiveMap" style="display: none;" onclick="window.location.href='/live-map'"></button>
                 
+                <button id="goToLiveMap" style="display: none;" onclick="window.location.href='/live-map'"></button>
                 <button class="btn map-btn" onclick="document.getElementById('goToLiveMap').click()">Open Navigation Map</button>
             </section>
 
@@ -86,7 +86,7 @@
         </div>
     </main>
 
-    <footer class="text-center py-4 mt-5">
+    <footer>
         <p class="mb-0">&copy; 2026 KML Mountain Resort. All rights reserved.</p>
     </footer>
 
