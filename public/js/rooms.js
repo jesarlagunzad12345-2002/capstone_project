@@ -154,6 +154,11 @@ function showRooms(searchTerm) {
         var room = list[i];
         var isAvailable = (room.status === 'available');
 
+        // UPDATED: Hide "/night" for cottages
+        var priceLabel = (room.category === 'Cottage') 
+            ? '₱' + room.price 
+            : '₱' + room.price + '<small class="text-muted">/night</small>';
+
         html += `
         <div class="col-sm-6 col-xl-3">
             <div class="room-card">
@@ -167,7 +172,7 @@ function showRooms(searchTerm) {
                 <div class="p-3">
                     <div class="d-flex justify-content-between">
                         <h6 class="fw-bold mb-1">${room.name}</h6>
-                        <span class="text-info fw-bold">₱${room.price}<small class="text-muted">/night</small></span>
+                        <span class="text-info fw-bold">${priceLabel}</span>
                     </div>
                     <p class="text-muted mb-3" style="font-size: 0.75rem;">${room.occupancy} Guests • ${room.category}</p>
                     <div class="room-actions">
@@ -307,6 +312,11 @@ async function showRoomDetails(id) {
 
         var isAvailable = (room.status === 'available');
 
+        // UPDATED: Hide "/night" for cottages in details modal
+        var priceLabel = (room.category === 'Cottage')
+            ? '₱' + room.price + ' <span class="text-muted">(Flat Rate)</span>'
+            : '₱' + room.price + '/night';
+
         document.getElementById('detailsRoomName').textContent = room.name;
         document.getElementById('detailsContent').innerHTML = `
             <div class="text-center mb-3">
@@ -315,7 +325,7 @@ async function showRoomDetails(id) {
             <div class="row g-3">
                 <div class="col-6"><strong>ID:</strong> ${room.room_id}</div>
                 <div class="col-6"><strong>Category:</strong> ${room.category}</div>
-                <div class="col-6"><strong>Price:</strong> ₱${room.price}/night</div>
+                <div class="col-6"><strong>Price:</strong> ${priceLabel}</div>
                 <div class="col-6"><strong>Guests:</strong> ${room.occupancy}</div>
                 <div class="col-6">
                     <strong>Status:</strong> 

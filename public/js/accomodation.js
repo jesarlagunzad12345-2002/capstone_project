@@ -54,10 +54,14 @@ function renderAccommodations() {
                 ? '<span class="badge bg-danger me-2">Occupied</span>' 
                 : '<span class="badge bg-warning text-dark me-2">Cleaning</span>';
 
-        // Add booking schedule hint
         const bookingHint = room.status !== 'available' 
             ? `<p class="text-muted small mb-2"><i class="bi bi-calendar-check me-1 text-info"></i> Check booking schedule for available dates</p>` 
             : '';
+
+        // UPDATED: Cottage = flat rate / day use, Room = per night
+        const priceLabel = (room.category === 'Cottage')
+            ? `<p class="price-tag"><strong>Price:</strong> ₱${room.price} <span class="text-muted">(Flat Rate - Day Use)</span></p>`
+            : `<p class="price-tag"><strong>Price:</strong> ₱${room.price} / night</p>`;
 
         const imageCol = `
             <div class="col-lg-6">
@@ -79,7 +83,7 @@ function renderAccommodations() {
                     <li><i class="bi bi-tag-fill me-2 text-primary"></i>${room.category} Class</li>
 
                 </ul>
-                <p class="price-tag"><strong>Price:</strong> ₱${room.price} / night</p>
+                ${priceLabel}
                 <div class="d-flex gap-3">
                     <button class="btn btn-outline-primary btn-custom-outline" onclick="openRoomModal('${room.room_id}')">View Details</button>
                     <a href="/booking?room=${room.room_id}" class="btn btn-primary btn-custom-primary ${room.status !== 'available' ? 'disabled' : ''}">Reserve Now</a>
@@ -102,12 +106,24 @@ async function openRoomModal(roomId) {
         const room = await apiGet(`/api/rooms/${roomId}`);
 
         document.getElementById('modalTitle').textContent = room.name;
-        document.getElementById('modalPrice').textContent = `₱${room.price}`;
+        
+        // UPDATED: Cottage = flat rate in modal, Room = per night
+        const modalPrice = (room.category === 'Cottage')
+            ? `₱${room.price} <small class="text-muted">(Flat Rate - Day Use)</small>`
+            : `₱${room.price}`;
+        document.getElementById('modalPrice').innerHTML = modalPrice;
+        
+        // NEW: Hide "per night" label for cottages, show for rooms
+        const priceLabel = document.getElementById('modalPriceLabel');
+        if (priceLabel) {
+            priceLabel.style.display = (room.category === 'Cottage') ? 'none' : 'inline';
+        }
+        
         document.getElementById('modalBadge').textContent = room.category;
         document.getElementById('modalImage').src = room.image;
 
         document.getElementById('modalDescription').textContent = 
-            `${room.category} room for up to ${room.occupancy} guests. Room ${room.room_id}.`;
+            `${room.category} for up to ${room.occupancy} guests. Room ${room.room_id}.`;
 
         const bookBtn = document.getElementById('modalBookBtn');
         if (room.status === 'available') {

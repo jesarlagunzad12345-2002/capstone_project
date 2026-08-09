@@ -17,67 +17,59 @@
       function formatDate(dateString) {
           if (!dateString) return "N/A";
           const date = new Date(dateString);
-          return isNaN(date) ? dateString : date.toLocaleDateString('en-US', { 
-              month: 'short', 
-              day: 'numeric', 
-              year: 'numeric' 
-          });
+          return isNaN(date) ? dateString : date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      }
+
+      function timeToMinutes(timeStr) {
+          if (!timeStr) return 0;
+          const [h, m] = timeStr.split(':').map(Number);
+          return (h * 60) + m;
       }
 
       window.onload = function() {
-        // ===== APPROVE TRIGGER =====
-        const shouldTrigger = "<%= triggerApprove %>";
-        
+        const shouldTrigger = "<%= typeof triggerApprove !== 'undefined' ? triggerApprove : false %>";
         if (shouldTrigger === "true") {
             const toastElement = document.getElementById('approveToast');
             const toast = new bootstrap.Toast(toastElement);
             toast.show();
-
             const bellDot = document.getElementById('bellDot');
             if (bellDot) bellDot.style.display = 'block';
 
-            const gEmail = "<%= guestEmail %>";
-            const gName = "<%= guestName %>";
-
+            const gEmail = "<%= typeof guestEmail !== 'undefined' ? guestEmail : '' %>";
+            const gName = "<%= typeof guestName !== 'undefined' ? guestName : '' %>";
             if (gEmail && gEmail !== "null" && gEmail !== "") {
-              const specialRequests = "<%= guestRequests %>" || "None";
-              
+              const specialRequests = "<%= typeof guestRequests !== 'undefined' ? guestRequests : 'None' %>" || "None";
               const templateParams = {
                 to_email: gEmail,
                 user_name: gName,
-                room_type: "<%= guestRoom %>" || "Standard Apartment",
-                checkin_date: formatDate("<%= guestIn %>"),
-                checkout_date: formatDate("<%= guestOut %>"),
-                guests_count: "<%= guestPeople %>",
+                room_type: "<%= typeof guestRoom !== 'undefined' ? guestRoom : 'Standard Apartment' %>" || "Standard Apartment",
+                checkin_date: formatDate("<%= typeof guestIn !== 'undefined' ? guestIn : '' %>"),
+                checkout_date: formatDate("<%= typeof guestOut !== 'undefined' ? guestOut : '' %>"),
+                guests_count: "<%= typeof guestPeople !== 'undefined' ? guestPeople : '' %>",
                 special_requests: specialRequests,
                 message: "Your reservation at KML Resort is officially confirmed!"
               };
-
               emailjs.send('service_kmlresort', 'template_klmresort1', templateParams)
                 .then(() => console.log("Confirmation email sent."))
                 .catch((err) => console.error("Email Error: ", err));
             }
         }
 
-        // ===== NEW: CANCEL TRIGGER (Admin cancelled approved booking) =====
-        const shouldTriggerCancel = "<%= triggerCancel %>";
-        
+        const shouldTriggerCancel = "<%= typeof triggerCancel !== 'undefined' ? triggerCancel : false %>";
         if (shouldTriggerCancel === "true") {
-            const cEmail = "<%= cancelGuestEmail %>";
-            const cName = "<%= cancelGuestName %>";
-
+            const cEmail = "<%= typeof cancelGuestEmail !== 'undefined' ? cancelGuestEmail : '' %>";
+            const cName = "<%= typeof cancelGuestName !== 'undefined' ? cancelGuestName : '' %>";
             if (cEmail && cEmail !== "null" && cEmail !== "") {
               const cancelParams = {
                 to_email: cEmail,
                 user_name: cName,
-                booking_id: "<%= cancelGuestId %>",
-                room_type: "<%= cancelGuestRoom %>" || "Standard",
-                checkin_date: "<%= cancelGuestCheckin %>",
+                booking_id: "<%= typeof cancelGuestId !== 'undefined' ? cancelGuestId : '' %>",
+                room_type: "<%= typeof cancelGuestRoom !== 'undefined' ? cancelGuestRoom : 'Standard' %>" || "Standard",
+                checkin_date: "<%= typeof cancelGuestCheckin !== 'undefined' ? cancelGuestCheckin : '' %>",
                 status_type: "Approved Booking",
                 cancel_reason: "Cancelled by admin upon guest request",
                 message: "Your booking has been successfully cancelled by our admin team. We hope to welcome you again in the future!"
               };
-
               emailjs.send('service_kmlresort', 'template_kule5md', cancelParams)
                 .then(() => console.log("Cancellation email sent to guest."))
                 .catch((err) => console.error("Cancel Email Error: ", err));
@@ -90,43 +82,86 @@
           if (bellDot) bellDot.style.display = 'none';
       }
 
-      // ============================================
-      // DYNAMIC GUEST DROPDOWN: Updates based on room capacity
-      // ============================================
       function updateGuestDropdown(bookingId) {
           const roomSelect = document.getElementById('roomSelect' + bookingId);
           const guestSelect = document.getElementById('guestSelect' + bookingId);
-          
           if (!roomSelect || !guestSelect) return;
-          
           const selectedOption = roomSelect.options[roomSelect.selectedIndex];
           const maxOccupancy = parseInt(selectedOption.getAttribute('data-occupancy')) || 1;
           const currentValue = parseInt(guestSelect.value) || 1;
-          
           guestSelect.innerHTML = '';
-          
           for (let i = 1; i <= maxOccupancy; i++) {
               const option = document.createElement('option');
               option.value = i;
               option.textContent = i === 1 ? '1 Adult' : i + ' Adults';
-              
-              if (i === currentValue) {
-                  option.selected = true;
-              }
-              
+              if (i === currentValue) option.selected = true;
               guestSelect.appendChild(option);
           }
-          
-          if (currentValue > maxOccupancy) {
-              guestSelect.value = maxOccupancy;
+          if (currentValue > maxOccupancy) guestSelect.value = maxOccupancy;
+      }
+
+      function toggleEditModalFields(bookingId) {
+          const roomSelect = document.getElementById('roomSelect' + bookingId);
+          if (!roomSelect) return;
+          const selectedOption = roomSelect.options[roomSelect.selectedIndex];
+          const category = selectedOption.getAttribute('data-category') || 'Room';
+          const isCottage = (category === 'Cottage');
+          const roomFields = document.getElementById('editRoomFields' + bookingId);
+          const cottageFields = document.getElementById('editCottageFields' + bookingId);
+          if (roomFields) roomFields.style.display = isCottage ? 'none' : 'flex';
+          if (cottageFields) cottageFields.style.display = isCottage ? 'flex' : 'none';
+          updateGuestDropdown(bookingId);
+      }
+
+      function prepareEditSubmit(bookingId) {
+          const roomSelect = document.getElementById('roomSelect' + bookingId);
+          if (!roomSelect) { alert('Error: Room selection not found.'); return false; }
+          const selectedOption = roomSelect.options[roomSelect.selectedIndex];
+          const category = selectedOption.getAttribute('data-category') || 'Room';
+          const isCottage = (category === 'Cottage');
+          const hiddenCheckin = document.getElementById('editCheckinHidden' + bookingId);
+          const hiddenCheckout = document.getElementById('editCheckoutHidden' + bookingId);
+          if (!hiddenCheckin || !hiddenCheckout) { alert('Error: Hidden fields not found.'); return false; }
+
+          if (isCottage) {
+              const dateInput = document.getElementById('editBookingDate' + bookingId);
+              const inTimeInput = document.getElementById('editCheckinTime' + bookingId);
+              const outTimeInput = document.getElementById('editCheckoutTime' + bookingId);
+              if (!dateInput || !inTimeInput || !outTimeInput) { alert('Error: Cottage fields missing.'); return false; }
+              const date = dateInput.value;
+              const inTime = inTimeInput.value;
+              const outTime = outTimeInput.value;
+              if (!date || !inTime || !outTime) { alert('Please fill in booking date, check-in time, and check-out time.'); return false; }
+              if (timeToMinutes(outTime) <= timeToMinutes(inTime)) { alert('Check-out time must be later than check-in time.'); return false; }
+              hiddenCheckin.value = date + ' ' + inTime + ':00';
+              hiddenCheckout.value = date + ' ' + outTime + ':00';
+          } else {
+              const checkinInput = document.getElementById('editCheckinDate' + bookingId);
+              const checkoutInput = document.getElementById('editCheckoutDate' + bookingId);
+              if (!checkinInput || !checkoutInput) { alert('Error: Date fields missing.'); return false; }
+              const checkin = checkinInput.value;
+              const checkout = checkoutInput.value;
+              if (!checkin || !checkout) { alert('Please select check-in and check-out dates.'); return false; }
+              if (new Date(checkout) <= new Date(checkin)) { alert('Check-out date must be after check-in date.'); return false; }
+              hiddenCheckin.value = checkin;
+              hiddenCheckout.value = checkout;
           }
+          return true;
       }
 
       document.addEventListener('DOMContentLoaded', function() {
           document.querySelectorAll('[data-booking-id]').forEach(function(select) {
               select.addEventListener('change', function() {
-                  const bookingId = this.getAttribute('data-booking-id');
-                  updateGuestDropdown(bookingId);
+                  toggleEditModalFields(this.getAttribute('data-booking-id'));
+              });
+          });
+          document.querySelectorAll('.modal').forEach(function(modal) {
+              modal.addEventListener('shown.bs.modal', function() {
+                  const form = modal.querySelector('form');
+                  if (form) {
+                      const match = (form.getAttribute('action') || '').match(/\/update\/(\d+)/);
+                      if (match) toggleEditModalFields(match[1]);
+                  }
               });
           });
       });
@@ -138,27 +173,22 @@
         const shortDate = (d) => {
             const date = new Date(d);
             return isNaN(date) ? d : date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-        }
-
+        };
         const formatPrice = (p) => {
             return p ? '₱' + parseFloat(p).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : '₱0.00';
-        }
+        };
     %>
 
     <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
 
     <aside class="sidebar" id="sidebar">
         <div class="d-flex justify-content-end d-lg-none p-3">
-            <button class="btn text-white border-0" onclick="toggleSidebar()">
-                <i class="bi bi-x-lg fs-4"></i>
-            </button>
+            <button class="btn text-white border-0" onclick="toggleSidebar()"><i class="bi bi-x-lg fs-4"></i></button>
         </div>
-
         <div class="sidebar-brand">
             <div class="brand-logo me-2">KML</div>
             <span class="text-white fw-bold">MOUNTAIN RESORT</span>
         </div>
-
         <div class="nav-label">Main</div>
         <nav class="nav flex-column">
             <a href="/admin-dashboard" class="nav-link"><i class="bi bi-grid-1x2 me-2"></i> Dashboard</a>
@@ -167,7 +197,6 @@
             <div class="nav-label">Operations</div>
             <a href="/food" class="nav-link"><i class="bi bi-egg-fried me-2"></i> Restaurant Menu</a>
         </nav>
-
         <div class="mt-auto p-4">
             <a href="/logout" class="btn btn-outline-danger w-100 rounded-4 fw-bold">Logout</a>
         </div>
@@ -176,9 +205,7 @@
     <div class="main-wrapper">
         <header class="d-flex align-items-center justify-content-between px-4">
             <div class="d-flex align-items-center">
-                <button class="btn btn-light d-lg-none me-3" onclick="toggleSidebar()">
-                    <i class="bi bi-list fs-4"></i>
-                </button>
+                <button class="btn btn-light d-lg-none me-3" onclick="toggleSidebar()"><i class="bi bi-list fs-4"></i></button>
             </div>
             <div class="d-flex align-items-center gap-3">
                 <button class="btn border-0 position-relative text-muted" onclick="clearNotifications()">
@@ -190,7 +217,7 @@
 
         <div class="container-fluid p-4">
             
-            <% if (error) { %>
+            <% if (typeof error !== 'undefined' && error) { %>
                 <div class="alert alert-danger alert-dismissible fade show mb-4" role="alert" style="border-radius: 16px;">
                     <i class="bi bi-exclamation-triangle-fill me-2"></i>
                     <strong>Update Blocked!</strong> <%= error %>
@@ -218,24 +245,38 @@
                             </tr>
                         </thead>
                         <tbody>
-                            <% bookings.filter(b => b.status !== 'approved').forEach(booking => { %>
+                            <% 
+                                const pendingBookings = bookings.filter(b => b.status !== 'approved');
+                                pendingBookings.forEach(booking => { 
+                                    const bRoom = rooms.find(r => r.name === booking.roomType);
+                                    const isCottage = bRoom && bRoom.category === 'Cottage';
+                            %>
                             <tr>
                                 <td class="ps-4">
                                     <div class="fw-bold small text-dark"><%= booking.name %></div>
                                     <div class="text-muted" style="font-size: 0.7rem;"><%= booking.email %></div>
                                 </td>
                                 <td>
-                                    <div class="small fw-bold">In: <%= shortDate(booking.checkin) %></div>
-                                    <div class="text-muted" style="font-size: 0.7rem;">Out: <%= shortDate(booking.checkout) %></div>
+                                    <% if (isCottage) { 
+                                        const cin = new Date(booking.checkin);
+                                        const cout = new Date(booking.checkout);
+                                        const dateStr = !isNaN(cin) ? cin.toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'}) : shortDate(booking.checkin);
+                                        const cinTime = !isNaN(cin) ? cin.toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit', hour12:true}) : '';
+                                        const coutTime = !isNaN(cout) ? cout.toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit', hour12:true}) : '';
+                                    %>
+                                        <div class="small fw-bold"><%= dateStr %></div>
+                                        <div class="text-muted" style="font-size: 0.7rem;"><%= cinTime %> - <%= coutTime %> (Day Use)</div>
+                                    <% } else { %>
+                                        <div class="small fw-bold">In: <%= shortDate(booking.checkin) %></div>
+                                        <div class="text-muted" style="font-size: 0.7rem;">Out: <%= shortDate(booking.checkout) %></div>
+                                    <% } %>
                                 </td>
                                 <td><span class="status-tag bg-light text-dark border"><%= booking.roomType || 'Standard' %></span></td>
                                 <td class="text-center"><span class="guest-badge"><%= booking.people %></span></td>
                                 <td><span class="price-tag"><%= formatPrice(booking.total_price) %></span></td>
                                 <td>
                                     <% if (booking.requests) { %>
-                                        <span class="special-request-text" title="<%= booking.requests %>">
-                                            <%= booking.requests %>
-                                        </span>
+                                        <span class="special-request-text" title="<%= booking.requests %>"><%= booking.requests %></span>
                                     <% } else { %>
                                         <span class="text-muted" style="font-size: 0.75rem;">None</span>
                                     <% } %>
@@ -259,12 +300,16 @@
                             <div class="modal fade" id="editModal<%= booking.id %>" tabindex="-1" aria-hidden="true">
                                 <div class="modal-dialog modal-dialog-centered">
                                     <div class="modal-content border-0 shadow" style="border-radius: 24px;">
-                                        <form action="/update/<%= booking.id %>" method="POST">
+                                        <form action="/update/<%= booking.id %>" method="POST" onsubmit="return prepareEditSubmit('<%= booking.id %>')">
                                             <div class="modal-header border-bottom-0 pt-4 px-4">
                                                 <h5 class="modal-title fw-bold">Edit Booking #<%= booking.id %></h5>
                                                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                                             </div>
                                             <div class="modal-body px-4">
+                                                
+                                                <input type="hidden" name="checkin" id="editCheckinHidden<%= booking.id %>" value="<%= booking.checkinFormatted %>">
+                                                <input type="hidden" name="checkout" id="editCheckoutHidden<%= booking.id %>" value="<%= booking.checkoutFormatted %>">
+
                                                 <div class="mb-3">
                                                     <label class="form-label text-uppercase small fw-bold text-muted">Full Name</label>
                                                     <input type="text" name="name" class="form-control py-2 bg-light border-0 rounded-3" value="<%= booking.name %>" required>
@@ -290,8 +335,11 @@
                                                                 <% for (const [category, items] of Object.entries(categories)) { %>
                                                                     <optgroup label="<%= category === 'Cottage' ? '🏡 Cottages' : '🏨 ' + category + ' Rooms' %>">
                                                                         <% items.forEach(room => { %>
-                                                                            <option value="<%= room.name %>" data-occupancy="<%= room.occupancy %>" <%= booking.roomType === room.name ? 'selected' : '' %>>
-                                                                                <%= room.name %> — ₱<%= room.price %>/night (Max <%= room.occupancy %> guests)
+                                                                            <option value="<%= room.name %>" 
+                                                                                data-category="<%= room.category %>" 
+                                                                                data-occupancy="<%= room.occupancy %>" 
+                                                                                <%= booking.roomType === room.name ? 'selected' : '' %>>
+                                                                                <%= room.name %> — ₱<%= room.price %><%= room.category === 'Cottage' ? ' (Flat)' : '/night' %> (Max <%= room.occupancy %> guests)
                                                                             </option>
                                                                         <% }) %>
                                                                     </optgroup>
@@ -318,14 +366,59 @@
                                                     </div>
                                                 </div>
 
-                                                <div class="row">
+                                                <% 
+                                                    let cottageDateVal = '';
+                                                    let cottageCheckinTimeVal = '';
+                                                    let cottageCheckoutTimeVal = '';
+                                                    if (isCottage) {
+                                                        const cinDt = booking.checkin ? new Date(booking.checkin) : null;
+                                                        const coutDt = booking.checkout ? new Date(booking.checkout) : null;
+                                                        if (cinDt && !isNaN(cinDt.getTime())) {
+                                                            const y = cinDt.getFullYear();
+                                                            const m = String(cinDt.getMonth() + 1).padStart(2, '0');
+                                                            const d = String(cinDt.getDate()).padStart(2, '0');
+                                                            cottageDateVal = `${y}-${m}-${d}`;
+                                                            cottageCheckinTimeVal = `${String(cinDt.getHours()).padStart(2,'0')}:${String(cinDt.getMinutes()).padStart(2,'0')}`;
+                                                        }
+                                                        if (coutDt && !isNaN(coutDt.getTime())) {
+                                                            cottageCheckoutTimeVal = `${String(coutDt.getHours()).padStart(2,'0')}:${String(coutDt.getMinutes()).padStart(2,'0')}`;
+                                                        }
+                                                    }
+                                                %>
+
+                                                <!-- ROOM FIELDS -->
+                                                <% if (!isCottage) { %>
+                                                <div class="row" id="editRoomFields<%= booking.id %>">
+                                                <% } else { %>
+                                                <div class="row" id="editRoomFields<%= booking.id %>" style="display:none;">
+                                                <% } %>
                                                     <div class="col-6 mb-3">
-                                                        <label class="form-label text-uppercase small fw-bold text-muted">Check-In</label>
-                                                        <input type="date" name="checkin" class="form-control py-2 bg-light border-0 rounded-3" value="<%= booking.checkinFormatted %>" required>
+                                                        <label class="form-label text-uppercase small fw-bold text-muted">Check-In Date</label>
+                                                        <input type="date" id="editCheckinDate<%= booking.id %>" class="form-control py-2 bg-light border-0 rounded-3" value="<%= booking.checkinFormatted %>">
                                                     </div>
                                                     <div class="col-6 mb-3">
-                                                        <label class="form-label text-uppercase small fw-bold text-muted">Check-Out</label>
-                                                        <input type="date" name="checkout" class="form-control py-2 bg-light border-0 rounded-3" value="<%= booking.checkoutFormatted %>" required>
+                                                        <label class="form-label text-uppercase small fw-bold text-muted">Check-Out Date</label>
+                                                        <input type="date" id="editCheckoutDate<%= booking.id %>" class="form-control py-2 bg-light border-0 rounded-3" value="<%= booking.checkoutFormatted %>">
+                                                    </div>
+                                                </div>
+
+                                                <!-- COTTAGE FIELDS -->
+                                                <% if (isCottage) { %>
+                                                <div class="row" id="editCottageFields<%= booking.id %>">
+                                                <% } else { %>
+                                                <div class="row" id="editCottageFields<%= booking.id %>" style="display:none;">
+                                                <% } %>
+                                                    <div class="col-4 mb-3">
+                                                        <label class="form-label text-uppercase small fw-bold text-muted">Booking Date</label>
+                                                        <input type="date" id="editBookingDate<%= booking.id %>" class="form-control py-2 bg-light border-0 rounded-3" value="<%= cottageDateVal %>">
+                                                    </div>
+                                                    <div class="col-4 mb-3">
+                                                        <label class="form-label text-uppercase small fw-bold text-muted">Check-In Time</label>
+                                                        <input type="time" id="editCheckinTime<%= booking.id %>" class="form-control py-2 bg-light border-0 rounded-3" value="<%= cottageCheckinTimeVal %>">
+                                                    </div>
+                                                    <div class="col-4 mb-3">
+                                                        <label class="form-label text-uppercase small fw-bold text-muted">Check-Out Time</label>
+                                                        <input type="time" id="editCheckoutTime<%= booking.id %>" class="form-control py-2 bg-light border-0 rounded-3" value="<%= cottageCheckoutTimeVal %>">
                                                     </div>
                                                 </div>
 
@@ -367,31 +460,41 @@
                             </tr>
                         </thead>
                         <tbody>
-                            <% bookings.filter(b => b.status === 'approved').forEach(booking => { %>
+                            <% 
+                                const approvedBookings = bookings.filter(b => b.status === 'approved');
+                                approvedBookings.forEach(booking => { 
+                                    const bRoom2 = rooms.find(r => r.name === booking.roomType);
+                                    const isCottage2 = bRoom2 && bRoom2.category === 'Cottage';
+                            %>
                             <tr>
                                 <td class="ps-4">
                                     <div class="fw-bold small"><%= booking.name %></div>
                                     <div class="text-muted smaller" style="font-size: 0.65rem;">
-                                        <%= shortDate(booking.checkin) %> - <%= shortDate(booking.checkout) %>
+                                        <% if (isCottage2) { 
+                                            const cin2 = new Date(booking.checkin);
+                                            const cout2 = new Date(booking.checkout);
+                                            const dateStr2 = !isNaN(cin2) ? cin2.toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'}) : shortDate(booking.checkin);
+                                            const cinTime2 = !isNaN(cin2) ? cin2.toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit', hour12:true}) : '';
+                                            const coutTime2 = !isNaN(cout2) ? cout2.toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit', hour12:true}) : '';
+                                        %>
+                                            <%= dateStr2 %> | <%= cinTime2 %> - <%= coutTime2 %>
+                                        <% } else { %>
+                                            <%= shortDate(booking.checkin) %> - <%= shortDate(booking.checkout) %>
+                                        <% } %>
                                     </div>
                                 </td>
-                                <td class="email-cell">
-                                    <%= booking.email %>
-                                </td>
+                                <td class="email-cell"><%= booking.email %></td>
                                 <td class="small"><%= booking.roomType %></td>
                                 <td class="text-center"><span class="guest-badge"><%= booking.people %></span></td>
                                 <td><span class="price-tag"><%= formatPrice(booking.total_price) %></span></td>
                                 <td>
                                     <% if (booking.requests) { %>
-                                        <span class="special-request-text" title="<%= booking.requests %>">
-                                            <%= booking.requests %>
-                                        </span>
+                                        <span class="special-request-text" title="<%= booking.requests %>"><%= booking.requests %></span>
                                     <% } else { %>
                                         <span class="text-muted" style="font-size: 0.75rem;">None</span>
                                     <% } %>
                                 </td>
                                 <td class="text-center"><span class="status-tag bg-success bg-opacity-10 text-success">Approved</span></td>
-                                <!-- NEW: 3-dot dropdown menu for Cancel / Remove -->
                                 <td class="text-end pe-4">
                                     <div class="dropdown">
                                         <button class="btn btn-light btn-sm border-0" type="button" data-bs-toggle="dropdown" aria-expanded="false">
@@ -400,17 +503,13 @@
                                         <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0" style="border-radius: 12px;">
                                             <li>
                                                 <form action="/admin-cancel/<%= booking.id %>" method="POST" onsubmit="return confirm('Cancel this booking and notify guest via email?')">
-                                                    <button type="submit" class="dropdown-item text-danger fw-semibold">
-                                                        <i class="bi bi-x-circle me-2"></i>Cancel Booking
-                                                    </button>
+                                                    <button type="submit" class="dropdown-item text-danger fw-semibold"><i class="bi bi-x-circle me-2"></i>Cancel Booking</button>
                                                 </form>
                                             </li>
                                             <li><hr class="dropdown-divider"></li>
                                             <li>
                                                 <form action="/delete/<%= booking.id %>" method="POST" onsubmit="return confirm('Remove from history?')">
-                                                    <button type="submit" class="dropdown-item text-muted">
-                                                        <i class="bi bi-trash3 me-2"></i>Remove Booking
-                                                    </button>
+                                                    <button type="submit" class="dropdown-item text-muted"><i class="bi bi-trash3 me-2"></i>Remove Booking</button>
                                                 </form>
                                             </li>
                                         </ul>
@@ -430,7 +529,7 @@
         <div class="d-flex">
           <div class="toast-body">
             <i class="bi bi-check-circle-fill me-2"></i>
-            Booking for <strong><%= guestName %></strong> approved and email sent!
+            Booking for <strong><%= typeof guestName !== 'undefined' ? guestName : '' %></strong> approved and email sent!
           </div>
           <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
         </div>

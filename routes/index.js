@@ -10,6 +10,14 @@ const dbQuery = (sql, params = []) => new Promise((resolve, reject) => {
     getDb().query(sql, params, (err, results) => err ? reject(err) : resolve(results));
 });
 
+// ===================== HELPER: Block Monday & Tuesday =====================
+function isMondayOrTuesday(dateString) {
+    const [year, month, day] = dateString.split('-').map(Number);
+    const date = new Date(year, month - 1, day);
+    const dayOfWeek = date.getDay();
+    return dayOfWeek === 1 || dayOfWeek === 2; // 1=Mon, 2=Tue
+}
+
 async function addRevenueForBooking(bookingId) {
     try {
         const bookings = await dbQuery(
@@ -98,19 +106,18 @@ router.get("/amenities", (req, res) => res.render("user/amenities"));
 router.get("/location", (req, res) => res.render("user/location"));
 router.get("/live-map", (req, res) => res.render("admin/live-map"));
 
-// ===================== UPDATED: /booking GET route =====================
+// ===================== /booking GET route =====================
 router.get("/booking", async (req, res) => {
     const msg = req.session.msg || null;
-    const err = req.session.error || null;  // NEW: capture error message
+    const err = req.session.error || null;
     
-    // Clear both messages from session
     ['msg', 'error', 'triggerApprove', 'guestName', 'guestEmail'].forEach(k => delete req.session[k]);
 
     try {
         const rooms = await dbQuery("SELECT * FROM rooms WHERE status = 'available' ORDER BY category, name");
         res.render("user/booking", { 
             message: msg, 
-            error: err,      // NEW: pass error to template
+            error: err,
             rooms: rooms || [] 
         });
     } catch (err) {
@@ -137,9 +144,6 @@ function buildWhere(baseSql, filters) {
 // ===================== BOOKING SCHEDULE API (Public) =====================
 router.get("/api/booking-schedule", async (req, res) => {
     try {
-        // Get only APPROVED bookings that are NOT outdated
-        // CURDATE() = today's date on the server
-        // This hides bookings whose checkout date has already passed
         const bookings = await dbQuery(`
             SELECT 
                 b.roomType,
@@ -148,8 +152,7 @@ router.get("/api/booking-schedule", async (req, res) => {
                 b.people,
                 b.status
             FROM bookings b
-            WHERE b.status = 'approved'
-              AND b.checkout >= CURDATE()
+            WHERE b.checkout >= CURDATE()
             ORDER BY b.checkin ASC
         `);
 
@@ -421,48 +424,115 @@ router.get("/api/gallery", async (req, res) => {
 });
 
 
-// ===================== UPDATED: BOOKING CREATION with double-booking check =====================
+// ===================== UPDATED: /create with Cottage day-use support + Mon/Tue block + double booking fix =====================
 router.post("/create", async (req, res) => {
-    const { name, email, people, checkin, checkout, roomType, requests } = req.body;
+    const { name, email, people, roomType, requests, checkin, checkout, bookingDate, checkinTime, checkoutTime } = req.body;
+
+    console.log("📥 /create received:", { 
+        roomType, bookingDate, checkinTime, checkoutTime, checkin, checkout 
+    });
 
     try {
-        // NEW: Check for double booking before saving
-        const overlapCheck = await dbQuery(`
-            SELECT checkin, checkout 
-            FROM bookings 
-            WHERE roomType = ? 
-              AND status = 'approved'
-              AND checkin < ? 
-              AND checkout > ?
-            LIMIT 1
-        `, [roomType, checkout, checkin]);
-
-        if (overlapCheck.length > 0) {
-            const existing = overlapCheck[0];
-            const inStr = new Date(existing.checkin).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-            const outStr = new Date(existing.checkout).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-            
-            req.session.error = `"${roomType}" is already booked from ${inStr} to ${outStr}. Please choose another room or different dates.`;
-            return res.redirect("/booking");
-        }
-
-        const checkinDate = new Date(checkin);
-        const checkoutDate = new Date(checkout);
-        const nights = Math.max(1, Math.ceil((checkoutDate - checkinDate) / (1000 * 60 * 60 * 24)));
-
-        const roomResults = await dbQuery("SELECT price, category FROM rooms WHERE name = ? LIMIT 1", [roomType]);
-        const roomPrice = roomResults.length > 0 ? roomResults[0].price : 0;
+        const roomResults = await dbQuery("SELECT price, category, occupancy FROM rooms WHERE name = ? LIMIT 1", [roomType]);
         const roomCategory = roomResults.length > 0 ? roomResults[0].category : 'Room';
+        const isCottage = (roomCategory === 'Cottage');
 
-        const totalPrice = roomPrice * nights;
+        const maxOccupancy = roomResults.length > 0 ? parseInt(roomResults[0].occupancy) : 1;
+        let guestCount = parseInt(people) || 1;
+        if (guestCount > maxOccupancy && maxOccupancy > 0) guestCount = maxOccupancy;
+
+        let finalCheckin, finalCheckout, totalPrice, nights;
+
+        if (isCottage) {
+            if (!bookingDate || !checkinTime || !checkoutTime) {
+                req.session.error = "Please fill in the booking date, check-in time, and check-out time for the cottage.";
+                return res.redirect("/booking");
+            }
+
+            // BLOCK MONDAY & TUESDAY
+            if (isMondayOrTuesday(bookingDate)) {
+                req.session.error = "We are closed every Monday and Tuesday. Please choose a different date.";
+                return res.redirect("/booking");
+            }
+
+            // Combine into MySQL DATETIME format
+            finalCheckin = bookingDate + ' ' + checkinTime + ':00';
+            finalCheckout = bookingDate + ' ' + checkoutTime + ':00';
+
+            console.log("🕐 Cottage datetime strings:", { finalCheckin, finalCheckout });
+
+            // FIX: Check ALL bookings (pending + approved) for same-day double booking
+            const overlapCheck = await dbQuery(`
+                SELECT checkin, checkout FROM bookings 
+                WHERE roomType = ? AND DATE(checkin) = DATE(?)
+                LIMIT 1
+            `, [roomType, finalCheckin]);
+
+            if (overlapCheck.length > 0) {
+                const dateStr = new Date(bookingDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                req.session.error = `"${roomType}" is already booked on ${dateStr}. Please choose another cottage or a different date.`;
+                return res.redirect("/booking");
+            }
+
+            const roomPrice = roomResults.length > 0 ? parseFloat(roomResults[0].price) : 0;
+            totalPrice = roomPrice;
+            nights = 0;
+
+        } else {
+            if (!checkin || !checkout) {
+                req.session.error = "Please select check-in and check-out dates.";
+                return res.redirect("/booking");
+            }
+
+            // BLOCK MONDAY & TUESDAY for checkin and checkout
+            if (isMondayOrTuesday(checkin)) {
+                req.session.error = "Check-in cannot be on Monday or Tuesday. We are closed those days.";
+                return res.redirect("/booking");
+            }
+            if (isMondayOrTuesday(checkout)) {
+                req.session.error = "Check-out cannot be on Monday or Tuesday. We are closed those days.";
+                return res.redirect("/booking");
+            }
+
+            // FIX: Check ALL bookings (pending + approved) for date overlap
+            const overlapCheck = await dbQuery(`
+                SELECT checkin, checkout FROM bookings 
+                WHERE roomType = ? AND checkin < ? AND checkout > ?
+                LIMIT 1
+            `, [roomType, checkout, checkin]);
+
+            if (overlapCheck.length > 0) {
+                const existing = overlapCheck[0];
+                const inStr = new Date(existing.checkin).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                const outStr = new Date(existing.checkout).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                req.session.error = `"${roomType}" is already booked from ${inStr} to ${outStr}. Please choose another room or different dates.`;
+                return res.redirect("/booking");
+            }
+
+            const checkinDate = new Date(checkin);
+            const checkoutDate = new Date(checkout);
+            nights = Math.max(1, Math.ceil((checkoutDate - checkinDate) / (1000 * 60 * 60 * 24)));
+            const roomPrice = roomResults.length > 0 ? parseFloat(roomResults[0].price) : 0;
+            totalPrice = roomPrice * nights;
+
+            finalCheckin = checkin;
+            finalCheckout = checkout;
+        }
 
         await dbQuery(
             "INSERT INTO bookings (name, email, people, checkin, checkout, roomType, requests, status, total_price, nights) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)",
-            [name, email, people, checkin, checkout, roomType, requests || null, totalPrice, nights]
+            [name, email, guestCount, finalCheckin, finalCheckout, roomType, requests || null, totalPrice, nights]
         );
 
-        req.session.msg = `Booking request submitted! ${roomCategory}: ₱${totalPrice.toLocaleString()} for ${nights} night(s). Please wait for admin approval.`;
+        console.log("✅ Saved to DB:", { finalCheckin, finalCheckout, totalPrice });
+
+        const priceLabel = isCottage 
+            ? `₱${totalPrice.toLocaleString()} (Flat Rate - Day Use)` 
+            : `₱${totalPrice.toLocaleString()} for ${nights} night(s)`;
+            
+        req.session.msg = `Booking request submitted! ${roomCategory}: ${priceLabel}. Please wait for admin approval.`;
         res.redirect("/booking");
+
     } catch (err) {
         console.error("❌ SQL Error in /create:", err);
         res.status(500).send("Database Error: " + (err.message || "Unknown error"));
@@ -479,25 +549,21 @@ router.get("/api/dashboard/stats", checkAuth, async (req, res) => {
         );
         const dailyRevenue = revenueResults.length > 0 ? revenueResults[0].total_amount : 0;
 
-        // 2. Get active guests (all approved bookings)
         const guestResults = await dbQuery(
             "SELECT COUNT(*) as total FROM bookings WHERE status = 'approved'"
         );
         const activeGuests = guestResults[0].total;
 
-        // 3. Get TOTAL REVENUE (ALL TIME) - sum of every daily_revenue row
         const totalRevenueResults = await dbQuery(
             "SELECT SUM(total_amount) as grand_total FROM daily_revenue"
         );
         const totalRevenue = totalRevenueResults[0].grand_total || 0;
 
-        // 4. Get TOTAL GUESTS (ALL TIME) - sum of all guest_count from daily_revenue
         const totalGuestsResults = await dbQuery(
             "SELECT SUM(guest_count) as total_guests FROM daily_revenue"
         );
         const totalGuestsAllTime = totalGuestsResults[0].total_guests || 0;
 
-        // 5. Get recent bookings for the table
         const checkins = await dbQuery(`
             SELECT name, roomType, checkin, status, people 
             FROM bookings 
@@ -519,7 +585,7 @@ router.get("/api/dashboard/stats", checkAuth, async (req, res) => {
 });
 
 
-// --- GET: Revenue Log (list of all daily revenue with stored guest counts) ---
+// --- GET: Revenue Log ---
 router.get("/api/dashboard/revenue-log", checkAuth, async (req, res) => {
     try {
         const log = await dbQuery(`

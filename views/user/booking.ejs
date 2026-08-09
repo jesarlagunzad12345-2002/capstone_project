@@ -45,18 +45,17 @@
                         <div class="booking-header text-center">
                             <h1 class="display-5 fw-bold mb-3">BOOK YOUR STAY</h1>
                             <p class="mb-0">Choose from our rooms and cottages. Prices are calculated automatically.</p>
+                            <p class="text-danger small mt-2"><i class="bi bi-info-circle me-1"></i>We are closed every Monday & Tuesday.</p>
                         </div>
 
-                        <!-- Success Message -->
-                        <% if (message) { %>
+                        <% if (typeof message !== 'undefined' && message) { %>
                             <div class="alert alert-success alert-dismissible fade show m-4" role="alert">
                                 <strong>Success!</strong> <%= message %>
                                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                             </div>
                         <% } %>
 
-                        <!-- Error Message (for backend double-booking conflicts) -->
-                        <% if (error) { %>
+                        <% if (typeof error !== 'undefined' && error) { %>
                             <div class="alert alert-danger alert-dismissible fade show m-4" role="alert">
                                 <i class="bi bi-exclamation-triangle-fill me-2"></i>
                                 <strong>Booking Conflict!</strong> <%= error %>
@@ -69,26 +68,16 @@
                                 <h3>1. Personal Information</h3>
                                 <div class="mb-3">
                                     <label class="form-label fw-semibold">Full Name</label>
-                                    <input type="text" name="name" class="form-control custom-input" placeholder="Enter your full name (e.g., Juan Dela Cruz)" required>
+                                    <input type="text" name="name" class="form-control custom-input" placeholder="Enter your full name" required>
                                 </div>
                                 <div class="mb-3">
                                     <label class="form-label fw-semibold">Email Address</label>
-                                    <input type="email" name="email" class="form-control custom-input" placeholder="Enter your email (e.g., juan@email.com)" required>
+                                    <input type="email" name="email" class="form-control custom-input" placeholder="Enter your email" required>
                                 </div>
                             </div>
 
                             <div class="form-section">
                                 <h3>2. Stay Details</h3>
-                                <div class="row g-3 mb-3">
-                                    <div class="col-md-6">
-                                        <label class="form-label fw-semibold">Check-in Date</label>
-                                        <input type="date" name="checkin" id="checkin" class="form-control custom-input" required onchange="calculateTotal()">
-                                    </div>
-                                    <div class="col-md-6">
-                                        <label class="form-label fw-semibold">Check-out Date</label>
-                                        <input type="date" name="checkout" id="checkout" class="form-control custom-input" required onchange="calculateTotal()">
-                                    </div>
-                                </div>
                                 <div class="mb-3">
                                     <label class="form-label fw-semibold">Number of People</label>
                                     <input type="number" name="people" id="people" class="form-control custom-input" min="1" max="20" value="1" required onchange="calculateTotal()">
@@ -96,9 +85,8 @@
 
                                 <div class="mb-3">
                                     <label class="form-label fw-semibold">Select Accommodation</label>
-                                    <select name="roomType" id="roomType" class="form-select custom-select" required onchange="calculateTotal()">
+                                    <select name="roomType" id="roomType" class="form-select custom-select" required onchange="onRoomTypeChange()">
                                         <option value="">Choose your room or cottage...</option>
-
                                         <% if (rooms && rooms.length > 0) { %>
                                             <% 
                                                 const categories = {};
@@ -107,12 +95,11 @@
                                                     categories[room.category].push(room);
                                                 });
                                             %>
-
                                             <% for (const [category, items] of Object.entries(categories)) { %>
                                                 <optgroup label="<%= category === 'Cottage' ? '🏡 Cottages' : '🏨 ' + category + ' Rooms' %>">
                                                     <% items.forEach(room => { %>
                                                         <option value="<%= room.name %>" data-price="<%= room.price %>" data-category="<%= room.category %>" data-occupancy="<%= room.occupancy %>">
-                                                            <%= room.name %> — ₱<%= room.price %>/night (Max <%= room.occupancy %> guests)
+                                                            <%= room.name %> — ₱<%= room.price %><%= room.category === 'Cottage' ? ' (Flat Rate)' : '/night' %> (Max <%= room.occupancy %> guests)
                                                         </option>
                                                     <% }) %>
                                                 </optgroup>
@@ -121,6 +108,34 @@
                                             <option value="" disabled>No accommodations available</option>
                                         <% } %>
                                     </select>
+                                </div>
+
+                                <!-- ROOMS: Check-in / Check-out Dates -->
+                                <div class="row g-3 mb-3" id="roomDateFields">
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold">Check-in Date</label>
+                                        <input type="date" name="checkin" id="checkin" class="form-control custom-input" onchange="validateAndCalculate()">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold">Check-out Date</label>
+                                        <input type="date" name="checkout" id="checkout" class="form-control custom-input" onchange="validateAndCalculate()">
+                                    </div>
+                                </div>
+
+                                <!-- COTTAGES: Booking Date + Check-in/Check-out Times -->
+                                <div class="row g-3 mb-3" id="cottageFields" style="display: none;">
+                                    <div class="col-md-4">
+                                        <label class="form-label fw-semibold">Booking Date</label>
+                                        <input type="date" name="bookingDate" id="bookingDate" class="form-control custom-input" onchange="validateAndCalculate()">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label fw-semibold">Check-in Time</label>
+                                        <input type="time" name="checkinTime" id="checkinTime" class="form-control custom-input" value="08:00" onchange="checkDoubleBooking()">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label fw-semibold">Check-out Time</label>
+                                        <input type="time" name="checkoutTime" id="checkoutTime" class="form-control custom-input" value="17:00" onchange="checkDoubleBooking()">
+                                    </div>
                                 </div>
 
                                 <div class="alert alert-info" id="priceDisplay" style="display: none;">
@@ -133,37 +148,31 @@
                                     </div>
                                 </div>
 
-                                <!-- Live conflict alert (shows instantly when dates overlap) -->
                                 <div class="alert alert-danger" id="conflictAlert" style="display: none;">
                                     <i class="bi bi-exclamation-triangle-fill me-2"></i>
                                     <span id="conflictMessage"></span>
                                 </div>
+
+                                <div class="alert alert-warning" id="blockedDayAlert" style="display: none;">
+                                    <i class="bi bi-calendar-x-fill me-2"></i>
+                                    <span id="blockedDayMessage"></span>
+                                </div>
                             </div>
 
-                            <!-- BOOKING SCHEDULE SECTION -->
                             <div class="form-section">
                                 <h3><i class="bi bi-calendar-week me-2 text-primary"></i>Booking Schedule</h3>
                                 <p class="text-muted small mb-3">Check which rooms are already reserved before booking your stay.</p>
-
                                 <div class="booking-schedule-section">
                                     <div class="schedule-header" onclick="toggleSchedule()">
-                                        <h6 class="mb-0 fw-bold">
-                                            <i class="bi bi-calendar3 me-2 text-primary"></i>
-                                            View Booking Schedule
-                                        </h6>
+                                        <h6 class="mb-0 fw-bold"><i class="bi bi-calendar3 me-2 text-primary"></i>View Booking Schedule</h6>
                                         <i class="bi bi-chevron-down" id="scheduleToggleIcon"></i>
                                     </div>
-
                                     <div class="schedule-content" id="scheduleContent" style="display: none;">
                                         <div id="scheduleLoading" class="text-center py-4">
                                             <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
                                             <span class="ms-2 text-muted">Loading schedule...</span>
                                         </div>
-
-                                        <div id="scheduleData" style="display: none;">
-                                            <!-- Schedule will be loaded here -->
-                                        </div>
-
+                                        <div id="scheduleData" style="display: none;"></div>
                                         <div id="scheduleEmpty" class="text-center py-4 text-muted" style="display: none;">
                                             <i class="bi bi-calendar-check fs-1 text-success"></i>
                                             <p class="mb-0 mt-2 fw-semibold">No bookings yet. All rooms are available!</p>
@@ -174,7 +183,7 @@
 
                             <div class="form-section border-0">
                                 <h3>3. Special Requests</h3>
-                                <textarea name="requests" class="form-control custom-textarea" rows="5" placeholder="Tell us about any special requests (e.g., dietary requirements, celebration setup, extra pillows...)"></textarea>
+                                <textarea name="requests" class="form-control custom-textarea" rows="5" placeholder="Tell us about any special requests..."></textarea>
                             </div>
 
                             <button type="submit" class="btn submit-booking-btn w-100 mt-4" id="submitBtn">Confirm Reservation Request</button>
@@ -191,70 +200,162 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Global variable to store schedule data
         let scheduleData = {};
+
+        function timeToMinutes(timeStr) {
+            if (!timeStr) return 0;
+            const [h, m] = timeStr.split(':').map(Number);
+            return (h * 60) + m;
+        }
+
+        // ===================== BLOCK MONDAY & TUESDAY =====================
+        // 0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat
+        function isMondayOrTuesday(dateString) {
+            if (!dateString) return false;
+            const [year, month, day] = dateString.split('-').map(Number);
+            const date = new Date(year, month - 1, day);
+            const dayOfWeek = date.getDay();
+            return dayOfWeek === 1 || dayOfWeek === 2;
+        }
+
+        function getNextValidDate(fromDateStr) {
+            const [year, month, day] = fromDateStr.split('-').map(Number);
+            const date = new Date(year, month - 1, day);
+            while (true) {
+                const dayOfWeek = date.getDay();
+                if (dayOfWeek !== 1 && dayOfWeek !== 2) break;
+                date.setDate(date.getDate() + 1);
+            }
+            const y = date.getFullYear();
+            const m = String(date.getMonth() + 1).padStart(2, '0');
+            const d = String(date.getDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        }
+
+        const today = new Date().toISOString().split('T')[0];
+        const validToday = getNextValidDate(today);
+
+        document.getElementById('checkin').min = validToday;
+        document.getElementById('checkout').min = validToday;
+        document.getElementById('bookingDate').min = validToday;
+        document.getElementById('bookingDate').value = validToday;
+
+        document.getElementById('checkin').addEventListener('change', function() {
+            if (isMondayOrTuesday(this.value)) {
+                this.value = '';
+                showBlockedAlert('Check-in cannot be on Monday or Tuesday. We are closed those days.');
+                return;
+            }
+            const checkinDate = new Date(this.value);
+            checkinDate.setDate(checkinDate.getDate() + 1);
+            const nextDay = checkinDate.toISOString().split('T')[0];
+            document.getElementById('checkout').min = nextDay;
+        });
+
+        document.getElementById('checkout').addEventListener('change', function() {
+            if (isMondayOrTuesday(this.value)) {
+                this.value = '';
+                showBlockedAlert('Check-out cannot be on Monday or Tuesday. We are closed those days.');
+            }
+        });
+
+        document.getElementById('bookingDate').addEventListener('change', function() {
+            if (isMondayOrTuesday(this.value)) {
+                this.value = '';
+                showBlockedAlert('Booking cannot be on Monday or Tuesday. We are closed those days.');
+            }
+        });
+
+        function showBlockedAlert(msg) {
+            const alert = document.getElementById('blockedDayAlert');
+            const message = document.getElementById('blockedDayMessage');
+            message.textContent = msg;
+            alert.style.display = 'block';
+            setTimeout(() => { alert.style.display = 'none'; }, 4000);
+        }
+
+        function validateAndCalculate() {
+            // Clear blocked day alert when user changes dates
+            document.getElementById('blockedDayAlert').style.display = 'none';
+            calculateTotal();
+        }
+
+        function onRoomTypeChange() {
+            const roomSelect = document.getElementById('roomType');
+            const selectedOption = roomSelect.options[roomSelect.selectedIndex];
+            const category = selectedOption.getAttribute('data-category') || 'Room';
+            const isCottage = (category === 'Cottage');
+
+            document.getElementById('roomDateFields').style.display = isCottage ? 'none' : 'flex';
+            document.getElementById('cottageFields').style.display = isCottage ? 'flex' : 'none';
+
+            document.getElementById('checkin').required = !isCottage;
+            document.getElementById('checkout').required = !isCottage;
+            document.getElementById('bookingDate').required = isCottage;
+            document.getElementById('checkinTime').required = isCottage;
+            document.getElementById('checkoutTime').required = isCottage;
+
+            calculateTotal();
+        }
 
         function calculateTotal() {
             const roomSelect = document.getElementById('roomType');
-            const checkin = document.getElementById('checkin').value;
-            const checkout = document.getElementById('checkout').value;
-            const people = parseInt(document.getElementById('people').value) || 1;
+            if (!roomSelect.value) {
+                document.getElementById('priceDisplay').style.display = 'none';
+                return;
+            }
 
             const selectedOption = roomSelect.options[roomSelect.selectedIndex];
-            const pricePerNight = parseFloat(selectedOption.getAttribute('data-price')) || 0;
-            const maxOccupancy = parseInt(selectedOption.getAttribute('data-occupancy')) || 1;
+            const price = parseFloat(selectedOption.getAttribute('data-price')) || 0;
             const category = selectedOption.getAttribute('data-category') || 'Room';
+            const isCottage = (category === 'Cottage');
+            const people = parseInt(document.getElementById('people').value) || 1;
+            const maxOccupancy = parseInt(selectedOption.getAttribute('data-occupancy')) || 1;
 
             if (people > maxOccupancy && maxOccupancy > 0) {
-                alert(`⚠️ ${category} "${selectedOption.text.split('—')[0].trim()}" can only accommodate ${maxOccupancy} guests. Please adjust.`);
+                alert('⚠️ ' + category + ' "' + selectedOption.text.split('—')[0].trim() + '" can only accommodate ' + maxOccupancy + ' guests. Please adjust.');
                 document.getElementById('people').value = maxOccupancy;
                 return calculateTotal();
             }
 
-            if (checkin && checkout && pricePerNight > 0) {
-                const start = new Date(checkin);
-                const end = new Date(checkout);
-
-                if (end <= start) {
+            if (isCottage) {
+                if (price > 0) {
+                    document.getElementById('totalPrice').textContent = price.toLocaleString();
+                    document.getElementById('priceBreakdown').textContent = '₱' + price.toLocaleString() + ' — Flat Rate (Day Use)';
+                    document.getElementById('priceDisplay').style.display = 'block';
+                } else {
                     document.getElementById('priceDisplay').style.display = 'none';
-                    return;
                 }
-
-                const nights = Math.max(1, Math.ceil((end - start) / (1000 * 60 * 60 * 24)));
-                const total = pricePerNight * nights;
-
-                document.getElementById('totalPrice').textContent = total.toLocaleString();
-                document.getElementById('priceBreakdown').textContent = `₱${pricePerNight.toLocaleString()} × ${nights} night(s) — ${category}`;
-                document.getElementById('priceDisplay').style.display = 'block';
             } else {
-                document.getElementById('priceDisplay').style.display = 'none';
-            }
+                const checkin = document.getElementById('checkin').value;
+                const checkout = document.getElementById('checkout').value;
 
-            // Check for double booking every time user changes anything
+                if (checkin && checkout && price > 0) {
+                    const start = new Date(checkin);
+                    const end = new Date(checkout);
+                    if (end <= start) {
+                        document.getElementById('priceDisplay').style.display = 'none';
+                        return;
+                    }
+                    const nights = Math.max(1, Math.ceil((end - start) / (1000 * 60 * 60 * 24)));
+                    const total = price * nights;
+                    document.getElementById('totalPrice').textContent = total.toLocaleString();
+                    document.getElementById('priceBreakdown').textContent = '₱' + price.toLocaleString() + ' × ' + nights + ' night(s) — ' + category;
+                    document.getElementById('priceDisplay').style.display = 'block';
+                } else {
+                    document.getElementById('priceDisplay').style.display = 'none';
+                }
+            }
             checkDoubleBooking();
         }
 
-        const today = new Date().toISOString().split('T')[0];
-        document.getElementById('checkin').min = today;
-        document.getElementById('checkout').min = today;
-
-        document.getElementById('checkin').addEventListener('change', function() {
-            const checkinDate = new Date(this.value);
-            checkinDate.setDate(checkinDate.getDate() + 1);
-            document.getElementById('checkout').min = checkinDate.toISOString().split('T')[0];
-        });
-
-        // Toggle schedule visibility
         function toggleSchedule() {
             const content = document.getElementById('scheduleContent');
             const icon = document.getElementById('scheduleToggleIcon');
-
             if (content.style.display === 'none') {
                 content.style.display = 'block';
                 icon.classList.remove('bi-chevron-down');
                 icon.classList.add('bi-chevron-up');
-
-                // Load schedule if not already loaded
                 if (!content.dataset.loaded) {
                     loadBookingSchedule();
                     content.dataset.loaded = 'true';
@@ -266,17 +367,11 @@
             }
         }
 
-        // Fetch and display booking schedule
         async function loadBookingSchedule() {
             try {
                 const res = await fetch('/api/booking-schedule');
                 const data = await res.json();
-
-                // Save schedule data globally so we can check for conflicts
-                if (data.schedule) {
-                    scheduleData = data.schedule;
-                }
-
+                if (data.schedule) scheduleData = data.schedule;
                 document.getElementById('scheduleLoading').style.display = 'none';
 
                 if (!data.schedule || Object.keys(data.schedule).length === 0) {
@@ -286,129 +381,163 @@
 
                 const container = document.getElementById('scheduleData');
                 let html = '';
-
                 for (const [roomName, bookings] of Object.entries(data.schedule)) {
-                    html += `
-                        <div class="schedule-room-group">
-                            <div class="schedule-room-name">
-                                <i class="bi bi-house-door-fill"></i>
-                                ${roomName}
-                                <span class="ms-auto badge bg-secondary rounded-pill" style="font-size: 0.7rem;">
-                                    ${bookings.length} booking${bookings.length > 1 ? 's' : ''}
-                                </span>
-                            </div>
-                            <div class="schedule-dates">
-                    `;
-
+                    html += `<div class="schedule-room-group"><div class="schedule-room-name"><i class="bi bi-house-door-fill"></i> ${roomName}<span class="ms-auto badge bg-secondary rounded-pill" style="font-size: 0.7rem;">${bookings.length} booking${bookings.length > 1 ? 's' : ''}</span></div><div class="schedule-dates">`;
                     bookings.forEach(booking => {
-                        const checkin = new Date(booking.checkin).toLocaleDateString('en-US', {
-                            month: 'short', day: 'numeric', year: 'numeric'
-                        });
-                        const checkout = new Date(booking.checkout).toLocaleDateString('en-US', {
-                            month: 'short', day: 'numeric', year: 'numeric'
-                        });
-
-                        html += `
-                            <div class="schedule-date-item">
-                                <div class="schedule-date-range">
-                                    <i class="bi bi-calendar-x-fill text-danger"></i>
-                                    ${checkin} <i class="bi bi-arrow-right mx-1 text-muted"></i> ${checkout}
-                                </div>
-                                <div class="d-flex align-items-center gap-2">
-                                    <span class="schedule-guests">
-                                        <i class="bi bi-people-fill me-1"></i>${booking.guests} guest${booking.guests > 1 ? 's' : ''}
-                                    </span>
-                                    <span class="schedule-badge-booked">Booked</span>
-                                </div>
-                            </div>
-                        `;
+                        const cinDate = new Date(booking.checkin);
+                        const coutDate = new Date(booking.checkout);
+                        const sameDay = cinDate.toDateString() === coutDate.toDateString();
+                        
+                        if (sameDay) {
+                            // Cottage day-use: show time range
+                            const cinTime = cinDate.toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit', hour12:true});
+                            const coutTime = coutDate.toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit', hour12:true});
+                            const dateStr = cinDate.toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
+                            html += `<div class="schedule-date-item"><div class="schedule-date-range"><i class="bi bi-calendar-x-fill text-danger"></i> ${dateStr} | ${cinTime} - ${coutTime}</div><div class="d-flex align-items-center gap-2"><span class="schedule-guests"><i class="bi bi-people-fill me-1"></i>${booking.guests} guest${booking.guests > 1 ? 's' : ''}</span><span class="schedule-badge-booked">Booked</span></div></div>`;
+                        } else {
+                            // Room: show date range
+                            const checkin = cinDate.toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
+                            const checkout = coutDate.toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
+                            html += `<div class="schedule-date-item"><div class="schedule-date-range"><i class="bi bi-calendar-x-fill text-danger"></i> ${checkin} <i class="bi bi-arrow-right mx-1 text-muted"></i> ${checkout}</div><div class="d-flex align-items-center gap-2"><span class="schedule-guests"><i class="bi bi-people-fill me-1"></i>${booking.guests} guest${booking.guests > 1 ? 's' : ''}</span><span class="schedule-badge-booked">Booked</span></div></div>`;
+                        }
                     });
-
-                    html += `
-                            </div>
-                        </div>
-                    `;
+                    html += `</div></div>`;
                 }
-
                 container.innerHTML = html;
                 container.style.display = 'block';
-
             } catch (err) {
                 console.error('Failed to load schedule:', err);
-                document.getElementById('scheduleLoading').style.display = 'none';
-                document.getElementById('scheduleData').innerHTML = `
-                    <div class="text-center py-4 text-danger">
-                        <i class="bi bi-exclamation-circle fs-1"></i>
-                        <p class="mb-0 mt-2 fw-semibold">Failed to load schedule. Please try again.</p>
-                    </div>
-                `;
-                document.getElementById('scheduleData').style.display = 'block';
             }
         }
 
-        // UPDATED: Check if selected room & dates overlap with an existing booking
-        // Now dynamically says "cottage" or "room" based on the selected option's category
         function checkDoubleBooking() {
             const roomSelect = document.getElementById('roomType');
-            const checkinVal = document.getElementById('checkin').value;
-            const checkoutVal = document.getElementById('checkout').value;
             const conflictAlert = document.getElementById('conflictAlert');
             const conflictMessage = document.getElementById('conflictMessage');
             const submitBtn = document.getElementById('submitBtn');
 
-            // Hide warning by default
             conflictAlert.style.display = 'none';
             submitBtn.disabled = false;
+            if (!roomSelect.value) return true;
 
-            // Need all three fields filled before we can check
-            if (!checkinVal || !checkoutVal || !roomSelect.value) return true;
-
-            const selectedRoom = roomSelect.value;
-            const newStart = new Date(checkinVal);
-            const newEnd = new Date(checkoutVal);
-
-            // NEW: Get the category from the selected dropdown option
             const selectedOption = roomSelect.options[roomSelect.selectedIndex];
             const category = selectedOption.getAttribute('data-category') || 'Room';
-            const typeLabel = category === 'Cottage' ? 'cottage' : 'room';
-
-            // Get existing bookings for this room
+            const selectedRoom = roomSelect.value;
+            const isCottage = (category === 'Cottage');
             const roomBookings = scheduleData[selectedRoom] || [];
 
-            // Check each booking for date overlap
-            for (const booking of roomBookings) {
-                const existingStart = new Date(booking.checkin);
-                const existingEnd = new Date(booking.checkout);
-
-                // Overlap formula: newStart < existingEnd AND newEnd > existingStart
-                if (newStart < existingEnd && newEnd > existingStart) {
-                    // CONFLICT FOUND!
-                    const inStr = existingStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-                    const outStr = existingEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-
-                    // UPDATED: Dynamic message using typeLabel
-                    conflictMessage.innerHTML = `
-                        <strong>"${selectedRoom}" is already booked from ${inStr} to ${outStr}.</strong><br>
-                        Please choose another ${typeLabel} or different dates.
-                    `;
+            // Also check blocked days client-side
+            if (isCottage) {
+                const bookingDate = document.getElementById('bookingDate').value;
+                if (bookingDate && isMondayOrTuesday(bookingDate)) {
+                    conflictMessage.innerHTML = '<strong>We are closed on Mondays and Tuesdays.</strong><br>Please choose a different date.';
                     conflictAlert.style.display = 'block';
-                    submitBtn.disabled = true; // Block the submit button
+                    submitBtn.disabled = true;
+                    return false;
+                }
+            } else {
+                const checkinVal = document.getElementById('checkin').value;
+                const checkoutVal = document.getElementById('checkout').value;
+                if (checkinVal && isMondayOrTuesday(checkinVal)) {
+                    conflictMessage.innerHTML = '<strong>Check-in cannot be on Monday or Tuesday.</strong><br>We are closed those days.';
+                    conflictAlert.style.display = 'block';
+                    submitBtn.disabled = true;
+                    return false;
+                }
+                if (checkoutVal && isMondayOrTuesday(checkoutVal)) {
+                    conflictMessage.innerHTML = '<strong>Check-out cannot be on Monday or Tuesday.</strong><br>We are closed those days.';
+                    conflictAlert.style.display = 'block';
+                    submitBtn.disabled = true;
                     return false;
                 }
             }
 
-            return true; // No conflict
+            if (isCottage) {
+                const bookingDate = document.getElementById('bookingDate').value;
+                if (!bookingDate) return true;
+                for (const booking of roomBookings) {
+                    const existingDate = new Date(booking.checkin).toISOString().split('T')[0];
+                    if (existingDate === bookingDate) {
+                        const dateStr = new Date(bookingDate).toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
+                        conflictMessage.innerHTML = '<strong>"' + selectedRoom + '" is already booked on ' + dateStr + '.</strong><br>Please choose another cottage or a different date.';
+                        conflictAlert.style.display = 'block';
+                        submitBtn.disabled = true;
+                        return false;
+                    }
+                }
+            } else {
+                const checkinVal = document.getElementById('checkin').value;
+                const checkoutVal = document.getElementById('checkout').value;
+                if (!checkinVal || !checkoutVal) return true;
+                const newStart = new Date(checkinVal);
+                const newEnd = new Date(checkoutVal);
+                for (const booking of roomBookings) {
+                    const existingStart = new Date(booking.checkin);
+                    const existingEnd = new Date(booking.checkout);
+                    if (newStart < existingEnd && newEnd > existingStart) {
+                        const inStr = existingStart.toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
+                        const outStr = existingEnd.toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
+                        conflictMessage.innerHTML = '<strong>"' + selectedRoom + '" is already booked from ' + inStr + ' to ' + outStr + '.</strong><br>Please choose another room or different dates.';
+                        conflictAlert.style.display = 'block';
+                        submitBtn.disabled = true;
+                        return false;
+                    }
+                }
+            }
+            return true;
         }
 
-        // Prevent form submission if there's a conflict
         document.getElementById('bookingForm').addEventListener('submit', function(e) {
             if (!checkDoubleBooking()) {
-                e.preventDefault(); // Stop form from submitting
-                alert('⚠️ This accommodation is already booked for your selected dates. Please choose another one or change your dates.');
+                e.preventDefault();
+                alert('⚠️ This accommodation is already booked or the selected date is not available.');
+                return;
+            }
+            const roomSelect = document.getElementById('roomType');
+            const selectedOption = roomSelect.options[roomSelect.selectedIndex];
+            const category = selectedOption.getAttribute('data-category') || 'Room';
+
+            if (category === 'Cottage') {
+                const bookingDate = document.getElementById('bookingDate').value;
+                const checkinTime = document.getElementById('checkinTime').value;
+                const checkoutTime = document.getElementById('checkoutTime').value;
+
+                if (!bookingDate || !checkinTime || !checkoutTime) {
+                    e.preventDefault();
+                    alert('⚠️ Please fill in the booking date, check-in time, and check-out time for the cottage.');
+                    return;
+                }
+                if (timeToMinutes(checkinTime) >= timeToMinutes(checkoutTime)) {
+                    e.preventDefault();
+                    alert('⚠️ Check-out time must be later than check-in time.');
+                    return;
+                }
+                if (isMondayOrTuesday(bookingDate)) {
+                    e.preventDefault();
+                    alert('⚠️ We are closed on Mondays and Tuesdays. Please choose a different date.');
+                    return;
+                }
+            } else {
+                const checkin = document.getElementById('checkin').value;
+                const checkout = document.getElementById('checkout').value;
+                if (!checkin || !checkout) {
+                    e.preventDefault();
+                    alert('⚠️ Please select check-in and check-out dates.');
+                    return;
+                }
+                if (isMondayOrTuesday(checkin)) {
+                    e.preventDefault();
+                    alert('⚠️ Check-in cannot be on Monday or Tuesday. We are closed those days.');
+                    return;
+                }
+                if (isMondayOrTuesday(checkout)) {
+                    e.preventDefault();
+                    alert('⚠️ Check-out cannot be on Monday or Tuesday. We are closed those days.');
+                    return;
+                }
             }
         });
 
-        // Auto-load schedule on page load so we can check conflicts immediately
         loadBookingSchedule().then(() => {
             document.getElementById('scheduleContent').dataset.loaded = 'true';
         });

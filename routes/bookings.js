@@ -31,7 +31,16 @@ function formatDateForInput(dateValue) {
     return `${year}-${month}-${day}`;
 }
 
-async function calculateBookingPrice(roomType, checkin, checkout) {
+// ===================== HELPER: Block Monday & Tuesday =====================
+function isMondayOrTuesday(dateString) {
+    const [year, month, day] = dateString.split('-').map(Number);
+    const date = new Date(year, month - 1, day);
+    const dayOfWeek = date.getDay();
+    return dayOfWeek === 1 || dayOfWeek === 2; // 1=Mon, 2=Tue
+}
+
+// ===================== UPDATED: Cottage day-use support =====================
+async function calculateBookingPrice(roomType, checkin, checkout, bookingDate, checkinTime, checkoutTime) {
     try {
         const roomResults = await dbQuery(
             "SELECT price, category, occupancy FROM rooms WHERE name = ? LIMIT 1", 
@@ -42,6 +51,18 @@ async function calculateBookingPrice(roomType, checkin, checkout) {
         const roomCategory = roomResults.length > 0 ? roomResults[0].category : 'Room';
         const maxOccupancy = roomResults.length > 0 ? parseInt(roomResults[0].occupancy) : 1;
         
+        if (roomCategory === 'Cottage') {
+            // Cottage: flat rate, no nights
+            return {
+                roomPrice,
+                roomCategory,
+                maxOccupancy,
+                nights: 0,
+                totalPrice: roomPrice
+            };
+        }
+        
+        // Room: per night calculation
         const checkinDate = new Date(checkin);
         const checkoutDate = new Date(checkout);
         const timeDiff = checkoutDate - checkinDate;
@@ -179,24 +200,66 @@ router.post("/update/:id", checkAuth, async (req, res) => {
   const { name, email, people, checkin, checkout, roomType, requests } = req.body;
   
   try {
-    const overlapCheck = await dbQuery(`
-      SELECT checkin, checkout 
-      FROM bookings 
-      WHERE roomType = ? 
-        AND status = 'approved'
-        AND id != ?
-        AND checkin < ? 
-        AND checkout > ?
-      LIMIT 1
-    `, [roomType, bookingId, checkout, checkin]);
+    // Get room category
+    const roomInfo = await dbQuery("SELECT category, occupancy FROM rooms WHERE name = ? LIMIT 1", [roomType]);
+    const roomCategory = roomInfo.length > 0 ? roomInfo[0].category : 'Room';
+    const isCottage = (roomCategory === 'Cottage');
 
-    if (overlapCheck.length > 0) {
-      const existing = overlapCheck[0];
-      const inStr = new Date(existing.checkin).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-      const outStr = new Date(existing.checkout).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-      
-      req.session.error = `"${roomType}" is already booked from ${inStr} to ${outStr}. Please choose another room/cottage or different dates.`;
-      return res.redirect("/bookings");
+    if (!isCottage) {
+      // BLOCK MONDAY & TUESDAY
+      if (isMondayOrTuesday(checkin)) {
+        req.session.error = "Check-in cannot be on Monday or Tuesday. We are closed those days.";
+        return res.redirect("/bookings");
+      }
+      if (isMondayOrTuesday(checkout)) {
+        req.session.error = "Check-out cannot be on Monday or Tuesday. We are closed those days.";
+        return res.redirect("/bookings");
+      }
+
+      // Room: check date overlap against ALL bookings (pending + approved)
+      const overlapCheck = await dbQuery(`
+        SELECT checkin, checkout 
+        FROM bookings 
+        WHERE roomType = ? 
+          AND id != ?
+          AND checkin < ? 
+          AND checkout > ?
+        LIMIT 1
+      `, [roomType, bookingId, checkout, checkin]);
+
+      if (overlapCheck.length > 0) {
+        const existing = overlapCheck[0];
+        const inStr = new Date(existing.checkin).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        const outStr = new Date(existing.checkout).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        
+        req.session.error = `"${roomType}" is already booked from ${inStr} to ${outStr}. Please choose another room/cottage or different dates.`;
+        return res.redirect("/bookings");
+      }
+    } else {
+      // Cottage: extract date from checkin datetime string
+      const cottageDate = checkin.split(' ')[0];
+
+      // BLOCK MONDAY & TUESDAY
+      if (isMondayOrTuesday(cottageDate)) {
+        req.session.error = "We are closed every Monday and Tuesday. Please choose a different date.";
+        return res.redirect("/bookings");
+      }
+
+      // Cottage: check same-day overlap against ALL bookings (pending + approved)
+      const overlapCheck = await dbQuery(`
+        SELECT checkin 
+        FROM bookings 
+        WHERE roomType = ? 
+          AND id != ?
+          AND DATE(checkin) = DATE(?)
+        LIMIT 1
+      `, [roomType, bookingId, checkin]);
+
+      if (overlapCheck.length > 0) {
+        const dateStr = new Date(checkin).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        req.session.error = `"${roomType}" is already booked on ${dateStr}. Please choose another cottage or a different date.`;
+        return res.redirect("/bookings");
+      }
     }
 
     const calc = await calculateBookingPrice(roomType, checkin, checkout);
@@ -261,12 +324,10 @@ router.post("/admin-cancel/:id", checkAuth, async (req, res) => {
 });
 
 
-// ===================== POST: Guest Cancel Booking (No Login Required) =====================
-// FIXED: Works for BOTH pending and approved — no roomType needed
+// ===================== POST: Guest Cancel Booking =====================
 router.post("/cancel-booking", async (req, res) => {
   const { email, checkin, verifyOnly } = req.body;
   
-  // Only require email and checkin
   if (!email || !checkin) {
     return res.status(400).json({ 
       success: false, 
@@ -275,7 +336,6 @@ router.post("/cancel-booking", async (req, res) => {
   }
 
   try {
-    // Search by email + checkin only (no roomType)
     const rows = await dbQuery(
       "SELECT * FROM bookings WHERE email = ? AND DATE(checkin) = ? LIMIT 1", 
       [email, checkin]
@@ -290,7 +350,6 @@ router.post("/cancel-booking", async (req, res) => {
     
     const booking = rows[0];
     
-    // ========== VERIFY ONLY: return status without touching the database ==========
     if (verifyOnly) {
       return res.json({ 
         success: true, 
@@ -300,7 +359,6 @@ router.post("/cancel-booking", async (req, res) => {
       });
     }
     
-    // CASE 1: Pending -> Delete immediately
     if (booking.status !== 'approved') {
       await dbQuery("DELETE FROM bookings WHERE id = ?", [booking.id]);
       console.log(`✅ Guest cancelled pending booking #${booking.id} for ${email}`);
@@ -310,9 +368,7 @@ router.post("/cancel-booking", async (req, res) => {
         roomType: booking.roomType || 'Standard',
         message: "Your pending booking has been cancelled successfully." 
       });
-    } 
-    // CASE 2: Approved -> Just verify; admin handles actual cancellation later
-    else {
+    } else {
       console.log(`📧 Cancellation request received for approved booking #${booking.id} by ${email}`);
       return res.json({ 
         success: true, 
