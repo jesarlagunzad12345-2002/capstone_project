@@ -316,7 +316,7 @@ footer {
   background: linear-gradient(135deg, var(--black) 0%, var(--dark-gray) 100%);
   color: #e2e8f0;
   text-align: center;
-  padding: 2rem;
+  padding: 1.5rem;
   font-size: 0.9rem;
   letter-spacing: 0.5px;
 }
