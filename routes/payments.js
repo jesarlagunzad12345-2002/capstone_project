@@ -22,7 +22,7 @@ const uploadDir = process.env.VERCEL
   : path.join(__dirname, "..", "public", "uploads", "receipts");
 fs.mkdirSync(uploadDir, { recursive: true });
 
-const storage = multer.diskStorage({
+const diskStorage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, uploadDir),
   filename: (req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase();
@@ -30,6 +30,8 @@ const storage = multer.diskStorage({
     cb(null, safeName);
   }
 });
+
+const storage = process.env.VERCEL ? multer.memoryStorage() : diskStorage;
 
 const upload = multer({
   storage,
@@ -272,7 +274,11 @@ router.post("/api/submit-payment", safeUploadSingle("receipt"), async (req, res)
       return res.status(409).json({ success: false, message: "This reference number is already on file for another booking. If that's a mistake, please contact us directly." });
     }
 
-    const receiptPath = req.file ? `/uploads/receipts/${req.file.filename}` : null;
+    const receiptPath = req.file
+      ? process.env.VERCEL
+        ? `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`
+        : `/uploads/receipts/${req.file.filename}`
+      : null;
 
     await dbQuery(
       `UPDATE bookings

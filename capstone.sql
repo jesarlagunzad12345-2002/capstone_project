@@ -58,8 +58,12 @@ CREATE TABLE `bookings` (
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `requests` text DEFAULT NULL,
   `total_price` decimal(10,2) DEFAULT 0.00,
-  `nights` int(11) DEFAULT 1
+  `nights` int(11) DEFAULT 1,
+  `receipt_image` longtext DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- Existing databases should make this column large enough for Vercel data URLs.
+ALTER TABLE `bookings` MODIFY COLUMN `receipt_image` longtext DEFAULT NULL;
 
 --
 -- Dumping data for table `bookings`
