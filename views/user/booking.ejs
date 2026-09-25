@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <link rel="stylesheet" href="css/booking.css">
     <link rel="icon" type="image/jpeg" sizes="32x32" href="img/logo.jpg">
-    
+
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
     <script type="text/javascript">
         (function() { 
@@ -70,7 +70,7 @@
                             </div>
                         <% } %>
 
-                        <form class="main-booking-form" action="/create" method="POST" id="bookingForm">
+                        <form class="main-booking-form" id="bookingForm">
                             <div class="form-section">
                                 <h3>1. Personal Information</h3>
                                 <div class="mb-3">
@@ -181,6 +181,11 @@
                                         </div>
                                         <h4 class="mb-0 text-primary">₱<span id="totalPrice">0</span></h4>
                                     </div>
+                                    <hr class="my-2">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span class="small">Downpayment required now (30%):</span>
+                                        <strong class="text-success">₱<span id="downpaymentEstimate">0</span></strong>
+                                    </div>
                                 </div>
 
                                 <div class="alert alert-danger" id="conflictAlert" style="display: none;">
@@ -227,6 +232,95 @@
                                 <span id="submitBtnText">Verify Email to Book</span>
                             </button>
                         </form>
+
+                        <!-- ============================================ -->
+                        <!-- PAYMENT MODAL — Downpayment via GCash / Maya -->
+                        <!-- ============================================ -->
+                        <div class="modal fade" id="paymentModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
+                            <div class="modal-dialog modal-dialog-centered modal-lg">
+                                <div class="modal-content" style="border-radius: 20px;">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title fw-bold"><i class="bi bi-wallet2 me-2 text-primary"></i>Complete Your Downpayment</h5>
+                                    </div>
+                                    <div class="modal-body">
+                                        <div class="alert alert-warning d-flex justify-content-between align-items-center payment-hold-banner">
+                                            <span><i class="bi bi-clock-history me-2"></i>Your slot is reserved for:</span>
+                                            <strong id="holdCountdown">30:00</strong>
+                                        </div>
+
+                                        <!-- Total / Downpayment summary -->
+                                        <div class="payment-total-box text-center mb-3">
+                                            <div class="total-label">Total Stay Cost</div>
+                                            <div class="total-amount">₱<span id="payTotal">0</span></div>
+                                            <div class="downpayment-label mt-2">Required Downpayment (30%)</div>
+                                            <div class="downpayment-amount">₱<span id="payAmount">0</span></div>
+                                        </div>
+
+                                        <!-- Payment method tabs: GCash = blue when active, Maya = green when active -->
+                                        <ul class="nav nav-pills nav-justified mb-3 payment-method-tabs" role="tablist">
+                                            <li class="nav-item">
+                                                <button type="button" id="gcashTab" class="nav-link active w-100" onclick="selectPaymentMethod('gcash')">
+                                                    <i class="bi bi-phone me-1"></i> GCash
+                                                </button>
+                                            </li>
+                                            <li class="nav-item">
+                                                <button type="button" id="mayaTab" class="nav-link w-100" onclick="selectPaymentMethod('maya')">
+                                                    <i class="bi bi-credit-card me-1"></i> Maya
+                                                </button>
+                                            </li>
+                                        </ul>
+
+                                        <div id="gcashPane" class="qr-pane text-center mb-3">
+                                            <img src="/img/gcash-qr.png" alt="GCash QR" style="max-width: 220px;" class="img-fluid">
+                                            <p class="mt-2 mb-0 qr-account-name">GCash — [Your Registered Name]</p>
+                                            <p class="qr-account-number mb-0">09XX-XXX-XXXX</p>
+                                        </div>
+
+                                        <div id="mayaPane" class="qr-pane text-center mb-3" style="display:none;">
+                                            <img src="/img/maya-qr.png" alt="Maya QR" style="max-width: 220px;" class="img-fluid">
+                                            <p class="mt-2 mb-0 qr-account-name">Maya — [Your Registered Name]</p>
+                                            <p class="qr-account-number mb-0">09XX-XXX-XXXX</p>
+                                        </div>
+
+                                        <p class="text-muted small text-center">
+                                            Scan the QR code or send manually to the number above, then fill in the details below.
+                                        </p>
+
+                                        <input type="hidden" id="paymentMethodInput" value="gcash">
+
+                                        <div class="mb-3">
+                                            <label class="form-label fw-semibold">Reference / Transaction Number</label>
+                                            <input type="text" id="referenceNumber" class="form-control" placeholder="e.g. 1234567890123">
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <label class="form-label fw-semibold">Upload Receipt Screenshot <span class="text-muted small">(optional but recommended)</span></label>
+                                            <input type="file" id="receiptUpload" class="form-control" accept="image/png, image/jpeg, image/webp">
+                                        </div>
+
+                                        <div id="paymentStatus" class="mb-2"></div>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-light" onclick="cancelActiveHold()" data-bs-dismiss="modal">Cancel</button>
+                                        <button type="button" class="btn btn-success" id="submitPaymentBtn" onclick="submitPaymentProof()">
+                                            <i class="bi bi-check-circle me-1"></i> I've Paid — Submit Proof
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- SUCCESS MODAL -->
+                        <div class="modal fade" id="successModal" tabindex="-1" aria-hidden="true">
+                            <div class="modal-dialog modal-dialog-centered">
+                                <div class="modal-content text-center p-4" style="border-radius: 20px;">
+                                    <i class="bi bi-check-circle-fill text-success" style="font-size: 4rem;"></i>
+                                    <h4 class="fw-bold mt-3">Payment Submitted!</h4>
+                                    <p class="text-muted">Your booking has been sent to our admin team for approval. We'll confirm once your payment is verified.</p>
+                                </div>
+                            </div>
+                        </div>
+
                     </section>
                 </div>
             </div>
@@ -262,26 +356,30 @@
             lockSubmitButton();
         }
 
+        // FIX: createHoldAndOpenPayment() replaces submitBtn's innerHTML with
+        // a spinner while the request is in flight ("Reserving your
+        // slot..."). That destroys the <span id="submitBtnText"> and
+        // <i id="submitLockIcon"> elements that used to live inside the
+        // button. lockSubmitButton()/unlockSubmitButton() previously
+        // assumed those elements still existed and tried to update them
+        // directly — once they'd been wiped out by the spinner HTML,
+        // getElementById returned null and calling .textContent on it
+        // threw "Cannot set properties of null". Both functions now
+        // rebuild the button's full contents every time instead of
+        // relying on child elements that may no longer be there.
+
         // Lock submit button (not verified)
         function lockSubmitButton() {
             const btn = document.getElementById('submitBtn');
-            const btnText = document.getElementById('submitBtnText');
-            const lockIcon = document.getElementById('submitLockIcon');
-
             btn.disabled = true;
-            btnText.textContent = 'Verify Email to Book';
-            lockIcon.className = 'bi bi-lock-fill me-2';
+            btn.innerHTML = '<i class="bi bi-lock-fill me-2" id="submitLockIcon"></i><span id="submitBtnText">Verify Email to Book</span>';
         }
 
         // Unlock submit button (verified)
         function unlockSubmitButton() {
             const btn = document.getElementById('submitBtn');
-            const btnText = document.getElementById('submitBtnText');
-            const lockIcon = document.getElementById('submitLockIcon');
-
             btn.disabled = false;
-            btnText.textContent = 'Confirm Reservation Request';
-            lockIcon.className = 'bi bi-check-circle-fill me-2';
+            btn.innerHTML = '<i class="bi bi-wallet2 me-2" id="submitLockIcon"></i><span id="submitBtnText">Proceed to Downpayment</span>';
         }
 
         // Send verification code to email
@@ -527,6 +625,7 @@
                 if (price > 0) {
                     document.getElementById('totalPrice').textContent = price.toLocaleString();
                     document.getElementById('priceBreakdown').textContent = '₱' + price.toLocaleString() + ' — Flat Rate (Day Use)';
+                    document.getElementById('downpaymentEstimate').textContent = Math.ceil(price * 0.30).toLocaleString();
                     document.getElementById('priceDisplay').style.display = 'block';
                 } else {
                     document.getElementById('priceDisplay').style.display = 'none';
@@ -540,6 +639,7 @@
                     const total = price * nights;
                     document.getElementById('totalPrice').textContent = total.toLocaleString();
                     document.getElementById('priceBreakdown').textContent = '₱' + price.toLocaleString() + ' × ' + nights + ' night(s) — ' + category;
+                    document.getElementById('downpaymentEstimate').textContent = Math.ceil(total * 0.30).toLocaleString();
                     document.getElementById('priceDisplay').style.display = 'block';
                 } else {
                     document.getElementById('priceDisplay').style.display = 'none';
@@ -567,7 +667,7 @@
         }
 
         // ============================================
-        // UPDATED: Auto-filter expired bookings
+        // Auto-filter expired bookings
         // ============================================
         async function loadBookingSchedule() {
             try {
@@ -721,21 +821,220 @@
         }
 
         // ============================================
+        // PAYMENT FLOW (Downpayment via GCash / Maya)
+        // ============================================
+        let activeHold = null; // { bookingId, holdExpiresAt }
+        let holdCountdownTimer = null;
+
+        function buildBookingPayload() {
+            const roomSelect = document.getElementById('roomType');
+            return {
+                name: document.getElementById('name').value,
+                email: document.getElementById('email').value,
+                people: document.getElementById('people').value,
+                roomType: roomSelect.value,
+                requests: document.querySelector('textarea[name="requests"]').value,
+                checkin: document.getElementById('checkin').value,
+                bookingDate: document.getElementById('bookingDate').value,
+                checkinTime: document.getElementById('checkinTime').value,
+                checkoutTime: document.getElementById('checkoutTime').value
+            };
+        }
+
+        // ============================================
+        // FIX: previously any hiccup here (a network blip, or the
+        // server returning a non-JSON error page) landed in the catch
+        // block and always showed the same generic "Could not reserve
+        // your slot" message, hiding the real reason. Now:
+        //   1) res.json() is parsed defensively — if the response
+        //      isn't valid JSON, we say so explicitly with the HTTP
+        //      status instead of silently falling into a vague alert.
+        //   2) a non-2xx response with a real server message shows
+        //      that message instead of a generic one.
+        // ============================================
+        async function createHoldAndOpenPayment() {
+            const payload = buildBookingPayload();
+            const submitBtn = document.getElementById('submitBtn');
+            submitBtn.disabled = true;
+            // FIX: this used to do
+            //   submitBtn.innerHTML = '<span class="spinner-border ...">Reserving your slot...';
+            // which wipes out the button's existing children —
+            // #submitLockIcon and #submitBtnText. unlockSubmitButton()
+            // (called right after the hold succeeds, to re-enable the
+            // button for the downpayment step) looks those up by id and
+            // sets their textContent/className, which threw "Cannot set
+            // properties of null" once they no longer existed — breaking
+            // the handoff into the payment modal. Updating the same two
+            // elements in place instead keeps them alive.
+            const submitLockIcon = document.getElementById('submitLockIcon');
+            const submitBtnText = document.getElementById('submitBtnText');
+            if (submitLockIcon) submitLockIcon.className = 'spinner-border spinner-border-sm me-2';
+            if (submitBtnText) submitBtnText.textContent = 'Reserving your slot...';
+
+            try {
+                const res = await fetch('/api/create-hold', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                let data;
+                try {
+                    data = await res.json();
+                } catch (parseErr) {
+                    console.error('create-hold: non-JSON response', parseErr);
+                    throw new Error(`Server returned an unexpected response (status ${res.status}). Please try again in a moment.`);
+                }
+
+                if (!res.ok || !data.success) {
+                    alert('⚠️ ' + (data.message || `Could not reserve your slot (status ${res.status}). Please try again.`));
+                    unlockSubmitButton();
+                    return;
+                }
+
+                activeHold = { bookingId: data.bookingId, holdExpiresAt: data.holdExpiresAt };
+                openPaymentModal(data);
+                unlockSubmitButton();
+            } catch (err) {
+                console.error('create-hold error:', err);
+                alert('⚠️ ' + (err.message || 'Could not reserve your slot. Please try again.'));
+                unlockSubmitButton();
+            }
+        }
+
+        function openPaymentModal(data) {
+            document.getElementById('payAmount').textContent = Number(data.downpayment).toLocaleString();
+            document.getElementById('payTotal').textContent = Number(data.totalPrice).toLocaleString();
+            document.getElementById('referenceNumber').value = '';
+            document.getElementById('receiptUpload').value = '';
+            document.getElementById('paymentStatus').innerHTML = '';
+            const payBtn = document.getElementById('submitPaymentBtn');
+            payBtn.disabled = false;
+            payBtn.innerHTML = '<i class="bi bi-check-circle me-1"></i> I\'ve Paid — Submit Proof';
+            selectPaymentMethod('gcash');
+            startHoldCountdown(new Date(data.holdExpiresAt));
+
+            const modal = new bootstrap.Modal(document.getElementById('paymentModal'));
+            modal.show();
+        }
+
+        // Toggles the "active" class on the tab buttons; the modal-scoped
+        // CSS (#paymentModal .payment-method-tabs #gcashTab.active /
+        // #mayaTab.active) is what colors them blue vs. green.
+        function selectPaymentMethod(method) {
+            document.getElementById('paymentMethodInput').value = method;
+            document.getElementById('gcashPane').style.display = (method === 'gcash') ? 'block' : 'none';
+            document.getElementById('mayaPane').style.display = (method === 'maya') ? 'block' : 'none';
+            document.getElementById('gcashTab').classList.toggle('active', method === 'gcash');
+            document.getElementById('mayaTab').classList.toggle('active', method === 'maya');
+        }
+
+        function startHoldCountdown(expiresAt) {
+            clearInterval(holdCountdownTimer);
+            const el = document.getElementById('holdCountdown');
+            holdCountdownTimer = setInterval(() => {
+                const diff = expiresAt - new Date();
+                if (diff <= 0) {
+                    clearInterval(holdCountdownTimer);
+                    el.textContent = 'Expired';
+                    document.getElementById('submitPaymentBtn').disabled = true;
+                    document.getElementById('paymentStatus').innerHTML = '<span class="text-danger">Your reserved slot expired. Please close this window and book again.</span>';
+                    return;
+                }
+                const m = Math.floor(diff / 60000);
+                const s = Math.floor((diff % 60000) / 1000);
+                el.textContent = `${m}:${String(s).padStart(2, '0')}`;
+            }, 1000);
+        }
+
+        // ============================================
+        // FIX: same defensive JSON parsing as createHoldAndOpenPayment,
+        // so a server-side upload error or crash shows its real message
+        // (or at least the HTTP status) instead of a generic one.
+        // ============================================
+        async function submitPaymentProof() {
+            if (!activeHold) return;
+            const method = document.getElementById('paymentMethodInput').value;
+            const reference = document.getElementById('referenceNumber').value.trim();
+            const receiptFile = document.getElementById('receiptUpload').files[0];
+            const status = document.getElementById('paymentStatus');
+            const btn = document.getElementById('submitPaymentBtn');
+
+            if (!reference) {
+                status.innerHTML = '<span class="text-danger">Please enter your GCash/Maya reference number.</span>';
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('bookingId', activeHold.bookingId);
+            formData.append('paymentMethod', method);
+            formData.append('referenceNumber', reference);
+            if (receiptFile) formData.append('receipt', receiptFile);
+
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Submitting...';
+
+            try {
+                const res = await fetch('/api/submit-payment', { method: 'POST', body: formData });
+
+                let data;
+                try {
+                    data = await res.json();
+                } catch (parseErr) {
+                    console.error('submit-payment: non-JSON response', parseErr);
+                    throw new Error(`Server returned an unexpected response (status ${res.status}). Please try again.`);
+                }
+
+                if (!res.ok || !data.success) {
+                    status.innerHTML = `<span class="text-danger">${data.message || `Submission failed (status ${res.status}).`}</span>`;
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="bi bi-check-circle me-1"></i> I\'ve Paid — Submit Proof';
+                    return;
+                }
+
+                clearInterval(holdCountdownTimer);
+                activeHold = null;
+                bootstrap.Modal.getInstance(document.getElementById('paymentModal')).hide();
+
+                const successModal = new bootstrap.Modal(document.getElementById('successModal'));
+                successModal.show();
+
+                setTimeout(() => window.location.href = '/booking', 3500);
+            } catch (err) {
+                console.error('submit-payment error:', err);
+                status.innerHTML = `<span class="text-danger">${err.message || 'Server error. Please try again.'}</span>`;
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-check-circle me-1"></i> I\'ve Paid — Submit Proof';
+            }
+        }
+
+        async function cancelActiveHold() {
+            if (!activeHold) return;
+            try {
+                await fetch('/api/cancel-hold/' + activeHold.bookingId, { method: 'DELETE' });
+            } catch (err) {
+                console.error('cancel-hold error:', err);
+            }
+            clearInterval(holdCountdownTimer);
+            activeHold = null;
+        }
+
+        // ============================================
         // FORM SUBMIT HANDLER
         // ============================================
 
         document.getElementById('bookingForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+
             // FIRST CHECK: Is email verified?
             const isVerified = document.getElementById('emailVerified').value === 'true';
             if (!isVerified) {
-                e.preventDefault();
                 alert('⚠️ Please verify your email address before submitting your booking.');
                 return;
             }
 
             // SECOND CHECK: Any double booking conflicts?
             if (!checkDoubleBooking()) {
-                e.preventDefault();
                 alert('⚠️ This accommodation is already booked or the selected date is not available.');
                 return;
             }
@@ -750,34 +1049,31 @@
                 const checkoutTime = document.getElementById('checkoutTime').value;
 
                 if (!bookingDate || !checkinTime || !checkoutTime) {
-                    e.preventDefault();
                     alert('⚠️ Please fill in the booking date, check-in time, and check-out time for the cottage.');
                     return;
                 }
                 if (timeToMinutes(checkinTime) >= timeToMinutes(checkoutTime)) {
-                    e.preventDefault();
                     alert('⚠️ Check-out time must be later than check-in time.');
                     return;
                 }
                 if (isMondayOrTuesday(bookingDate)) {
-                    e.preventDefault();
                     alert('⚠️ We are closed on Mondays and Tuesdays. Please choose a different date.');
                     return;
                 }
             } else {
                 const checkin = document.getElementById('checkin').value;
                 if (!checkin) {
-                    e.preventDefault();
                     alert('⚠️ Please select a check-in date.');
                     return;
                 }
                 if (isMondayOrTuesday(checkin)) {
-                    e.preventDefault();
                     alert('⚠️ Check-in cannot be on Monday or Tuesday. We are closed those days.');
                     return;
                 }
-                document.getElementById('checkoutHidden').value = getAutoCheckout(checkin);
             }
+
+            // All good — reserve the slot for 30 minutes and open the payment step
+            createHoldAndOpenPayment();
         });
 
         // Load schedule on page load

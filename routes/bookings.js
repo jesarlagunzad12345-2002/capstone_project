@@ -123,7 +123,12 @@ router.get("/bookings", checkAuth, async (req, res) => {
     in: req.session.guestIn || null,
     out: req.session.guestOut || null,
     people: req.session.guestPeople || null,
-    requests: req.session.guestRequests || null
+    requests: req.session.guestRequests || null,
+    // FIX: carry the price breakdown through too, so the approval
+    // email can show what was paid as downpayment vs. what's still
+    // owed (paid walk-in at check-in).
+    totalPrice: req.session.guestTotalPrice || null,
+    downpayment: req.session.guestDownpayment || null
   };
 
   const cData = {
@@ -131,12 +136,14 @@ router.get("/bookings", checkAuth, async (req, res) => {
     name: req.session.cancelGuestName || null,
     room: req.session.cancelGuestRoom || null,
     checkin: req.session.cancelGuestCheckin || null,
-    id: req.session.cancelGuestId || null
+    id: req.session.cancelGuestId || null,
+    downpayment: req.session.cancelGuestDownpayment || null
   };
 
   ['triggerApprove', 'guestName', 'guestEmail', 'guestRoom', 'guestIn', 'guestOut', 
-   'guestPeople', 'guestRequests', 'error', 'triggerCancel', 'cancelGuestEmail', 
-   'cancelGuestName', 'cancelGuestRoom', 'cancelGuestCheckin', 'cancelGuestId']
+   'guestPeople', 'guestRequests', 'guestTotalPrice', 'guestDownpayment', 'error', 'triggerCancel',
+   'cancelGuestEmail', 'cancelGuestName', 'cancelGuestRoom', 'cancelGuestCheckin', 'cancelGuestId',
+   'cancelGuestDownpayment']
    .forEach(key => delete req.session[key]);
 
   try {
@@ -164,13 +171,16 @@ router.get("/bookings", checkAuth, async (req, res) => {
       guestOut: gData.out, 
       guestPeople: gData.people,
       guestRequests: gData.requests,
+      guestTotalPrice: gData.totalPrice,
+      guestDownpayment: gData.downpayment,
       error: errorMsg,
       triggerCancel,
       cancelGuestEmail: cData.email,
       cancelGuestName: cData.name,
       cancelGuestRoom: cData.room,
       cancelGuestCheckin: cData.checkin,
-      cancelGuestId: cData.id
+      cancelGuestId: cData.id,
+      cancelGuestDownpayment: cData.downpayment
     });
   } catch (err) {
     console.error("❌ SQL Error in /bookings:", err);
@@ -203,6 +213,11 @@ router.post("/approve/:id", checkAuth, async (req, res) => {
       req.session.guestRequests = row.requests || "None";
       req.session.guestIn = new Date(row.checkin).toLocaleDateString('en-US', dateOptions);
       req.session.guestOut = new Date(row.checkout).toLocaleDateString('en-US', dateOptions);
+      // FIX: pass the price breakdown through session so the admin
+      // page's confirmation email can show downpayment paid vs.
+      // remaining balance due at check-in.
+      req.session.guestTotalPrice = row.total_price || 0;
+      req.session.guestDownpayment = row.downpayment_amount || 0;
     }
 
     res.redirect("/bookings");
@@ -332,6 +347,10 @@ router.post("/admin-cancel/:id", checkAuth, async (req, res) => {
       req.session.cancelGuestRoom = booking.roomType;
       req.session.cancelGuestCheckin = formatDateForInput(booking.checkin);
       req.session.cancelGuestId = booking.id;
+      // FIX: carry the downpayment amount through too, so the
+      // cancellation email can clearly show the guest exactly how
+      // much was forfeited (downpayments are non-refundable).
+      req.session.cancelGuestDownpayment = booking.downpayment_amount || 0;
     }
     
     await dbQuery("DELETE FROM bookings WHERE id = ?", [req.params.id]);
@@ -376,7 +395,10 @@ router.post("/cancel-booking", async (req, res) => {
         success: true, 
         bookingId: booking.id,
         roomType: booking.roomType || 'Standard',
-        status: booking.status || 'pending'
+        status: booking.status || 'pending',
+        // FIX: the guest-facing cancel form needs this to show/email
+        // the guest exactly how much downpayment is being forfeited.
+        downpaymentAmount: booking.downpayment_amount || 0
       });
     }
     
@@ -387,6 +409,7 @@ router.post("/cancel-booking", async (req, res) => {
         success: true, 
         bookingId: booking.id,
         roomType: booking.roomType || 'Standard',
+        downpaymentAmount: booking.downpayment_amount || 0,
         message: "Your pending booking has been cancelled successfully." 
       });
     } else {
@@ -395,6 +418,7 @@ router.post("/cancel-booking", async (req, res) => {
         success: true, 
         bookingId: booking.id,
         roomType: booking.roomType || 'Standard',
+        downpaymentAmount: booking.downpayment_amount || 0,
         message: "Your cancellation request has been submitted. Our admin team will contact you shortly." 
       });
     }

@@ -20,6 +20,7 @@
     "express": "^5.2.1",
     "express-mysql-session": "^3.0.3",
     "express-session": "^1.19.0",
+    "multer": "^2.4.0",
     "mysql2": "^3.19.1"
   },
   "devDependencies": {

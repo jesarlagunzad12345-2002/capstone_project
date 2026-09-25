@@ -120,6 +120,7 @@
                         <!-- Dynamic note based on status -->
                         <div id="statusNote" class="status-note pending-note">
                             <strong>Instant Cancel:</strong> Your booking will be cancelled immediately and removed from our system.
+                            <div class="mt-1"><i class="bi bi-exclamation-triangle-fill text-danger me-1"></i><span class="text-danger fw-semibold">Any downpayment already made is non-refundable.</span></div>
                         </div>
 
                         <!-- Mismatch warning message -->
@@ -220,6 +221,14 @@
         const submitIcon   = document.getElementById('submitIcon');
         const mismatchMsg  = document.getElementById('statusMismatchMsg');
 
+        // FIX: format a peso amount consistently for both the
+        // on-screen alerts and the emails sent through TEMPLATE_ID
+        // (which now expects a {{downpayment_amount}} value).
+        function formatPeso(n) {
+            const num = parseFloat(n) || 0;
+            return '₱' + num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
         // ============================================
         // 2. BUTTON STATE MANAGER (FIXED)
         // ============================================
@@ -266,13 +275,19 @@
             }
         }
 
+        // FIX: both notes now carry the same non-refundable-downpayment
+        // warning so it's visible however the guest cancels — an
+        // instant self-cancel of a pending booking, or a request to
+        // cancel an already-approved one.
         function updateStatusNote(status) {
             if (status === 'pending') {
                 statusNote.className  = 'status-note pending-note';
-                statusNote.innerHTML  = '<strong>Instant Cancel:</strong> Your booking will be cancelled immediately and removed from our system.';
+                statusNote.innerHTML  = '<strong>Instant Cancel:</strong> Your booking will be cancelled immediately and removed from our system.'
+                    + '<div class="mt-1"><i class="bi bi-exclamation-triangle-fill text-danger me-1"></i><span class="text-danger fw-semibold">Any downpayment already made is non-refundable.</span></div>';
             } else {
                 statusNote.className  = 'status-note approved-note';
-                statusNote.innerHTML  = '<strong>Request Only:</strong> This will notify our admin team. Please wait for a confirmation email once your request is processed.';
+                statusNote.innerHTML  = '<strong>Request Only:</strong> This will notify our admin team. Please wait for a confirmation email once your request is processed.'
+                    + '<div class="mt-1"><i class="bi bi-exclamation-triangle-fill text-danger me-1"></i><span class="text-danger fw-semibold">Any downpayment already made is non-refundable.</span></div>';
             }
         }
 
@@ -498,6 +513,11 @@
                 
                 const bookingId = result.bookingId;
                 const room      = result.roomType || 'Standard';
+                // FIX: forfeited downpayment amount, now returned by
+                // /cancel-booking — used in both the emails below and
+                // the on-screen confirmation alert.
+                const downpaymentAmount = result.downpaymentAmount || 0;
+                const downpaymentFormatted = formatPeso(downpaymentAmount);
 
                 // STEP 3: Send emails
                 emailjs.init({ publicKey: "EfvIkV0UtUXjEGOgu" });
@@ -510,9 +530,10 @@
                     checkin_date: checkin,
                     status_type: status === 'pending' ? 'Pending Booking' : 'Approved Booking',
                     cancel_reason: reason,
+                    downpayment_amount: downpaymentFormatted,
                     message: status === 'pending'
-                        ? `[AUTO-CANCEL] Pending booking #${bookingId} was cancelled by ${name}. Room: ${room}, Check-in: ${checkin}, Reason: ${reason}`
-                        : `[CANCEL REQUEST] ${name} wants to cancel approved booking #${bookingId}. Room: ${room}, Check-in: ${checkin}, Reason: ${reason}`
+                        ? `[AUTO-CANCEL] Pending booking #${bookingId} was cancelled by ${name}. Room: ${room}, Check-in: ${checkin}, Reason: ${reason}. Downpayment forfeited: ${downpaymentFormatted}.`
+                        : `[CANCEL REQUEST] ${name} wants to cancel approved booking #${bookingId}. Room: ${room}, Check-in: ${checkin}, Reason: ${reason}. Downpayment forfeited: ${downpaymentFormatted}.`
                 };
 
                 if (status === 'pending') {
@@ -524,7 +545,8 @@
                         checkin_date: checkin,
                         status_type: 'Pending Booking',
                         cancel_reason: reason,
-                        message: 'Your booking has been successfully cancelled. We hope to welcome you again in the future!'
+                        downpayment_amount: downpaymentFormatted,
+                        message: 'Your booking has been successfully cancelled. Please note that any downpayment made is non-refundable. We hope to welcome you again in the future!'
                     };
                     await emailjs.send('service_kmlresort', TEMPLATE_ID, customerParams);
                     console.log('✅ Customer email sent to:', email);
@@ -533,10 +555,18 @@
                 await emailjs.send('service_kmlresort', TEMPLATE_ID, adminParams);
                 console.log('✅ Admin email sent to:', ADMIN_EMAIL);
 
+                // FIX: on-screen confirmation now also states the
+                // downpayment is non-refundable, so the guest sees it
+                // immediately and not only in the follow-up email —
+                // only mentioned when there actually was a downpayment.
+                const downpaymentNotice = downpaymentAmount > 0
+                    ? `\n\nNote: Your downpayment of ${downpaymentFormatted} is non-refundable per our booking policy.`
+                    : '';
+
                 if (status === 'pending') {
-                    alert('✅ Your booking has been cancelled successfully!\n\nA confirmation email has been sent to ' + email);
+                    alert('✅ Your booking has been cancelled successfully!' + downpaymentNotice + '\n\nA confirmation email has been sent to ' + email);
                 } else {
-                    alert('✅ Your cancellation request has been submitted to our admin team!\n\nYou will receive a confirmation email once your request is processed.');
+                    alert('✅ Your cancellation request has been submitted to our admin team!' + downpaymentNotice + '\n\nYou will receive a confirmation email once your request is processed.');
                 }
 
                 cancelForm.reset();

@@ -4,6 +4,7 @@ const router = express.Router();
 const bcrypt = require("bcrypt");
 const emailjs = require('@emailjs/nodejs'); // EmailJS for OTP
 const bookingRoutes = require("./bookings");
+const paymentRoutes = require("./payments"); // <-- NEW: GCash/Maya downpayment flow
 const getDb = () => require("../config/database");
 
 const checkAuth = (req, res, next) => req.session.isLoggedIn ? next() : res.redirect("/login");
@@ -572,7 +573,8 @@ router.get("/api/gallery", async (req, res) => {
 });
 
 
-// ===================== /create with Email Verification + Room Auto-Checkout + Cottage day-use + Mon/Tue block =====================
+// ===================== /create (LEGACY — kept for reference, no longer called by =====================
+// ===================== the booking form now that the hold+payment flow is live)   =====================
 router.post("/create", async (req, res) => {
     const { name, email, people, roomType, requests, checkin, checkout, bookingDate, checkinTime, checkoutTime } = req.body;
 
@@ -800,6 +802,7 @@ router.delete("/api/dashboard/revenue-log/:id", checkAuth, async (req, res) => {
 });
 
 
+router.use("/", paymentRoutes);   // <-- NEW: /api/create-hold, /api/submit-payment, /api/verify-payment/:id, /api/cancel-hold/:id, /api/cleanup-expired-holds
 router.use("/", bookingRoutes);
 
 module.exports = router;

@@ -40,6 +40,33 @@
           return `${y}-${m}-${d}`;
       }
 
+      // ============================================
+      // PAYMENT VERIFICATION
+      // Admin checks their own GCash/Maya app, then clicks this
+      // to mark the claimed payment as verified before approving.
+      // ============================================
+      async function verifyPayment(id, btn) {
+          const original = btn.innerHTML;
+          btn.disabled = true;
+          btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+          try {
+              const res = await fetch('/api/verify-payment/' + id, { method: 'POST' });
+              const data = await res.json();
+              if (data.success) {
+                  window.location.reload();
+              } else {
+                  alert('Failed to verify payment.');
+                  btn.disabled = false;
+                  btn.innerHTML = original;
+              }
+          } catch (err) {
+              console.error('verify-payment error:', err);
+              alert('Server error verifying payment.');
+              btn.disabled = false;
+              btn.innerHTML = original;
+          }
+      }
+
       window.onload = function() {
         const shouldTrigger = "<%= typeof triggerApprove !== 'undefined' ? triggerApprove : false %>";
         if (shouldTrigger === "true") {
@@ -53,6 +80,16 @@
             const gName = "<%= typeof guestName !== 'undefined' ? guestName : '' %>";
             if (gEmail && gEmail !== "null" && gEmail !== "") {
               const specialRequests = "<%= typeof guestRequests !== 'undefined' ? guestRequests : 'None' %>" || "None";
+
+              // FIX: pull the price breakdown through from the server
+              // (see routes/bookings.js /approve/:id) so the
+              // confirmation email can show the downpayment already
+              // paid and what's left to pay walk-in at check-in.
+              const gTotalPrice = parseFloat("<%= typeof guestTotalPrice !== 'undefined' && guestTotalPrice ? guestTotalPrice : 0 %>") || 0;
+              const gDownpayment = parseFloat("<%= typeof guestDownpayment !== 'undefined' && guestDownpayment ? guestDownpayment : 0 %>") || 0;
+              const gRemaining = Math.max(0, gTotalPrice - gDownpayment);
+              const formatPeso = (n) => '₱' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
               const templateParams = {
                 to_email: gEmail,
                 user_name: gName,
@@ -61,6 +98,9 @@
                 checkout_date: formatDate("<%= typeof guestOut !== 'undefined' ? guestOut : '' %>"),
                 guests_count: "<%= typeof guestPeople !== 'undefined' ? guestPeople : '' %>",
                 special_requests: specialRequests,
+                total_price: formatPeso(gTotalPrice),
+                downpayment_amount: formatPeso(gDownpayment),
+                remaining_balance: formatPeso(gRemaining),
                 message: "Your reservation at KML Resort is officially confirmed!"
               };
               emailjs.send('service_kmlresort', 'template_klmresort1', templateParams)
@@ -74,6 +114,12 @@
             const cEmail = "<%= typeof cancelGuestEmail !== 'undefined' ? cancelGuestEmail : '' %>";
             const cName = "<%= typeof cancelGuestName !== 'undefined' ? cancelGuestName : '' %>";
             if (cEmail && cEmail !== "null" && cEmail !== "") {
+              // FIX: show the guest exactly how much was forfeited —
+              // downpayments are non-refundable per policy (see the
+              // updated cancellation email template).
+              const cDownpayment = parseFloat("<%= typeof cancelGuestDownpayment !== 'undefined' && cancelGuestDownpayment ? cancelGuestDownpayment : 0 %>") || 0;
+              const formatPesoCancel = (n) => '₱' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
               const cancelParams = {
                 to_email: cEmail,
                 user_name: cName,
@@ -82,6 +128,7 @@
                 checkin_date: "<%= typeof cancelGuestCheckin !== 'undefined' ? cancelGuestCheckin : '' %>",
                 status_type: "Approved Booking",
                 cancel_reason: "Cancelled by admin upon guest request",
+                downpayment_amount: formatPesoCancel(cDownpayment),
                 message: "Your booking has been successfully cancelled by our admin team. We hope to welcome you again in the future!"
               };
               emailjs.send('service_kmlresort', 'template_kule5md', cancelParams)
@@ -161,12 +208,29 @@
           return true;
       }
 
+      // ============================================
+      // Runs once the page has fully loaded, wiring up all the
+      // interactive bits below. Grouping every "find these elements,
+      // attach a listener" step in one place (instead of scattering
+      // onclick="..." attributes through the HTML) makes it much
+      // easier to see, at a glance, everything this page can do.
+      // ============================================
       document.addEventListener('DOMContentLoaded', function() {
-          document.querySelectorAll('[data-booking-id]').forEach(function(select) {
+          // Room-type dropdown inside each "Edit Booking" modal:
+          // switching between a Room and a Cottage shows/hides the
+          // right date fields and refreshes the guest-count options.
+          // Scoped to <select> specifically — the Verify buttons below
+          // also carry a data-booking-id attribute, and without this
+          // scoping this loop would (harmlessly, but confusingly) also
+          // try to attach a "change" listener to those buttons.
+          document.querySelectorAll('select[data-booking-id]').forEach(function(select) {
               select.addEventListener('change', function() {
                   toggleEditModalFields(this.getAttribute('data-booking-id'));
               });
           });
+
+          // Make sure each edit modal shows the correct fields the
+          // moment it opens (not just after the dropdown is touched).
           document.querySelectorAll('.modal').forEach(function(modal) {
               modal.addEventListener('shown.bs.modal', function() {
                   const form = modal.querySelector('form');
@@ -176,8 +240,32 @@
                   }
               });
           });
+
+          // "Verify" buttons in the PAYMENT STATUS column — reads the
+          // booking id from data-booking-id instead of it being baked
+          // into an inline onclick="..." attribute.
+          document.querySelectorAll('.verify-payment-btn').forEach(function(btn) {
+              btn.addEventListener('click', function() {
+                  verifyPayment(this.getAttribute('data-booking-id'), this);
+              });
+          });
       });
     </script>
+
+    <!--
+      FIX (layout): the old PAYMENT column crammed method, reference
+      number, downpayment amount, a receipt thumbnail, a status badge,
+      and a "Verify" button all into one <td>. That's now split into
+      separate METHOD / REFERENCE / DOWNPAYMENT / RECEIPT / STATUS
+      columns below so each piece of information has its own space.
+      Since the table now has more columns, give it a sane minimum
+      width so it scrolls horizontally inside .table-responsive
+      instead of squeezing everything unreadable.
+    -->
+    <style>
+      .table-responsive table { min-width: 1150px; }
+      .payment-cell-empty { color: #adb5bd; font-size: 0.75rem; white-space: nowrap; }
+    </style>
 </head>
 <body>
 
@@ -188,6 +276,11 @@
         };
         const formatPrice = (p) => {
             return p ? '₱' + parseFloat(p).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : '₱0.00';
+        };
+        const paymentBadge = (status) => {
+            if (status === 'verified') return '<span class="badge bg-success">Verified</span>';
+            if (status === 'pending_verification') return '<span class="badge bg-warning text-dark">Unverified</span>';
+            return '<span class="text-muted" style="font-size:0.75rem;">No online payment</span>';
         };
     %>
 
@@ -239,7 +332,7 @@
 
             <div class="mb-4">
                 <h1 class="h3 fw-bold text-dark mb-1">Pending Reservations</h1>
-                <p class="text-muted small">New requests waiting for approval.</p>
+                <p class="text-muted small">New requests waiting for approval. Check the PAYMENT columns before approving.</p>
             </div>
 
             <div class="card-custom shadow-sm">
@@ -252,16 +345,22 @@
                                 <th>ROOM or COTTAGE</th>
                                 <th class="text-center">GUESTS</th>
                                 <th>PRICE</th>
+                                <th>METHOD</th>
+                                <th>REFERENCE #</th>
+                                <th>DOWNPAYMENT</th>
+                                <th>RECEIPT</th>
+                                <th>PAYMENT STATUS</th>
                                 <th>SPECIAL REQUESTS</th>
                                 <th class="text-end pe-4">ACTIONS</th>
                             </tr>
                         </thead>
                         <tbody>
                             <% 
-                                const pendingBookings = bookings.filter(b => b.status !== 'approved');
+                                const pendingBookings = bookings.filter(b => b.status !== 'approved' && b.status !== 'pending_payment');
                                 pendingBookings.forEach(booking => { 
                                     const bRoom = rooms.find(r => r.name === booking.roomType);
                                     const isCottage = bRoom && bRoom.category === 'Cottage';
+                                    const hasPayment = !!booking.reference_number;
                             %>
                             <tr>
                                 <td class="ps-4">
@@ -286,6 +385,74 @@
                                 <td><span class="status-tag bg-light text-dark border"><%= booking.roomType || 'Standard' %></span></td>
                                 <td class="text-center"><span class="guest-badge"><%= booking.people %></span></td>
                                 <td><span class="price-tag"><%= formatPrice(booking.total_price) %></span></td>
+
+                                <!-- METHOD -->
+                                <td>
+                                    <% if (hasPayment) { %>
+                                        <span class="small fw-bold text-uppercase"><%= booking.payment_method || '—' %></span>
+                                    <% } else { %>
+                                        <span class="payment-cell-empty">No online payment</span>
+                                    <% } %>
+                                </td>
+
+                                <!-- REFERENCE # -->
+                                <td>
+                                    <% if (hasPayment) { %>
+                                        <span class="small text-break"><%= booking.reference_number %></span>
+                                    <% } else { %>
+                                        <span class="payment-cell-empty">—</span>
+                                    <% } %>
+                                </td>
+
+                                <!-- DOWNPAYMENT -->
+                                <td>
+                                    <% if (hasPayment) { %>
+                                        <span class="fw-semibold small">₱<%= booking.downpayment_amount ? parseFloat(booking.downpayment_amount).toLocaleString() : '0' %></span>
+                                    <% } else { %>
+                                        <span class="payment-cell-empty">—</span>
+                                    <% } %>
+                                </td>
+
+                                <!-- RECEIPT -->
+                                <td>
+                                    <% if (hasPayment && booking.receipt_image) { %>
+                                        <a href="<%= booking.receipt_image %>" target="_blank" class="d-inline-block">
+                                            <img src="<%= booking.receipt_image %>" alt="Receipt" style="width: 42px; height: 42px; object-fit: cover; border-radius: 6px; border: 1px solid #ddd;">
+                                        </a>
+                                    <% } else { %>
+                                        <span class="payment-cell-empty">No receipt</span>
+                                    <% } %>
+                                </td>
+
+                                <!-- PAYMENT STATUS + VERIFY -->
+                                <td>
+                                    <% if (hasPayment) { %>
+                                        <div><%- paymentBadge(booking.payment_status) %></div>
+                                        <% if (booking.payment_status !== 'verified') { %>
+                                            <!--
+                                              FIX: this used to be
+                                              onclick="verifyPayment(<%= booking.id %>, this)"
+                                              — mixing raw EJS output directly inside an inline
+                                              JavaScript attribute. That's what VS Code's editor was
+                                              flagging as "Expression expected" (it tries to check the
+                                              onclick text as plain JavaScript and doesn't understand
+                                              the <%= %> tag sitting inside it). It was never a real
+                                              runtime bug — by the time this page reaches the browser,
+                                              <%= booking.id %> has already been replaced with a plain
+                                              number — but it's confusing to read and trips up editor
+                                              tooling. Using a data-booking-id attribute instead (the
+                                              same pattern already used for the room <select> below)
+                                              keeps EJS and JavaScript cleanly separated.
+                                            -->
+                                            <button type="button" class="btn btn-outline-success btn-sm mt-1 py-0 px-2 verify-payment-btn" style="font-size: 0.7rem;" data-booking-id="<%= booking.id %>">
+                                                <i class="bi bi-check2"></i> Verify
+                                            </button>
+                                        <% } %>
+                                    <% } else { %>
+                                        <span class="payment-cell-empty">—</span>
+                                    <% } %>
+                                </td>
+
                                 <td>
                                     <% if (booking.requests) { %>
                                         <span class="special-request-text" title="<%= booking.requests %>"><%= booking.requests %></span>
@@ -462,8 +629,11 @@
                                 <th>ROOM or COTTAGE</th>
                                 <th class="text-center">GUESTS</th>
                                 <th>PRICE</th>
+                                <th>METHOD</th>
+                                <th>REFERENCE #</th>
+                                <th>PAYMENT STATUS</th>
                                 <th>SPECIAL REQUESTS</th>
-                                <th class="text-center">STATUS</th>
+                                <th class="text-center">BOOKING STATUS</th>
                                 <th class="text-end pe-4">ACTION</th>
                             </tr>
                         </thead>
@@ -473,6 +643,7 @@
                                 approvedBookings.forEach(booking => { 
                                     const bRoom2 = rooms.find(r => r.name === booking.roomType);
                                     const isCottage2 = bRoom2 && bRoom2.category === 'Cottage';
+                                    const hasPayment2 = !!booking.reference_number;
                             %>
                             <tr>
                                 <td class="ps-4">
@@ -495,6 +666,34 @@
                                 <td class="small"><%= booking.roomType %></td>
                                 <td class="text-center"><span class="guest-badge"><%= booking.people %></span></td>
                                 <td><span class="price-tag"><%= formatPrice(booking.total_price) %></span></td>
+
+                                <!-- METHOD -->
+                                <td>
+                                    <% if (hasPayment2) { %>
+                                        <span class="small fw-bold text-uppercase"><%= booking.payment_method || '—' %></span>
+                                    <% } else { %>
+                                        <span class="payment-cell-empty">No online payment</span>
+                                    <% } %>
+                                </td>
+
+                                <!-- REFERENCE # -->
+                                <td>
+                                    <% if (hasPayment2) { %>
+                                        <span class="small text-break"><%= booking.reference_number %></span>
+                                    <% } else { %>
+                                        <span class="payment-cell-empty">—</span>
+                                    <% } %>
+                                </td>
+
+                                <!-- PAYMENT STATUS -->
+                                <td>
+                                    <% if (hasPayment2) { %>
+                                        <%- paymentBadge(booking.payment_status) %>
+                                    <% } else { %>
+                                        <span class="payment-cell-empty">—</span>
+                                    <% } %>
+                                </td>
+
                                 <td>
                                     <% if (booking.requests) { %>
                                         <span class="special-request-text" title="<%= booking.requests %>"><%= booking.requests %></span>
