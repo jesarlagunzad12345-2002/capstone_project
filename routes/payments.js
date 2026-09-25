@@ -3,6 +3,7 @@ const router = express.Router();
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
+const os = require("os");
 const db = require("../config/database");
 
 const dbQuery = (sql, params = []) => new Promise((resolve, reject) => {
@@ -14,8 +15,12 @@ const DOWNPAYMENT_PERCENT = 0.30; // 30%
 const HOLD_MINUTES = 30;
 
 // ---- multer setup for receipt screenshots ----
-const uploadDir = path.join(__dirname, "..", "public", "uploads", "receipts");
-if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+// Vercel's deployed filesystem is read-only except for /tmp. Local runs
+// continue to use public/uploads so receipt images remain directly served.
+const uploadDir = process.env.VERCEL
+  ? path.join(os.tmpdir(), "kml-receipts")
+  : path.join(__dirname, "..", "public", "uploads", "receipts");
+fs.mkdirSync(uploadDir, { recursive: true });
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, uploadDir),
