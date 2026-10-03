@@ -59,10 +59,50 @@ CREATE TABLE `bookings` (
   `requests` text DEFAULT NULL,
   `total_price` decimal(10,2) DEFAULT 0.00,
   `nights` int(11) DEFAULT 1,
+  `bookingSource` varchar(20) NOT NULL DEFAULT 'ONLINE',
+  `payment_method` varchar(30) DEFAULT NULL,
+  `amount_paid` decimal(10,2) NOT NULL DEFAULT 0.00,
+  `balance` decimal(10,2) NOT NULL DEFAULT 0.00,
   `receipt_image` longtext DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
--- Existing databases should make this column large enough for Vercel data URLs.
+-- MariaDB-compatible migration for existing databases.
+SET @sql = IF(
+  (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'bookings' AND COLUMN_NAME = 'bookingSource') = 0,
+  'ALTER TABLE bookings ADD COLUMN bookingSource varchar(20) NOT NULL DEFAULT ''ONLINE''',
+  'SELECT 1'
+);
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @sql = IF(
+  (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'bookings' AND COLUMN_NAME = 'payment_method') = 0,
+  'ALTER TABLE bookings ADD COLUMN payment_method varchar(30) DEFAULT NULL',
+  'SELECT 1'
+);
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @sql = IF(
+  (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'bookings' AND COLUMN_NAME = 'amount_paid') = 0,
+  'ALTER TABLE bookings ADD COLUMN amount_paid decimal(10,2) NOT NULL DEFAULT 0.00',
+  'SELECT 1'
+);
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @sql = IF(
+  (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'bookings' AND COLUMN_NAME = 'balance') = 0,
+  'ALTER TABLE bookings ADD COLUMN balance decimal(10,2) NOT NULL DEFAULT 0.00',
+  'SELECT 1'
+);
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
 ALTER TABLE `bookings` MODIFY COLUMN `receipt_image` longtext DEFAULT NULL;
 
 --

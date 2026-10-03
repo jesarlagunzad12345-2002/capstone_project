@@ -11,13 +11,27 @@
     <link rel="icon" type="image/jpeg" href="img/logo.jpg">
 
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script type="text/javascript">
-      (function() { emailjs.init({ publicKey: "EfvIkV0UtUXjEGOgu" }); })();
+    (function() { emailjs.init({ publicKey: "nerxCEIOup7atDE6q" }); })();
 
       function formatDate(dateString) {
           if (!dateString) return "N/A";
           const date = new Date(dateString);
           return isNaN(date) ? dateString : date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      }
+
+      function showBookingAlert(options) {
+          return Swal.fire({
+              showClass: { popup: 'booking-alert-show' },
+              hideClass: { popup: 'booking-alert-hide' },
+              buttonsStyling: false,
+              customClass: {
+                  confirmButton: 'btn btn-dark px-4',
+                  cancelButton: 'btn btn-light px-4'
+              },
+              ...options
+          });
       }
 
       function timeToMinutes(timeStr) {
@@ -40,33 +54,6 @@
           return `${y}-${m}-${d}`;
       }
 
-      // ============================================
-      // PAYMENT VERIFICATION
-      // Admin checks their own GCash/Maya app, then clicks this
-      // to mark the claimed payment as verified before approving.
-      // ============================================
-      async function verifyPayment(id, btn) {
-          const original = btn.innerHTML;
-          btn.disabled = true;
-          btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
-          try {
-              const res = await fetch('/api/verify-payment/' + id, { method: 'POST' });
-              const data = await res.json();
-              if (data.success) {
-                  window.location.reload();
-              } else {
-                  alert('Failed to verify payment.');
-                  btn.disabled = false;
-                  btn.innerHTML = original;
-              }
-          } catch (err) {
-              console.error('verify-payment error:', err);
-              alert('Server error verifying payment.');
-              btn.disabled = false;
-              btn.innerHTML = original;
-          }
-      }
-
       window.onload = function() {
         const shouldTrigger = "<%= typeof triggerApprove !== 'undefined' ? triggerApprove : false %>";
         if (shouldTrigger === "true") {
@@ -74,7 +61,7 @@
             const toast = new bootstrap.Toast(toastElement);
             toast.show();
             const bellDot = document.getElementById('bellDot');
-            if (bellDot) bellDot.style.display = 'block';
+            if (bellDot) bellDot.classList.remove('d-none');
 
             const gEmail = "<%= typeof guestEmail !== 'undefined' ? guestEmail : '' %>";
             const gName = "<%= typeof guestName !== 'undefined' ? guestName : '' %>";
@@ -103,9 +90,30 @@
                 remaining_balance: formatPeso(gRemaining),
                 message: "Your reservation at KML Resort is officially confirmed!"
               };
-              emailjs.send('service_kmlresort', 'template_klmresort1', templateParams)
-                .then(() => console.log("Confirmation email sent."))
-                .catch((err) => console.error("Email Error: ", err));
+                            emailjs.send('service_kmlresort', 'template_klmresort1', templateParams, {
+                                publicKey: 'EfvIkV0UtUXjEGOgu'
+                            })
+                                .then(() => Swal.fire({
+                                    icon: 'success',
+                                    title: 'Confirmation email sent',
+                                    text: `Sent to ${gEmail}`,
+                                    timer: 3000,
+                                    timerProgressBar: true,
+                                    showConfirmButton: false,
+                                    showClass: { popup: 'booking-alert-show' },
+                                    hideClass: { popup: 'booking-alert-hide' }
+                                }))
+                                .catch((err) => {
+                                    console.error('Confirmation email error:', err);
+                                    Swal.fire({
+                                        icon: 'error',
+                                        title: 'Booking approved, email not sent',
+                                        text: 'Please check the EmailJS configuration and try sending the confirmation again.',
+                                        confirmButtonText: 'OK',
+                                        showClass: { popup: 'booking-alert-show' },
+                                        hideClass: { popup: 'booking-alert-hide' }
+                                    });
+                                });
             }
         }
 
@@ -131,16 +139,75 @@
                 downpayment_amount: formatPesoCancel(cDownpayment),
                 message: "Your booking has been successfully cancelled by our admin team. We hope to welcome you again in the future!"
               };
-              emailjs.send('service_kmlresort', 'template_kule5md', cancelParams)
+                            emailjs.send('service_kmlresort', 'template_kule5md', cancelParams, {
+                                publicKey: 'EfvIkV0UtUXjEGOgu'
+                            })
                 .then(() => console.log("Cancellation email sent to guest."))
                 .catch((err) => console.error("Cancel Email Error: ", err));
             }
         }
+
+        const shouldTriggerPaid = "<%= typeof triggerPaid !== 'undefined' ? triggerPaid : false %>";
+        if (shouldTriggerPaid === "true") {
+            const paidEmail = "<%= typeof paidGuestEmail !== 'undefined' ? paidGuestEmail : '' %>";
+            if (paidEmail && paidEmail !== "null" && paidEmail !== "walkin@kmlresort.local") {
+                const formatPaidPeso = (n) => '₱' + Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                const paidParams = {
+                    to_email: paidEmail,
+                    user_name: "<%= typeof paidGuestName !== 'undefined' ? paidGuestName : '' %>",
+                    room_type: "<%= typeof paidGuestRoom !== 'undefined' ? paidGuestRoom : '' %>",
+                    checkin_date: formatDate("<%= typeof paidGuestCheckin !== 'undefined' ? paidGuestCheckin : '' %>"),
+                    total_price: formatPaidPeso("<%= typeof paidGuestTotal !== 'undefined' ? paidGuestTotal : 0 %>"),
+                    downpayment_amount: formatPaidPeso("<%= typeof paidGuestDownpayment !== 'undefined' ? paidGuestDownpayment : 0 %>"),
+                    amount_paid: formatPaidPeso("<%= typeof paidGuestAmountPaid !== 'undefined' ? paidGuestAmountPaid : 0 %>"),
+                    balance: formatPaidPeso("<%= typeof paidGuestBalance !== 'undefined' ? paidGuestBalance : 0 %>"),
+                    message: "Your KML Mountain Resort booking is now fully paid."
+                };
+                // Replace this template ID with the EmailJS template you create for fully paid notices.
+                emailjs.send('service_zu9wo49', 'template_i50p7ra', paidParams, {
+                    publicKey: 'NMKEdAd8l04_ANBcn'
+                })
+                    .then(() => console.log("Fully-paid email sent."))
+                    .catch((err) => console.error("Fully-paid email error:", err));
+            }
+        }
       };
 
-      function clearNotifications() {
-          const bellDot = document.getElementById('bellDot');
-          if (bellDot) bellDot.style.display = 'none';
+      async function clearNotifications() {
+          try {
+              const response = await fetch('/notifications/read', { method: 'POST' });
+              if (!response.ok) return;
+              const bellDot = document.getElementById('bellDot');
+              if (bellDot) bellDot.classList.add('d-none');
+              document.querySelectorAll('.notification-item.unread').forEach(function(item) {
+                  item.classList.remove('unread');
+              });
+          } catch (error) {
+              console.error('Could not mark notifications as read:', error);
+          }
+      }
+
+      async function deleteNotification(button) {
+          const item = button.closest('.notification-item');
+          if (!item) return;
+          button.disabled = true;
+          try {
+              const response = await fetch('/notifications/' + encodeURIComponent(item.dataset.notificationId) + '/delete', { method: 'POST' });
+              if (!response.ok) throw new Error('Could not delete notification.');
+              const result = await response.json();
+              item.remove();
+              const list = document.querySelector('.notification-list');
+              const total = document.querySelector('.notification-total');
+              const remaining = document.querySelectorAll('.notification-item').length;
+              if (total) total.textContent = remaining;
+              if (result.unreadCount === 0) document.getElementById('bellDot')?.classList.add('d-none');
+              if (remaining === 0 && list) {
+                  list.innerHTML = '<div class="notification-empty"><i class="bi bi-bell-slash" aria-hidden="true"></i><span>You\'re all caught up</span></div>';
+              }
+          } catch (error) {
+              button.disabled = false;
+              console.error('Could not delete notification:', error);
+          }
       }
 
       function updateGuestDropdown(bookingId) {
@@ -176,36 +243,36 @@
 
       function prepareEditSubmit(bookingId) {
           const roomSelect = document.getElementById('roomSelect' + bookingId);
-          if (!roomSelect) { alert('Error: Room selection not found.'); return false; }
+          if (!roomSelect) return 'Room selection was not found. Please reload the page and try again.';
           const selectedOption = roomSelect.options[roomSelect.selectedIndex];
           const category = selectedOption.getAttribute('data-category') || 'Room';
           const isCottage = (category === 'Cottage');
           const hiddenCheckin = document.getElementById('editCheckinHidden' + bookingId);
           const hiddenCheckout = document.getElementById('editCheckoutHidden' + bookingId);
-          if (!hiddenCheckin || !hiddenCheckout) { alert('Error: Hidden fields not found.'); return false; }
+          if (!hiddenCheckin || !hiddenCheckout) return 'Date fields were not found. Please reload the page and try again.';
 
           if (isCottage) {
               const dateInput = document.getElementById('editBookingDate' + bookingId);
               const inTimeInput = document.getElementById('editCheckinTime' + bookingId);
               const outTimeInput = document.getElementById('editCheckoutTime' + bookingId);
-              if (!dateInput || !inTimeInput || !outTimeInput) { alert('Error: Cottage fields missing.'); return false; }
+              if (!dateInput || !inTimeInput || !outTimeInput) return 'Cottage booking fields were not found. Please reload the page and try again.';
               const date = dateInput.value;
               const inTime = inTimeInput.value;
               const outTime = outTimeInput.value;
-              if (!date || !inTime || !outTime) { alert('Please fill in booking date, check-in time, and check-out time.'); return false; }
-              if (timeToMinutes(outTime) <= timeToMinutes(inTime)) { alert('Check-out time must be later than check-in time.'); return false; }
+              if (!date || !inTime || !outTime) return 'Please fill in the booking date, check-in time, and check-out time.';
+              if (timeToMinutes(outTime) <= timeToMinutes(inTime)) return 'Check-out time must be later than check-in time.';
               hiddenCheckin.value = date + ' ' + inTime + ':00';
               hiddenCheckout.value = date + ' ' + outTime + ':00';
           } else {
               const checkinInput = document.getElementById('editCheckinDate' + bookingId);
-              if (!checkinInput) { alert('Error: Date field missing.'); return false; }
+              if (!checkinInput) return 'The check-in date field was not found. Please reload the page and try again.';
               const checkin = checkinInput.value;
-              if (!checkin) { alert('Please select a check-in date.'); return false; }
+              if (!checkin) return 'Please select a check-in date.';
               // Auto-calculate checkout: next day, skip Mon/Tue
               hiddenCheckin.value = checkin;
               hiddenCheckout.value = getAutoCheckout(checkin);
           }
-          return true;
+          return null;
       }
 
       // ============================================
@@ -216,17 +283,126 @@
       // easier to see, at a glance, everything this page can do.
       // ============================================
       document.addEventListener('DOMContentLoaded', function() {
+          document.querySelectorAll('.booking-actions-dropdown').forEach(function(dropdown) {
+              const toggle = dropdown.querySelector('[data-bs-toggle="dropdown"]');
+              const menu = dropdown.querySelector('.dropdown-menu');
+              if (!toggle || !menu) return;
+
+              dropdown.addEventListener('show.bs.dropdown', function() {
+                  document.body.appendChild(menu);
+              });
+
+              dropdown.addEventListener('shown.bs.dropdown', function() {
+                  const toggleRect = toggle.getBoundingClientRect();
+                  const menuRect = menu.getBoundingClientRect();
+                  const gap = 4;
+                  const left = Math.max(gap, Math.min(toggleRect.right - menuRect.width, window.innerWidth - menuRect.width - gap));
+                  const top = toggleRect.bottom + menuRect.height + gap <= window.innerHeight
+                      ? toggleRect.bottom + gap
+                      : Math.max(gap, toggleRect.top - menuRect.height - gap);
+
+                  Object.assign(menu.style, {
+                      position: 'fixed',
+                      inset: 'auto',
+                      top: top + 'px',
+                      left: left + 'px',
+                      right: 'auto',
+                      bottom: 'auto',
+                      margin: '0',
+                      transform: 'none'
+                  });
+              });
+
+              dropdown.addEventListener('hidden.bs.dropdown', function() {
+                  dropdown.appendChild(menu);
+                  menu.removeAttribute('style');
+              });
+          });
+
+          document.querySelectorAll('.approve-booking-btn').forEach(function(button) {
+              button.addEventListener('click', async function(event) {
+                  event.preventDefault();
+                  const form = button.closest('form');
+                  const hasPayment = button.dataset.hasPayment === 'true';
+                  const paymentVerified = button.dataset.paymentStatus === 'verified';
+                  if (hasPayment && !paymentVerified) {
+                      await showBookingAlert({
+                          icon: 'warning',
+                          title: 'Payment needs verification',
+                          text: 'Verify this payment before proceeding with approval.',
+                          confirmButtonText: 'Understood'
+                      });
+                      return;
+                  }
+
+                  const result = await showBookingAlert({
+                      icon: hasPayment ? 'success' : 'question',
+                      title: hasPayment ? 'Ready to approve' : 'Approve booking?',
+                      text: hasPayment ? 'The payment is verified. Do you want to approve this booking?' : 'Do you want to approve this booking?',
+                      showCancelButton: true,
+                      confirmButtonText: 'Approve booking',
+                      cancelButtonText: 'Cancel'
+                  });
+
+                  if (result.isConfirmed && form) form.submit();
+              });
+          });
+
+          document.querySelectorAll('form[data-swal-confirm]').forEach(function(form) {
+              form.addEventListener('submit', async function(event) {
+                  event.preventDefault();
+                  const result = await showBookingAlert({
+                      icon: form.dataset.swalIcon || 'warning',
+                      title: form.dataset.swalTitle || 'Are you sure?',
+                      text: form.dataset.swalConfirm,
+                      showCancelButton: true,
+                      confirmButtonText: form.dataset.swalConfirmButton || 'Continue',
+                      cancelButtonText: 'Cancel'
+                  });
+                  if (result.isConfirmed) form.submit();
+              });
+          });
+
+          document.querySelectorAll('.edit-booking-form').forEach(function(form) {
+              form.addEventListener('submit', async function(event) {
+                  event.preventDefault();
+                  if (!form.checkValidity()) {
+                      await showBookingAlert({
+                          icon: 'warning',
+                          title: 'Check the booking details',
+                          text: 'Please complete all required fields with valid values.'
+                      });
+                      form.querySelector(':invalid')?.focus();
+                      return;
+                  }
+
+                  const match = (form.getAttribute('action') || '').match(/\/update\/(\d+)/);
+                  const validationMessage = match ? prepareEditSubmit(match[1]) : 'Booking form could not be validated.';
+                  if (validationMessage) {
+                      await showBookingAlert({ icon: 'warning', title: 'Booking details need attention', text: validationMessage });
+                      return;
+                  }
+                  form.submit();
+              });
+          });
+
           // Room-type dropdown inside each "Edit Booking" modal:
           // switching between a Room and a Cottage shows/hides the
           // right date fields and refreshes the guest-count options.
-          // Scoped to <select> specifically — the Verify buttons below
-          // also carry a data-booking-id attribute, and without this
-          // scoping this loop would (harmlessly, but confusingly) also
-          // try to attach a "change" listener to those buttons.
+          // Scoped to <select> elements so only room selectors are wired here.
           document.querySelectorAll('select[data-booking-id]').forEach(function(select) {
               select.addEventListener('change', function() {
                   toggleEditModalFields(this.getAttribute('data-booking-id'));
               });
+          });
+
+          document.querySelectorAll('.approved-edit-checkin').forEach(function(input) {
+              function updateCheckoutPreview() {
+                  const preview = document.getElementById('editCheckoutPreview' + input.dataset.bookingId);
+                  if (preview) preview.value = input.value ? getAutoCheckout(input.value) : '';
+              }
+              input.addEventListener('input', updateCheckoutPreview);
+              input.addEventListener('change', updateCheckoutPreview);
           });
 
           // Make sure each edit modal shows the correct fields the
@@ -241,30 +417,30 @@
               });
           });
 
-          // "Verify" buttons in the PAYMENT STATUS column — reads the
-          // booking id from data-booking-id instead of it being baked
-          // into an inline onclick="..." attribute.
-          document.querySelectorAll('.verify-payment-btn').forEach(function(btn) {
-              btn.addEventListener('click', function() {
-                  verifyPayment(this.getAttribute('data-booking-id'), this);
-              });
-          });
       });
     </script>
 
     <!--
-      FIX (layout): the old PAYMENT column crammed method, reference
-      number, downpayment amount, a receipt thumbnail, a status badge,
-      and a "Verify" button all into one <td>. That's now split into
-      separate METHOD / REFERENCE / DOWNPAYMENT / RECEIPT / STATUS
-      columns below so each piece of information has its own space.
+    FIX (layout): payment details are split into separate columns for
+    method, reference number, downpayment amount, receipt, and status.
       Since the table now has more columns, give it a sane minimum
       width so it scrolls horizontally inside .table-responsive
       instead of squeezing everything unreadable.
     -->
     <style>
-      .table-responsive table { min-width: 1150px; }
       .payment-cell-empty { color: #adb5bd; font-size: 0.75rem; white-space: nowrap; }
+            .booking-alert-show { animation: bookingAlertEnter 240ms ease-out; }
+            .booking-alert-hide { animation: bookingAlertExit 160ms ease-in forwards; }
+            @keyframes bookingAlertEnter {
+                from { opacity: 0; transform: translateY(12px) scale(0.96); }
+                to { opacity: 1; transform: translateY(0) scale(1); }
+            }
+            @keyframes bookingAlertExit {
+                to { opacity: 0; transform: translateY(8px) scale(0.98); }
+            }
+            @media (prefers-reduced-motion: reduce) {
+                .booking-alert-show, .booking-alert-hide { animation: none; }
+            }
     </style>
 </head>
 <body>
@@ -313,14 +489,79 @@
                 <button class="btn btn-light d-lg-none me-3" onclick="toggleSidebar()"><i class="bi bi-list fs-4"></i></button>
             </div>
             <div class="d-flex align-items-center gap-3">
-                <button class="btn border-0 position-relative text-muted" onclick="clearNotifications()">
-                    <i class="bi bi-bell fs-5"></i>
-                    <span id="bellDot" style="display: none;" class="position-absolute top-0 start-100 translate-middle p-1 bg-danger border border-light rounded-circle"></span>
-                </button>
+                <div class="dropdown notification-dropdown">
+                    <button id="notificationBell" type="button" class="btn border-0 position-relative text-muted" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" aria-label="Notifications" onclick="clearNotifications()">
+                        <i class="bi bi-bell fs-5"></i>
+                        <span id="bellDot" class="position-absolute top-0 start-100 translate-middle p-1 bg-danger border border-light rounded-circle <%= unreadNotificationCount > 0 ? '' : 'd-none' %>"></span>
+                    </button>
+                    <div class="dropdown-menu dropdown-menu-end notification-menu" aria-labelledby="notificationBell">
+                        <div class="notification-menu-heading">
+                            <div>
+                                <h2 class="h6 fw-bold mb-0">Notifications</h2>
+                                <span class="text-muted small">Recent booking activity</span>
+                            </div>
+                            <span class="notification-total"><%= notifications.length %></span>
+                        </div>
+                        <div class="notification-list">
+                            <% if (notifications.length === 0) { %>
+                                <div class="notification-empty">
+                                    <i class="bi bi-bell-slash" aria-hidden="true"></i>
+                                    <span>You're all caught up</span>
+                                </div>
+                            <% } else { %>
+                                <% notifications.forEach(notification => { %>
+                                    <% const notificationType = ['approved', 'cancelled', 'walkin', 'paid'].includes(notification.type) ? notification.type : 'default'; %>
+                                    <div class="notification-item <%= notification.read ? '' : 'unread' %>" data-notification-id="<%= notification.id %>">
+                                        <a class="notification-link" href="/bookings">
+                                            <span class="notification-icon notification-icon-<%= notificationType %>">
+                                                <i class="bi <%= notificationType === 'approved' ? 'bi-check-circle-fill' : notificationType === 'cancelled' ? 'bi-x-circle-fill' : notificationType === 'walkin' ? 'bi-person-plus-fill' : notificationType === 'paid' ? 'bi-credit-card-fill' : 'bi-bell-fill' %>" aria-hidden="true"></i>
+                                            </span>
+                                            <span class="notification-copy">
+                                                <span class="notification-title"><%= notification.title %></span>
+                                                <span class="notification-message"><%= notification.message %></span>
+                                                <time class="notification-time" datetime="<%= notification.createdAt %>"><%= new Date(notification.createdAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) %></time>
+                                            </span>
+                                            <% if (!notification.read) { %><span class="notification-unread-dot" aria-label="Unread"></span><% } %>
+                                        </a>
+                                        <button class="notification-delete" type="button" aria-label="Delete notification" title="Delete notification" onclick="deleteNotification(this)">
+                                            <i class="bi bi-x-lg" aria-hidden="true"></i>
+                                        </button>
+                                    </div>
+                                <% }); %>
+                            <% } %>
+                        </div>
+                    </div>
+                </div>
+                <div class="dropdown">
+                    <button class="btn btn-dark rounded-3 px-3 dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="bi bi-plus-lg me-2"></i> Quick Booking
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0">
+                        <li><a class="dropdown-item" href="/booking"><i class="bi bi-globe2 me-2"></i>Online Booking</a></li>
+                        <li><a class="dropdown-item" href="/walk-in-booking"><i class="bi bi-person-walking me-2"></i>Walk-in Booking</a></li>
+                    </ul>
+                </div>
             </div>
         </header>
 
-        <div class="container-fluid p-4">
+        <div class="container-fluid p-4 bookings-page">
+            <div class="booking-page-header d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+                <div>
+                    <h1 class="h3 fw-bold text-dark mb-1">Bookings</h1>
+                    <p class="text-muted small mb-0">Manage online and in-person reservations together.</p>
+                </div>
+            </div>
+            <div class="booking-section-tabs mb-3" role="tablist" aria-label="Booking sections">
+                <button type="button" class="booking-section-tab active" id="bookingsViewTab" role="tab" aria-selected="true" aria-controls="bookingRecordsView" data-booking-view="records">
+                    <i class="bi bi-calendar-check me-2"></i>Bookings
+                </button>
+                <button type="button" class="booking-section-tab" id="specialRequestsViewTab" role="tab" aria-selected="false" aria-controls="specialRequestsView" data-booking-view="requests">
+                    <i class="bi bi-chat-square-text me-2"></i>Special Requests
+                </button>
+            </div>
+            <% if (typeof message !== 'undefined' && message) { %>
+                <div class="alert alert-success alert-dismissible fade show" role="alert"><i class="bi bi-check-circle me-2"></i><%= message %><button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
+            <% } %>
             
             <% if (typeof error !== 'undefined' && error) { %>
                 <div class="alert alert-danger alert-dismissible fade show mb-4" role="alert" style="border-radius: 16px;">
@@ -330,19 +571,33 @@
                 </div>
             <% } %>
 
-            <div class="mb-4">
-                <h1 class="h3 fw-bold text-dark mb-1">Pending Reservations</h1>
+            <div id="bookingRecordsView" role="tabpanel" aria-labelledby="bookingsViewTab">
+            <div class="d-flex justify-content-end mb-3">
+                <div class="btn-group" role="group" aria-label="Booking source">
+                    <button type="button" class="btn btn-dark booking-source-filter active" data-source="all">All Bookings</button>
+                    <button type="button" class="btn btn-outline-dark booking-source-filter" data-source="ONLINE">Online Bookings</button>
+                    <button type="button" class="btn btn-outline-dark booking-source-filter" data-source="WALK_IN">Walk-in Bookings</button>
+                </div>
+            </div>
+
+            <div class="booking-section-heading">
+                <h2 class="h5 fw-bold text-dark mb-1">Pending Reservations</h2>
                 <p class="text-muted small">New requests waiting for approval. Check the PAYMENT columns before approving.</p>
             </div>
 
             <div class="card-custom shadow-sm">
                 <div class="table-responsive">
-                    <table class="table table-hover align-middle mb-0">
+                    <table class="table table-hover align-middle mb-0 booking-table pending-bookings-table">
+                        <colgroup>
+                            <col style="width: 180px"><col style="width: 155px"><col style="width: 145px"><col style="width: 70px">
+                            <col style="width: 105px"><col style="width: 85px"><col style="width: 145px"><col style="width: 105px">
+                            <col style="width: 70px"><col style="width: 115px"><col style="width: 75px">
+                        </colgroup>
                         <thead>
                             <tr>
                                 <th class="ps-4">GUEST</th>
                                 <th>STAY DETAILS</th>
-                                <th>ROOM or COTTAGE</th>
+                                <th class="text-center">ROOM or COTTAGE</th>
                                 <th class="text-center">GUESTS</th>
                                 <th>PRICE</th>
                                 <th>METHOD</th>
@@ -350,13 +605,12 @@
                                 <th>DOWNPAYMENT</th>
                                 <th>RECEIPT</th>
                                 <th>PAYMENT STATUS</th>
-                                <th>SPECIAL REQUESTS</th>
                                 <th class="text-end pe-4">ACTIONS</th>
                             </tr>
                         </thead>
                         <tbody>
                             <% 
-                                const pendingBookings = bookings.filter(b => b.status !== 'approved' && b.status !== 'pending_payment');
+                                const pendingBookings = bookings.filter(b => (b.bookingSource || 'ONLINE') !== 'WALK_IN' && b.status !== 'approved' && b.status !== 'pending_payment');
                                 pendingBookings.forEach(booking => { 
                                     const bRoom = rooms.find(r => r.name === booking.roomType);
                                     const isCottage = bRoom && bRoom.category === 'Cottage';
@@ -365,9 +619,10 @@
                             <tr>
                                 <td class="ps-4">
                                     <div class="fw-bold small text-dark"><%= booking.name %></div>
-                                    <div class="text-muted" style="font-size: 0.7rem;"><%= booking.email %></div>
+                                    <span class="badge <%= (booking.bookingSource || 'ONLINE') === 'WALK_IN' ? 'bg-info-subtle text-info-emphasis' : 'bg-primary-subtle text-primary-emphasis' %>" style="font-size: 0.62rem;"><%= (booking.bookingSource || 'ONLINE') === 'WALK_IN' ? 'WALK-IN' : 'ONLINE' %></span>
+                                    <div class="booking-email text-muted" style="font-size: 0.7rem;"><%= booking.email %></div>
                                 </td>
-                                <td>
+                                <td class="stay-details-cell">
                                     <% if (isCottage) { 
                                         const cin = new Date(booking.checkin);
                                         const cout = new Date(booking.checkout);
@@ -382,7 +637,7 @@
                                         <div class="text-muted" style="font-size: 0.7rem;">Out: <%= shortDate(booking.checkout) %></div>
                                     <% } %>
                                 </td>
-                                <td><span class="status-tag bg-light text-dark border"><%= booking.roomType || 'Standard' %></span></td>
+                                <td class="text-center"><span class="status-tag bg-info-subtle text-info-emphasis"><%= booking.roomType || 'Standard' %></span></td>
                                 <td class="text-center"><span class="guest-badge"><%= booking.people %></span></td>
                                 <td><span class="price-tag"><%= formatPrice(booking.total_price) %></span></td>
 
@@ -424,62 +679,42 @@
                                     <% } %>
                                 </td>
 
-                                <!-- PAYMENT STATUS + VERIFY -->
+                                <!-- PAYMENT STATUS -->
                                 <td>
                                     <% if (hasPayment) { %>
-                                        <div><%- paymentBadge(booking.payment_status) %></div>
-                                        <% if (booking.payment_status !== 'verified') { %>
-                                            <!--
-                                              FIX: this used to be
-                                              onclick="verifyPayment(<%= booking.id %>, this)"
-                                              — mixing raw EJS output directly inside an inline
-                                              JavaScript attribute. That's what VS Code's editor was
-                                              flagging as "Expression expected" (it tries to check the
-                                              onclick text as plain JavaScript and doesn't understand
-                                              the <%= %> tag sitting inside it). It was never a real
-                                              runtime bug — by the time this page reaches the browser,
-                                              <%= booking.id %> has already been replaced with a plain
-                                              number — but it's confusing to read and trips up editor
-                                              tooling. Using a data-booking-id attribute instead (the
-                                              same pattern already used for the room <select> below)
-                                              keeps EJS and JavaScript cleanly separated.
-                                            -->
-                                            <button type="button" class="btn btn-outline-success btn-sm mt-1 py-0 px-2 verify-payment-btn" style="font-size: 0.7rem;" data-booking-id="<%= booking.id %>">
-                                                <i class="bi bi-check2"></i> Verify
-                                            </button>
-                                        <% } %>
+                                        <%- paymentBadge(booking.payment_status) %>
                                     <% } else { %>
                                         <span class="payment-cell-empty">—</span>
                                     <% } %>
                                 </td>
 
-                                <td>
-                                    <% if (booking.requests) { %>
-                                        <span class="special-request-text" title="<%= booking.requests %>"><%= booking.requests %></span>
-                                    <% } else { %>
-                                        <span class="text-muted" style="font-size: 0.75rem;">None</span>
-                                    <% } %>
-                                </td>
                                 <td class="text-end pe-4">
-                                    <div class="d-flex justify-content-end gap-2">
-                                        <form action="/approve/<%= booking.id %>" method="POST">
-                                            <button class="btn btn-success btn-sm rounded-3 px-3 fw-bold">Approve</button>
-                                        </form>
-                                        <button class="btn btn-light btn-sm text-primary" data-bs-toggle="modal" data-bs-target="#editModal<%= booking.id %>">
-                                            <i class="bi bi-pencil-square"></i>
+                                    <div class="dropdown booking-actions-dropdown">
+                                        <button type="button" class="btn btn-light btn-sm" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Booking actions">
+                                            <i class="bi bi-three-dots-vertical"></i>
                                         </button>
-                                        <form action="/delete/<%= booking.id %>" method="POST" onsubmit="return confirm('Delete this request?')">
-                                            <button class="btn btn-light btn-sm text-danger"><i class="bi bi-trash"></i></button>
-                                        </form>
+                                        <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0">
+                                            <li>
+                                                <form action="/approve/<%= booking.id %>" method="POST">
+                                                    <button type="button" class="dropdown-item text-success approve-booking-btn" data-has-payment="<%= hasPayment %>" data-payment-status="<%= booking.payment_status || '' %>"><i class="bi bi-check-circle me-2"></i>Approve</button>
+                                                </form>
+                                            </li>
+                                            <li><button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#editModal<%= booking.id %>"><i class="bi bi-pencil-square me-2"></i>Edit booking</button></li>
+                                            <li>
+                                                <form action="/delete/<%= booking.id %>" method="POST" data-swal-confirm="Delete this request?" data-swal-title="Delete booking request?" data-swal-confirm-button="Delete">
+                                                    <button type="submit" class="dropdown-item text-danger"><i class="bi bi-trash me-2"></i>Delete booking</button>
+                                                </form>
+                                            </li>
+                                        </ul>
                                     </div>
                                 </td>
                             </tr>
 
                             <!-- EDIT MODAL -->
                             <div class="modal fade" id="editModal<%= booking.id %>" tabindex="-1" aria-hidden="true">
-                                <div class="modal-dialog modal-dialog-centered">
+                                <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
                                     <div class="modal-content border-0 shadow" style="border-radius: 24px;">
-                                        <form action="/update/<%= booking.id %>" method="POST" onsubmit="return prepareEditSubmit('<%= booking.id %>')">
+                                        <form action="/update/<%= booking.id %>" method="POST" class="edit-booking-form" novalidate>
                                             <div class="modal-header border-bottom-0 pt-4 px-4">
                                                 <h5 class="modal-title fw-bold">Edit Booking #<%= booking.id %></h5>
                                                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
@@ -499,7 +734,7 @@
                                                 </div>
                                                 
                                                 <div class="row">
-                                                    <div class="col-6 mb-3">
+                                                    <div class="col-12 col-lg-6 mb-3">
                                                         <label class="form-label text-uppercase small fw-bold text-muted">Room Type</label>
                                                         <select name="roomType" id="roomSelect<%= booking.id %>" class="form-select py-2 bg-light border-0 rounded-3" required data-booking-id="<%= booking.id %>">
                                                             <option value="">Choose room or cottage...</option>
@@ -528,7 +763,7 @@
                                                             <% } %>
                                                         </select>
                                                     </div>
-                                                    <div class="col-6 mb-3">
+                                                    <div class="col-12 col-lg-6 mb-3">
                                                         <label class="form-label text-uppercase small fw-bold text-muted">Guests</label>
                                                         <select name="people" id="guestSelect<%= booking.id %>" class="form-select py-2 bg-light border-0 rounded-3" required>
                                                             <% 
@@ -583,19 +818,50 @@
                                                 <% } else { %>
                                                 <div class="row" id="editCottageFields<%= booking.id %>" style="display:none;">
                                                 <% } %>
-                                                    <div class="col-4 mb-3">
+                                                    <div class="col-12 col-lg-4 mb-3">
                                                         <label class="form-label text-uppercase small fw-bold text-muted">Booking Date</label>
                                                         <input type="date" id="editBookingDate<%= booking.id %>" class="form-control py-2 bg-light border-0 rounded-3" value="<%= cottageDateVal %>">
                                                     </div>
-                                                    <div class="col-4 mb-3">
+                                                    <div class="col-12 col-lg-4 mb-3">
                                                         <label class="form-label text-uppercase small fw-bold text-muted">Check-In Time</label>
                                                         <input type="time" id="editCheckinTime<%= booking.id %>" class="form-control py-2 bg-light border-0 rounded-3" value="<%= cottageCheckinTimeVal %>">
                                                     </div>
-                                                    <div class="col-4 mb-3">
+                                                    <div class="col-12 col-lg-4 mb-3">
                                                         <label class="form-label text-uppercase small fw-bold text-muted">Check-Out Time</label>
                                                         <input type="time" id="editCheckoutTime<%= booking.id %>" class="form-control py-2 bg-light border-0 rounded-3" value="<%= cottageCheckoutTimeVal %>">
                                                     </div>
                                                 </div>
+
+                                                <% if (hasPayment) { %>
+                                                <div class="border-top pt-3 mb-3">
+                                                    <h6 class="fw-bold mb-3">Downpayment Details</h6>
+                                                    <div class="row g-3">
+                                                        <div class="col-12 col-sm-6">
+                                                            <label class="form-label text-uppercase small fw-bold text-muted" for="editPaymentMethod<%= booking.id %>">Payment Method</label>
+                                                            <select name="payment_method" id="editPaymentMethod<%= booking.id %>" class="form-select py-2 bg-light border-0 rounded-3">
+                                                                <% ['gcash', 'maya', 'cash', 'card'].forEach(method => { %>
+                                                                    <option value="<%= method %>" <%= (booking.payment_method || '').toLowerCase() === method ? 'selected' : '' %>><%= method.toUpperCase() %></option>
+                                                                <% }); %>
+                                                            </select>
+                                                        </div>
+                                                        <div class="col-12 col-sm-6">
+                                                            <label class="form-label text-uppercase small fw-bold text-muted" for="editPaymentStatus<%= booking.id %>">Payment Status</label>
+                                                            <select name="payment_status" id="editPaymentStatus<%= booking.id %>" class="form-select py-2 bg-light border-0 rounded-3">
+                                                                <option value="pending_verification" <%= booking.payment_status === 'verified' ? '' : 'selected' %>>Unverified</option>
+                                                                <option value="verified" <%= booking.payment_status === 'verified' ? 'selected' : '' %>>Verified</option>
+                                                            </select>
+                                                        </div>
+                                                        <div class="col-12 col-sm-6">
+                                                            <label class="form-label text-uppercase small fw-bold text-muted" for="editDownpayment<%= booking.id %>">Downpayment Amount</label>
+                                                            <input type="number" name="downpayment_amount" id="editDownpayment<%= booking.id %>" class="form-control py-2 bg-light border-0 rounded-3" min="0" max="<%= booking.total_price %>" step="0.01" value="<%= booking.downpayment_amount || 0 %>" required>
+                                                        </div>
+                                                        <div class="col-12 col-sm-6">
+                                                            <label class="form-label text-uppercase small fw-bold text-muted" for="editReferenceNumber<%= booking.id %>">Reference Number</label>
+                                                            <input type="text" name="reference_number" id="editReferenceNumber<%= booking.id %>" class="form-control py-2 bg-light border-0 rounded-3" value="<%= booking.reference_number || '' %>" required>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <% } %>
 
                                                 <div class="mb-3">
                                                     <label class="form-label text-uppercase small fw-bold text-muted">Special Requests</label>
@@ -616,38 +882,138 @@
                 </div>
             </div>
 
-            <div class="mb-4 mt-5">
-                <h2 class="h4 fw-bold text-dark mb-1">Approved History</h2>
+            <div class="booking-section-heading">
+                <h2 class="h5 fw-bold text-dark mb-1">Walk-in Bookings</h2>
+                <p class="text-muted small">Reservations created directly by resort staff.</p>
             </div>
-            <div class="card-custom border-0 shadow-sm opacity-75">
+            <div class="card-custom shadow-sm">
                 <div class="table-responsive">
-                    <table class="table table-sm table-hover align-middle mb-0">
+                    <table class="table table-hover align-middle mb-0 booking-table walk-in-bookings-table">
+                        <colgroup>
+                            <col style="width: 190px"><col style="width: 155px"><col style="width: 140px"><col style="width: 70px">
+                            <col style="width: 105px"><col style="width: 100px"><col style="width: 100px"><col style="width: 130px">
+                            <col style="width: 75px">
+                        </colgroup>
+                        <thead>
+                            <tr>
+                                <th class="ps-4">GUEST</th>
+                                <th>STAY DETAILS</th>
+                                <th class="text-center">ROOM or COTTAGE</th>
+                                <th class="text-center">GUESTS</th>
+                                <th>TOTAL</th>
+                                <th>PAID</th>
+                                <th>BALANCE</th>
+                                <th>PAYMENT METHOD</th>
+                                <th class="text-end pe-4">ACTIONS</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <% const walkInBookings = bookings.filter(b => (b.bookingSource || 'ONLINE') === 'WALK_IN'); %>
+                            <% if (walkInBookings.length === 0) { %>
+                                <tr><td colspan="9" class="text-center text-muted py-4">No walk-in bookings yet.</td></tr>
+                            <% } %>
+                            <% walkInBookings.forEach(booking => { %>
+                                <tr>
+                                    <td class="ps-4">
+                                        <div class="fw-bold small"><%= booking.name %></div>
+                                        <div class="booking-email text-muted" style="font-size: 0.7rem;"><%= booking.email %></div>
+                                    </td>
+                                    <td class="stay-details-cell">
+                                        <div class="small fw-bold">In: <%= shortDate(booking.checkin) %></div>
+                                        <div class="text-muted" style="font-size: 0.7rem;">Out: <%= shortDate(booking.checkout) %></div>
+                                    </td>
+                                    <td class="text-center"><span class="status-tag bg-info-subtle text-info-emphasis"><%= booking.roomType || 'Standard' %></span></td>
+                                    <td class="text-center"><span class="guest-badge"><%= booking.people %></span></td>
+                                    <td><span class="price-tag"><%= formatPrice(booking.total_price) %></span></td>
+                                    <td><span class="small fw-semibold"><%= formatPrice(booking.amount_paid) %></span></td>
+                                    <td><span class="small fw-semibold text-danger"><%= formatPrice(booking.balance) %></span></td>
+                                    <td><span class="small fw-bold text-uppercase"><%= booking.payment_method || 'cash' %></span></td>
+                                    <td class="text-end pe-4">
+                                        <div class="dropdown booking-actions-dropdown">
+                                            <button type="button" class="btn btn-light btn-sm" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Booking actions">
+                                                <i class="bi bi-three-dots-vertical"></i>
+                                            </button>
+                                            <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0">
+                                                <li><a href="/walk-in-booking/edit/<%= booking.id %>" class="dropdown-item"><i class="bi bi-pencil-square me-2"></i>Edit booking</a></li>
+                                                <li>
+                                                    <form action="/admin-cancel/<%= booking.id %>" method="POST" data-swal-confirm="Cancel this walk-in booking?" data-swal-title="Cancel walk-in booking?" data-swal-confirm-button="Cancel booking">
+                                                        <button type="submit" class="dropdown-item text-danger"><i class="bi bi-x-circle me-2"></i>Cancel booking</button>
+                                                    </form>
+                                                </li>
+                                                <li>
+                                                    <form action="/delete/<%= booking.id %>" method="POST" data-swal-confirm="Delete this walk-in booking?" data-swal-title="Delete walk-in booking?" data-swal-confirm-button="Delete">
+                                                        <button type="submit" class="dropdown-item text-danger"><i class="bi bi-trash me-2"></i>Delete booking</button>
+                                                    </form>
+                                                </li>
+                                            </ul>
+                                        </div>
+                                    </td>
+                                </tr>
+                            <% }); %>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="booking-section-heading">
+                <h2 class="h5 fw-bold text-dark mb-1">Approved History</h2>
+            </div>
+            <div class="card-custom border-0 shadow-sm">
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover align-middle mb-0 booking-table approved-bookings-table">
+                        <colgroup>
+                            <col style="width: 175px"><col style="width: 195px"><col style="width: 140px"><col style="width: 65px">
+                            <col style="width: 115px"><col style="width: 85px"><col style="width: 130px"><col style="width: 120px">
+                            <col style="width: 115px"><col style="width: 75px">
+                        </colgroup>
                         <thead>
                             <tr>
                                 <th class="ps-4">GUEST</th>
                                 <th>EMAIL</th>
-                                <th>ROOM or COTTAGE</th>
+                                <th class="text-center">ROOM or COTTAGE</th>
                                 <th class="text-center">GUESTS</th>
                                 <th>PRICE</th>
                                 <th>METHOD</th>
                                 <th>REFERENCE #</th>
                                 <th>PAYMENT STATUS</th>
-                                <th>SPECIAL REQUESTS</th>
                                 <th class="text-center">BOOKING STATUS</th>
                                 <th class="text-end pe-4">ACTION</th>
                             </tr>
                         </thead>
                         <tbody>
                             <% 
-                                const approvedBookings = bookings.filter(b => b.status === 'approved');
+                                const approvedBookings = bookings.filter(b => (b.bookingSource || 'ONLINE') !== 'WALK_IN' && b.status === 'approved');
                                 approvedBookings.forEach(booking => { 
-                                    const bRoom2 = rooms.find(r => r.name === booking.roomType);
+                                    const bRoom2 = allRooms.find(r => r.name === booking.roomType);
                                     const isCottage2 = bRoom2 && bRoom2.category === 'Cottage';
+                                    const approvedEditRooms = rooms.some(r => r.name === booking.roomType)
+                                        ? rooms
+                                        : [...rooms, ...(bRoom2 ? [bRoom2] : [])];
+                                    const approvedRoomMax = parseInt(bRoom2 && bRoom2.occupancy) || 1;
+                                    const approvedCheckin = booking.checkin ? new Date(booking.checkin) : null;
+                                    const approvedCheckout = booking.checkout ? new Date(booking.checkout) : null;
+                                    const approvedCottageDate = approvedCheckin && !isNaN(approvedCheckin.getTime())
+                                        ? `${approvedCheckin.getFullYear()}-${String(approvedCheckin.getMonth() + 1).padStart(2, '0')}-${String(approvedCheckin.getDate()).padStart(2, '0')}`
+                                        : '';
+                                    const approvedCottageCheckin = approvedCheckin && !isNaN(approvedCheckin.getTime())
+                                        ? `${String(approvedCheckin.getHours()).padStart(2, '0')}:${String(approvedCheckin.getMinutes()).padStart(2, '0')}`
+                                        : '';
+                                    const approvedCottageCheckout = approvedCheckout && !isNaN(approvedCheckout.getTime())
+                                        ? `${String(approvedCheckout.getHours()).padStart(2, '0')}:${String(approvedCheckout.getMinutes()).padStart(2, '0')}`
+                                        : '';
                                     const hasPayment2 = !!booking.reference_number;
+                                    const recordedPaid2 = Number(booking.amount_paid) || 0;
+                                    const recordedDownpayment2 = Number(booking.downpayment_amount) || 0;
+                                    const paidAmount2 = Math.min(
+                                        (recordedPaid2 > 0 || (booking.bookingSource || 'ONLINE') === 'WALK_IN') ? recordedPaid2 : recordedDownpayment2,
+                                        Number(booking.total_price) || 0
+                                    );
+                                    const remainingBalance2 = Math.max(0, (Number(booking.total_price) || 0) - paidAmount2);
                             %>
-                            <tr>
+                            <tr data-booking-source="<%= booking.bookingSource || 'ONLINE' %>">
                                 <td class="ps-4">
                                     <div class="fw-bold small"><%= booking.name %></div>
+                                    <span class="badge <%= (booking.bookingSource || 'ONLINE') === 'WALK_IN' ? 'bg-info-subtle text-info-emphasis' : 'bg-primary-subtle text-primary-emphasis' %>" style="font-size: 0.62rem;"><%= (booking.bookingSource || 'ONLINE') === 'WALK_IN' ? 'WALK-IN' : 'ONLINE' %></span>
                                     <div class="text-muted smaller" style="font-size: 0.65rem;">
                                         <% if (isCottage2) { 
                                             const cin2 = new Date(booking.checkin);
@@ -663,9 +1029,11 @@
                                     </div>
                                 </td>
                                 <td class="email-cell"><%= booking.email %></td>
-                                <td class="small"><%= booking.roomType %></td>
+                                <td class="small text-center"><span class="status-tag bg-info-subtle text-info-emphasis"><%= booking.roomType || 'Standard' %></span></td>
                                 <td class="text-center"><span class="guest-badge"><%= booking.people %></span></td>
-                                <td><span class="price-tag"><%= formatPrice(booking.total_price) %></span></td>
+                                <td><span class="price-tag"><%= formatPrice(booking.total_price) %></span>
+                                    <div class="text-muted" style="font-size: 0.7rem;">Paid: <%= formatPrice(paidAmount2) %><br>Balance: <%= formatPrice(remainingBalance2) %></div>
+                                </td>
 
                                 <!-- METHOD -->
                                 <td>
@@ -694,40 +1062,234 @@
                                     <% } %>
                                 </td>
 
-                                <td>
-                                    <% if (booking.requests) { %>
-                                        <span class="special-request-text" title="<%= booking.requests %>"><%= booking.requests %></span>
-                                    <% } else { %>
-                                        <span class="text-muted" style="font-size: 0.75rem;">None</span>
-                                    <% } %>
-                                </td>
                                 <td class="text-center"><span class="status-tag bg-success bg-opacity-10 text-success">Approved</span></td>
                                 <td class="text-end pe-4">
-                                    <div class="dropdown">
-                                        <button class="btn btn-light btn-sm border-0" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                            <i class="bi bi-three-dots-vertical text-muted"></i>
+                                    <div class="dropdown booking-actions-dropdown">
+                                        <button type="button" class="btn btn-light btn-sm" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Booking actions">
+                                            <i class="bi bi-three-dots-vertical"></i>
                                         </button>
-                                        <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0" style="border-radius: 12px;">
+                                        <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0">
+                                            <% if (remainingBalance2 > 0) { %>
+                                                <li>
+                                                    <form action="/mark-paid/<%= booking.id %>" method="POST" data-swal-confirm="Mark this booking as fully paid?" data-swal-title="Confirm full payment" data-swal-icon="question" data-swal-confirm-button="Mark fully paid">
+                                                        <button type="submit" class="dropdown-item text-success"><i class="bi bi-check2-circle me-2"></i>Mark fully paid</button>
+                                                    </form>
+                                                </li>
+                                            <% } else { %>
+                                                <li><span class="dropdown-item-text text-success"><i class="bi bi-check2-circle me-2"></i>Fully paid</span></li>
+                                            <% } %>
+                                            <li><button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#approvedEditModal<%= booking.id %>"><i class="bi bi-pencil-square me-2"></i>Edit booking</button></li>
                                             <li>
-                                                <form action="/admin-cancel/<%= booking.id %>" method="POST" onsubmit="return confirm('Cancel this booking and notify guest via email?')">
-                                                    <button type="submit" class="dropdown-item text-danger fw-semibold"><i class="bi bi-x-circle me-2"></i>Cancel Booking</button>
+                                                <form action="/admin-cancel/<%= booking.id %>" method="POST" data-swal-confirm="Cancel this booking and notify the guest by email?" data-swal-title="Cancel booking?" data-swal-confirm-button="Cancel booking">
+                                                    <button type="submit" class="dropdown-item text-danger"><i class="bi bi-x-circle me-2"></i>Cancel booking</button>
                                                 </form>
                                             </li>
-                                            <li><hr class="dropdown-divider"></li>
                                             <li>
-                                                <form action="/delete/<%= booking.id %>" method="POST" onsubmit="return confirm('Remove from history?')">
-                                                    <button type="submit" class="dropdown-item text-muted"><i class="bi bi-trash3 me-2"></i>Remove Booking</button>
+                                                <form action="/delete/<%= booking.id %>" method="POST" data-swal-confirm="Remove this booking from history?" data-swal-title="Remove booking?" data-swal-confirm-button="Remove">
+                                                    <button type="submit" class="dropdown-item text-danger"><i class="bi bi-trash3 me-2"></i>Remove booking</button>
                                                 </form>
                                             </li>
                                         </ul>
                                     </div>
                                 </td>
                             </tr>
+                            <div class="modal fade" id="approvedEditModal<%= booking.id %>" tabindex="-1" aria-labelledby="approvedEditModalTitle<%= booking.id %>" aria-hidden="true">
+                                <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+                                    <div class="modal-content border-0 shadow" style="border-radius: 24px;">
+                                        <form action="/update/<%= booking.id %>" method="POST" class="edit-booking-form" novalidate>
+                                            <div class="modal-header border-bottom-0 pt-4 px-4">
+                                                <h2 class="modal-title h5 fw-bold" id="approvedEditModalTitle<%= booking.id %>">Edit Booking #<%= booking.id %></h2>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                            </div>
+                                            <div class="modal-body px-4">
+                                                <input type="hidden" name="checkin" id="editCheckinHidden<%= booking.id %>" value="<%= booking.checkinFormatted %>">
+                                                <input type="hidden" name="checkout" id="editCheckoutHidden<%= booking.id %>" value="<%= booking.checkoutFormatted %>">
+                                                <div class="mb-3">
+                                                    <label class="form-label text-uppercase small fw-bold text-muted" for="approvedEditName<%= booking.id %>">Full Name</label>
+                                                    <input id="approvedEditName<%= booking.id %>" type="text" name="name" class="form-control py-2 bg-light border-0 rounded-3" value="<%= booking.name %>" required>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label class="form-label text-uppercase small fw-bold text-muted" for="approvedEditEmail<%= booking.id %>">Email</label>
+                                                    <input id="approvedEditEmail<%= booking.id %>" type="email" name="email" class="form-control py-2 bg-light border-0 rounded-3" value="<%= booking.email %>" required>
+                                                </div>
+
+                                                <div class="row">
+                                                    <div class="col-12 col-lg-6 mb-3">
+                                                        <label class="form-label text-uppercase small fw-bold text-muted" for="roomSelect<%= booking.id %>">Room Type</label>
+                                                        <select id="roomSelect<%= booking.id %>" name="roomType" class="form-select py-2 bg-light border-0 rounded-3" required data-booking-id="<%= booking.id %>">
+                                                            <option value="">Choose room or cottage...</option>
+                                                            <% const approvedRoomCategories = {}; %>
+                                                            <% approvedEditRooms.forEach(room => { %>
+                                                                <% if (!approvedRoomCategories[room.category]) approvedRoomCategories[room.category] = []; %>
+                                                                <% approvedRoomCategories[room.category].push(room); %>
+                                                            <% }); %>
+                                                            <% for (const [category, categoryRooms] of Object.entries(approvedRoomCategories)) { %>
+                                                                <optgroup label="<%= category === 'Cottage' ? '🏡 Cottages' : '🏨 ' + category + ' Rooms' %>">
+                                                                    <% categoryRooms.forEach(room => { %>
+                                                                        <option value="<%= room.name %>" data-category="<%= room.category %>" data-occupancy="<%= room.occupancy %>" <%= booking.roomType === room.name ? 'selected' : '' %>><%= room.name %> — ₱<%= room.price %><%= room.category === 'Cottage' ? ' (Flat)' : '/night' %> (Max <%= room.occupancy %> guests)</option>
+                                                                    <% }); %>
+                                                                </optgroup>
+                                                            <% } %>
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-12 col-lg-6 mb-3">
+                                                        <label class="form-label text-uppercase small fw-bold text-muted" for="guestSelect<%= booking.id %>">Guests</label>
+                                                        <select id="guestSelect<%= booking.id %>" name="people" class="form-select py-2 bg-light border-0 rounded-3" required>
+                                                            <% for (let guestNumber = 1; guestNumber <= approvedRoomMax; guestNumber++) { %>
+                                                                <option value="<%= guestNumber %>" <%= Number(booking.people) === guestNumber ? 'selected' : '' %>><%= guestNumber === 1 ? '1 Adult' : guestNumber + ' Adults' %></option>
+                                                            <% } %>
+                                                        </select>
+                                                    </div>
+                                                </div>
+
+                                                <div id="editRoomFields<%= booking.id %>" class="row" <%= isCottage2 ? 'style="display:none"' : '' %>>
+                                                    <div class="col-12 col-lg-6 mb-3">
+                                                        <label class="form-label text-uppercase small fw-bold text-muted" for="editCheckinDate<%= booking.id %>">Check-In Date</label>
+                                                        <input id="editCheckinDate<%= booking.id %>" type="date" class="form-control py-2 bg-light border-0 rounded-3 approved-edit-checkin" data-booking-id="<%= booking.id %>" value="<%= booking.checkinFormatted %>">
+                                                    </div>
+                                                    <div class="col-12 col-lg-6 mb-3">
+                                                        <label class="form-label text-uppercase small fw-bold text-muted" for="editCheckoutPreview<%= booking.id %>">Check-Out Date</label>
+                                                        <input id="editCheckoutPreview<%= booking.id %>" type="date" class="form-control py-2 bg-light border-0 rounded-3" value="<%= booking.checkoutFormatted %>" readonly>
+                                                    </div>
+                                                </div>
+                                                <div id="editCottageFields<%= booking.id %>" class="row" <%= isCottage2 ? '' : 'style="display:none"' %>>
+                                                    <div class="col-12 col-lg-4 mb-3">
+                                                        <label class="form-label text-uppercase small fw-bold text-muted" for="editBookingDate<%= booking.id %>">Booking Date</label>
+                                                        <input id="editBookingDate<%= booking.id %>" type="date" class="form-control py-2 bg-light border-0 rounded-3" value="<%= approvedCottageDate %>">
+                                                    </div>
+                                                    <div class="col-12 col-lg-4 mb-3">
+                                                        <label class="form-label text-uppercase small fw-bold text-muted" for="editCheckinTime<%= booking.id %>">Check-In Time</label>
+                                                        <input id="editCheckinTime<%= booking.id %>" type="time" class="form-control py-2 bg-light border-0 rounded-3" value="<%= approvedCottageCheckin %>">
+                                                    </div>
+                                                    <div class="col-12 col-lg-4 mb-3">
+                                                        <label class="form-label text-uppercase small fw-bold text-muted" for="editCheckoutTime<%= booking.id %>">Check-Out Time</label>
+                                                        <input id="editCheckoutTime<%= booking.id %>" type="time" class="form-control py-2 bg-light border-0 rounded-3" value="<%= approvedCottageCheckout %>">
+                                                    </div>
+                                                </div>
+                                                <% if (hasPayment2) { %>
+                                                    <div class="border-top pt-3 mb-3">
+                                                        <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+                                                            <div>
+                                                                <h3 class="h6 fw-bold mb-1">Downpayment Details</h3>
+                                                                <p class="text-muted small mb-0">Total: <%= formatPrice(booking.total_price) %> · Paid: <%= formatPrice(paidAmount2) %> · Balance: <%= formatPrice(remainingBalance2) %></p>
+                                                            </div>
+                                                            <%- paymentBadge(booking.payment_status) %>
+                                                        </div>
+                                                        <div class="row g-3">
+                                                            <div class="col-12 col-sm-6">
+                                                                <label class="form-label text-uppercase small fw-bold text-muted" for="editPaymentMethod<%= booking.id %>">Payment Method</label>
+                                                                <select id="editPaymentMethod<%= booking.id %>" name="payment_method" class="form-select py-2 bg-light border-0 rounded-3">
+                                                                    <% ['gcash', 'maya', 'cash', 'card'].forEach(method => { %>
+                                                                        <option value="<%= method %>" <%= (booking.payment_method || '').toLowerCase() === method ? 'selected' : '' %>><%= method.toUpperCase() %></option>
+                                                                    <% }); %>
+                                                                </select>
+                                                            </div>
+                                                            <div class="col-12 col-sm-6">
+                                                                <label class="form-label text-uppercase small fw-bold text-muted" for="editPaymentStatus<%= booking.id %>">Payment Status</label>
+                                                                <select id="editPaymentStatus<%= booking.id %>" name="payment_status" class="form-select py-2 bg-light border-0 rounded-3">
+                                                                    <option value="pending_verification" <%= booking.payment_status === 'verified' ? '' : 'selected' %>>Unverified</option>
+                                                                    <option value="verified" <%= booking.payment_status === 'verified' ? 'selected' : '' %>>Verified</option>
+                                                                </select>
+                                                            </div>
+                                                            <div class="col-12 col-sm-6">
+                                                                <label class="form-label text-uppercase small fw-bold text-muted" for="editDownpayment<%= booking.id %>">Downpayment Amount</label>
+                                                                <input id="editDownpayment<%= booking.id %>" type="number" name="downpayment_amount" class="form-control py-2 bg-light border-0 rounded-3" min="0" max="<%= booking.total_price %>" step="0.01" value="<%= booking.downpayment_amount || 0 %>" required>
+                                                            </div>
+                                                            <div class="col-12 col-sm-6">
+                                                                <label class="form-label text-uppercase small fw-bold text-muted" for="editReferenceNumber<%= booking.id %>">Reference Number</label>
+                                                                <input id="editReferenceNumber<%= booking.id %>" type="text" name="reference_number" class="form-control py-2 bg-light border-0 rounded-3" value="<%= booking.reference_number || '' %>" required>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                <% } %>
+                                                <div class="mb-3">
+                                                    <label class="form-label text-uppercase small fw-bold text-muted" for="approvedEditRequests<%= booking.id %>">Special Requests</label>
+                                                    <textarea id="approvedEditRequests<%= booking.id %>" name="requests" class="form-control py-2 bg-light border-0 rounded-3" rows="3" placeholder="No special requests"><%= booking.requests || '' %></textarea>
+                                                </div>
+                                            </div>
+                                            <div class="modal-footer border-top-0 pb-4 px-4">
+                                                <button type="button" class="btn btn-light w-100 py-2 fw-bold" data-bs-dismiss="modal">Cancel</button>
+                                                <button type="submit" class="btn btn-dark w-100 py-2 fw-bold">Save Changes</button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
                             <% }) %>
                         </tbody>
                     </table>
                 </div>
             </div>
+            </div>
+
+            <% const bookingsWithRequests = bookings.filter(booking => String(booking.requests || '').trim().length > 0); %>
+            <div id="specialRequestsView" class="d-none" role="tabpanel" aria-labelledby="specialRequestsViewTab">
+                <div class="special-requests-heading">
+                    <div>
+                        <p class="special-requests-eyebrow mb-1">GUEST NOTES</p>
+                        <h2 class="h5 fw-bold text-dark mb-1">Requests for upcoming stays</h2>
+                        <p class="text-muted small mb-0">Personal details and stay information, together with each guest's request.</p>
+                    </div>
+                    <div class="special-requests-count" aria-label="<%= bookingsWithRequests.length %> requests">
+                        <i class="bi bi-chat-square-text" aria-hidden="true"></i>
+                        <span><%= bookingsWithRequests.length %></span>
+                        <span><%= bookingsWithRequests.length === 1 ? 'request' : 'requests' %></span>
+                    </div>
+                </div>
+
+                <% if (bookingsWithRequests.length === 0) { %>
+                    <div class="special-requests-empty">
+                        <span class="special-requests-empty-icon"><i class="bi bi-chat-square-heart" aria-hidden="true"></i></span>
+                        <h3 class="h6 fw-bold mb-1">Nothing to follow up on</h3>
+                        <p class="text-muted small mb-0">Guest requests will appear here when they are added to a booking.</p>
+                    </div>
+                <% } else { %>
+                    <div class="special-request-list">
+                        <% bookingsWithRequests.forEach(booking => { %>
+                            <% const isWalkInRequest = (booking.bookingSource || 'ONLINE') === 'WALK_IN'; %>
+                            <% const requestStatus = String(booking.status || 'pending').replaceAll('_', ' '); %>
+                            <article class="special-request-card">
+                                <div class="special-request-card-header">
+                                    <div class="special-request-guest">
+                                        <span class="special-request-avatar"><i class="bi bi-person-fill" aria-hidden="true"></i></span>
+                                        <div class="min-w-0">
+                                            <h3 class="h6 fw-bold mb-1"><%= booking.name %></h3>
+                                            <p class="special-request-email mb-0"><%= booking.email %></p>
+                                        </div>
+                                    </div>
+                                    <div class="special-request-badges">
+                                        <span class="badge <%= isWalkInRequest ? 'bg-info-subtle text-info-emphasis' : 'bg-primary-subtle text-primary-emphasis' %>"><%= isWalkInRequest ? 'WALK-IN' : 'ONLINE' %></span>
+                                        <span class="special-request-status special-request-status-<%= requestStatus.replaceAll(' ', '-') %>"><span class="special-request-status-dot"></span><%= requestStatus %></span>
+                                    </div>
+                                </div>
+
+                                <div class="special-request-stay">
+                                    <div class="special-request-detail">
+                                        <i class="bi bi-calendar3" aria-hidden="true"></i>
+                                        <div>
+                                            <span class="special-request-label">STAY</span>
+                                            <span class="special-request-value"><%= shortDate(booking.checkin) %> – <%= shortDate(booking.checkout) %></span>
+                                        </div>
+                                    </div>
+                                    <div class="special-request-detail">
+                                        <i class="bi bi-house-door" aria-hidden="true"></i>
+                                        <div>
+                                            <span class="special-request-label">ROOM OR COTTAGE</span>
+                                            <span class="special-request-value"><%= booking.roomType || 'Standard' %></span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="special-request-note">
+                                    <p class="special-request-label mb-2"><i class="bi bi-chat-left-text me-1" aria-hidden="true"></i>GUEST REQUEST</p>
+                                    <p class="mb-0"><%= booking.requests %></p>
+                                </div>
+                            </article>
+                        <% }); %>
+                    </div>
+                <% } %>
+            </div>
+
         </div>
     </div>
 
@@ -745,6 +1307,33 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        document.querySelectorAll('.booking-section-tab').forEach(function(button) {
+            button.addEventListener('click', function() {
+                const showRequests = button.dataset.bookingView === 'requests';
+                document.getElementById('bookingRecordsView').classList.toggle('d-none', showRequests);
+                document.getElementById('specialRequestsView').classList.toggle('d-none', !showRequests);
+                document.querySelectorAll('.booking-section-tab').forEach(function(tab) {
+                    const isActive = tab === button;
+                    tab.classList.toggle('active', isActive);
+                    tab.setAttribute('aria-selected', String(isActive));
+                });
+            });
+        });
+
+        document.querySelectorAll('.booking-source-filter').forEach(function(button) {
+            button.addEventListener('click', function() {
+                document.querySelectorAll('.booking-source-filter').forEach(function(item) {
+                    item.classList.toggle('active', item === button);
+                    item.classList.toggle('btn-dark', item === button);
+                    item.classList.toggle('btn-outline-dark', item !== button);
+                });
+                var source = button.getAttribute('data-source');
+                document.querySelectorAll('tr[data-booking-source]').forEach(function(row) {
+                    row.style.display = source === 'all' || row.getAttribute('data-booking-source') === source ? '' : 'none';
+                });
+            });
+        });
+
         function toggleSidebar() {
             const sidebar = document.getElementById('sidebar');
             sidebar.classList.toggle('active');

@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KML Mountain Resort | Walk-in Booking</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/booking_admin.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        .booking-panel { max-width: 980px; margin: 0 auto; }
+        .form-section { border-bottom: 1px solid #e2e8f0; padding: 1.5rem 0; }
+        .form-label { font-size: .75rem; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: .04em; }
+        .summary-card { background: #0f172a; color: white; border-radius: 18px; }
+        .summary-card .label { color: #94a3b8; font-size: .78rem; }
+        .summary-card .value { font-size: 1.35rem; font-weight: 800; }
+        @media (max-width: 992px) { .sidebar { margin-left: -280px; } .main-wrapper { margin-left: 0; width: 100%; } }
+    </style>
+</head>
+<body>
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-brand"><div class="brand-logo me-2">KML</div><span class="text-white fw-bold">MOUNTAIN RESORT</span></div>
+        <div class="nav-label">Main</div>
+        <nav class="nav flex-column">
+            <a href="/admin-dashboard" class="nav-link"><i class="bi bi-grid-1x2 me-2"></i>Dashboard</a>
+            <a href="/bookings" class="nav-link active"><i class="bi bi-calendar-event me-2"></i>Bookings</a>
+            <a href="/rooms" class="nav-link"><i class="bi bi-door-open me-2"></i>Rooms</a>
+            <div class="nav-label">Operations</div>
+            <a href="/food" class="nav-link"><i class="bi bi-egg-fried me-2"></i>Restaurant Menu</a>
+        </nav>
+        <div class="mt-auto p-4"><a href="/logout" class="btn btn-outline-danger w-100 rounded-4 fw-bold">Logout</a></div>
+    </aside>
+
+    <div class="main-wrapper">
+        <header class="d-flex align-items-center justify-content-between px-4">
+            <div class="d-flex align-items-center gap-3"><a href="/bookings" class="btn btn-light"><i class="bi bi-arrow-left me-1"></i>Back to Bookings</a><span class="fw-bold text-dark">Walk-in Booking</span></div>
+            <a href="/admin-dashboard" class="text-decoration-none text-muted"><i class="bi bi-grid-1x2 me-1"></i>Dashboard</a>
+        </header>
+
+        <main class="container-fluid p-4">
+            <div class="booking-panel">
+                <div class="mb-4">
+                    <span class="badge bg-info-subtle text-info-emphasis rounded-pill mb-2">IN-PERSON RESERVATION</span>
+                    <h1 class="h3 fw-bold text-dark mb-1"><%= booking ? 'Edit Walk-in Booking' : 'Create Walk-in Booking' %></h1>
+                    <p class="text-muted mb-0">Uses the same closure, pricing, occupancy, and availability rules as online bookings.</p>
+                </div>
+                <% if (error) { %><div id="walkInError" data-message="<%= error %>" hidden></div><% } %>
+
+                <form id="walkInForm" action="<%= booking ? '/update/' + booking.id : '/walk-in-booking' %>" method="POST" class="card-custom shadow-sm p-4">
+                    <input type="hidden" name="checkin" id="checkinHidden" value="<%= booking ? booking.checkin : '' %>">
+                    <input type="hidden" name="checkout" id="checkoutHidden" value="<%= booking ? booking.checkout : '' %>">
+                    <div class="form-section pt-0">
+                        <h2 class="h6 fw-bold mb-3"><i class="bi bi-person me-2 text-info"></i>Guest Details</h2>
+                        <div class="row g-3">
+                            <div class="col-md-6"><label class="form-label" for="name">Full Name</label><input id="name" name="name" class="form-control" value="<%= booking ? booking.name : '' %>" required></div>
+                            <div class="col-md-6"><label class="form-label" for="email">Email Address <span class="text-muted fw-normal">(optional)</span></label><input id="email" name="email" type="email" class="form-control" value="<%= booking ? booking.email : '' %>"></div>
+                            <div class="col-md-4"><label class="form-label" for="people">Guests</label><input id="people" name="people" type="number" min="1" value="<%= booking ? booking.people : 1 %>" class="form-control" required></div>
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <h2 class="h6 fw-bold mb-3"><i class="bi bi-calendar3 me-2 text-info"></i>Stay Details</h2>
+                        <div class="row g-3">
+                            <div class="col-md-5"><label class="form-label" for="roomType">Room or Cottage</label><select id="roomType" name="roomType" class="form-select" required><option value="">Choose available accommodation...</option>
+                                <% const groupedRooms = {}; (rooms || []).forEach(function(room) { (groupedRooms[room.category] ||= []).push(room); }); %>
+                                <% Object.keys(groupedRooms).forEach(function(category) { %><optgroup label="<%= category %>"><% groupedRooms[category].forEach(function(room) { %><option value="<%= room.name %>" data-price="<%= room.price %>" data-category="<%= room.category %>" data-occupancy="<%= room.occupancy %>" <%= booking && booking.roomType === room.name ? 'selected' : '' %>><%= room.name %> - ₱<%= room.price %><%= category === 'Cottage' ? ' flat' : '/night' %></option><% }); %></optgroup><% }); %>
+                            </select></div>
+                        </div>
+                        <div id="roomFields" class="row g-3 mt-1">
+                            <div class="col-md-6"><label class="form-label" for="roomCheckin">Check-in Date</label><input id="roomCheckin" type="date" class="form-control" value="<%= booking && booking.checkin ? String(booking.checkin).slice(0, 10) : '' %>"></div>
+                            <div class="col-md-6"><label class="form-label" for="roomCheckoutPreview">Check-out Date</label><input id="roomCheckoutPreview" type="date" class="form-control" readonly></div>
+                        </div>
+                        <div id="cottageFields" class="row g-3 mt-1" style="display:none;">
+                            <div class="col-md-4"><label class="form-label" for="bookingDate">Booking Date</label><input id="bookingDate" type="date" class="form-control" value="<%= booking && booking.checkin ? String(booking.checkin).slice(0, 10) : '' %>"></div>
+                            <div class="col-md-4"><label class="form-label" for="checkinTime">Check-in Time</label><input id="checkinTime" type="time" class="form-control" value="08:00"></div>
+                            <div class="col-md-4"><label class="form-label" for="checkoutTime">Check-out Time</label><input id="checkoutTime" type="time" class="form-control" value="17:00"></div>
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <h2 class="h6 fw-bold mb-3"><i class="bi bi-wallet2 me-2 text-info"></i>Payment</h2>
+                        <div class="row g-3">
+                            <div class="col-md-4"><label class="form-label" for="payment_method">Payment Method</label><select id="payment_method" name="payment_method" class="form-select"><option value="cash" <%= !booking || booking.payment_method === 'cash' ? 'selected' : '' %>>Cash</option><option value="gcash" <%= booking && booking.payment_method === 'gcash' ? 'selected' : '' %>>GCash</option><option value="maya" <%= booking && booking.payment_method === 'maya' ? 'selected' : '' %>>Maya</option><option value="card" <%= booking && booking.payment_method === 'card' ? 'selected' : '' %>>Card</option></select></div>
+                            <div class="col-md-4"><label class="form-label" for="amount_paid">Amount Paid</label><input id="amount_paid" name="amount_paid" type="number" min="0" step="0.01" value="<%= booking ? booking.amount_paid : 0 %>" class="form-control"></div>
+                            <div class="col-md-4"><div class="summary-card p-3 h-100 d-flex justify-content-between align-items-center"><div><div class="label">Balance Due</div><div id="balance" class="value">₱0.00</div></div><i class="bi bi-receipt-cutoff fs-2 text-info"></i></div></div>
+                        </div>
+                    </div>
+
+                    <div class="form-section"><label class="form-label" for="requests">Special Requests</label><textarea id="requests" name="requests" class="form-control" rows="3" placeholder="Optional notes for the reservation"><%= booking ? booking.requests || '' : '' %></textarea></div>
+                    <div class="d-flex justify-content-between align-items-center pt-4 flex-wrap gap-3"><div><span class="text-muted small">Total Price</span><div id="total" class="h4 fw-bold mb-0">₱0.00</div></div><button type="submit" class="btn btn-dark px-4 py-2"><i class="bi bi-check2-circle me-2"></i><%= booking ? 'Save Walk-in Changes' : 'Create Walk-in Booking' %></button></div>
+                </form>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const roomType = document.getElementById('roomType');
+        const roomFields = document.getElementById('roomFields');
+        const cottageFields = document.getElementById('cottageFields');
+        const roomCheckin = document.getElementById('roomCheckin');
+        const roomCheckoutPreview = document.getElementById('roomCheckoutPreview');
+        const bookingDate = document.getElementById('bookingDate');
+        const checkinTime = document.getElementById('checkinTime');
+        const checkoutTime = document.getElementById('checkoutTime');
+        const amountPaid = document.getElementById('amount_paid');
+        const totalOutput = document.getElementById('total');
+        const balanceOutput = document.getElementById('balance');
+        let currentTotal = 0;
+        const peso = value => '₱' + value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        function showWalkInAlert(title, text) { Swal.fire({ icon: 'error', title, text, confirmButtonColor: '#0f172a' }); }
+        function closed(date) { const day = new Date(date + 'T00:00:00').getDay(); return day === 1 || day === 2; }
+        function autoCheckout(dateValue) { const date = new Date(dateValue + 'T00:00:00'); date.setDate(date.getDate() + 1); while (date.getDay() === 1 || date.getDay() === 2) date.setDate(date.getDate() + 1); const year = date.getFullYear(); const month = String(date.getMonth() + 1).padStart(2, '0'); const day = String(date.getDate()).padStart(2, '0'); return `${year}-${month}-${day}`; }
+        function minutes(value) { const parts = value.split(':').map(Number); return parts[0] * 60 + parts[1]; }
+        function isCottage() { const option = roomType.options[roomType.selectedIndex]; return option && option.dataset.category === 'Cottage'; }
+        function updateFields() { const cottage = isCottage(); roomFields.style.display = cottage ? 'none' : 'flex'; cottageFields.style.display = cottage ? 'flex' : 'none'; updatePrice(); }
+        function updatePrice() {
+            const option = roomType.options[roomType.selectedIndex];
+            const price = Number(option && option.dataset.price) || 0;
+            const cottage = isCottage();
+            const date = cottage ? bookingDate.value : roomCheckin.value;
+            const checkout = date && !cottage ? autoCheckout(date) : '';
+            roomCheckoutPreview.value = checkout;
+            const nights = cottage ? 1 : Math.max(1, Math.ceil(((new Date(checkout) - new Date(date)) || 86400000) / 86400000));
+            const total = price * nights;
+            currentTotal = total;
+            const paid = Math.min(Math.max(Number(amountPaid.value) || 0, 0), total);
+            totalOutput.textContent = peso(total);
+            balanceOutput.textContent = peso(Math.max(0, total - paid));
+        }
+        roomType.addEventListener('change', updateFields);
+        [roomCheckin, bookingDate, checkinTime, checkoutTime, amountPaid].forEach(function(input) { input.addEventListener('input', updatePrice); input.addEventListener('change', updatePrice); });
+        const errorElement = document.getElementById('walkInError');
+        if (errorElement) showWalkInAlert('Unable to save walk-in booking', errorElement.dataset.message);
+        document.getElementById('walkInForm').addEventListener('submit', function(event) {
+            const date = isCottage() ? bookingDate.value : roomCheckin.value;
+            if (!date || closed(date)) { event.preventDefault(); showWalkInAlert('Unavailable date', 'Bookings are closed every Monday and Tuesday.'); return; }
+            if (isCottage() && (!checkinTime.value || !checkoutTime.value || minutes(checkoutTime.value) <= minutes(checkinTime.value))) { event.preventDefault(); showWalkInAlert('Invalid stay times', 'Cottage check-out time must be later than check-in time.'); return; }
+            const paid = Number(amountPaid.value);
+            if (!Number.isFinite(paid) || paid < 0 || paid > currentTotal) {
+                event.preventDefault();
+                showWalkInAlert('Invalid payment amount', `Amount paid must be between ₱0.00 and ${peso(currentTotal)}.`);
+                return;
+            }
+            document.getElementById('checkinHidden').value = isCottage() ? date + ' ' + checkinTime.value + ':00' : date;
+            document.getElementById('checkoutHidden').value = isCottage() ? date + ' ' + checkoutTime.value + ':00' : autoCheckout(date);
+        });
+        updateFields();
+    </script>
+</body>
+</html>
