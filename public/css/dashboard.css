@@ -69,7 +69,7 @@ header {
 }
 
 .navbar-nav {
-  gap: clamp(0.75rem, 1.4vw, 1.25rem);
+  gap: 2.5rem;
 }
 
 .nav-link {

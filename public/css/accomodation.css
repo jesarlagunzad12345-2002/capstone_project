@@ -386,8 +386,8 @@ hr {
 
 footer {
   flex-shrink: 0;
-  background: linear-gradient(135deg, var(--black) 0%, var(--dark-gray) 100%);
-  color: #e2e8f0;
+  background: var(--black);
+  color: var(--white);
   text-align: center;
   padding: 2rem;
   font-size: 0.9rem;

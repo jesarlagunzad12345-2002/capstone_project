@@ -294,7 +294,7 @@ main > section:first-of-type p {
 /* Footer */
 footer {
   background-color: var(--black);
-  color: var(--text-light);
+  color: var(--white);
   text-align: center;
   padding: 2rem;
   margin-top: 4rem;

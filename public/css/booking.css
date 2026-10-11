@@ -24,11 +24,14 @@ html {
 }
 
 body {
+  display: flex;
+  flex-direction: column;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   background: linear-gradient(135deg, var(--white) 0%, var(--lighter-gray) 100%);
   color: var(--text-dark);
   line-height: 1.6;
   min-height: 100vh;
+  min-height: 100svh;
 }
 
 
@@ -144,6 +147,7 @@ header {
 
 
 .booking-page {
+  flex: 1 0 auto;
   padding: 3rem 0;
 }
 
