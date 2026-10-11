@@ -532,7 +532,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="dropdown">
+                <div class="dropdown quick-booking-dropdown">
                     <button class="btn btn-dark rounded-3 px-3 dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
                         <i class="bi bi-plus-lg me-2"></i> Quick Booking
                     </button>
@@ -558,6 +558,11 @@
                 <button type="button" class="booking-section-tab" id="specialRequestsViewTab" role="tab" aria-selected="false" aria-controls="specialRequestsView" data-booking-view="requests">
                     <i class="bi bi-chat-square-text me-2"></i>Special Requests
                 </button>
+                <div class="btn-group booking-source-filter-group" id="bookingSourceFilters" role="group" aria-label="Booking source">
+                    <button type="button" class="btn btn-dark booking-source-filter active" data-source="all">All Bookings</button>
+                    <button type="button" class="btn btn-outline-dark booking-source-filter" data-source="ONLINE">Online Bookings</button>
+                    <button type="button" class="btn btn-outline-dark booking-source-filter" data-source="WALK_IN">Walk-in Bookings</button>
+                </div>
             </div>
             <% if (typeof message !== 'undefined' && message) { %>
                 <div class="alert alert-success alert-dismissible fade show" role="alert"><i class="bi bi-check-circle me-2"></i><%= message %><button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
@@ -572,20 +577,12 @@
             <% } %>
 
             <div id="bookingRecordsView" role="tabpanel" aria-labelledby="bookingsViewTab">
-            <div class="d-flex justify-content-end mb-3">
-                <div class="btn-group" role="group" aria-label="Booking source">
-                    <button type="button" class="btn btn-dark booking-source-filter active" data-source="all">All Bookings</button>
-                    <button type="button" class="btn btn-outline-dark booking-source-filter" data-source="ONLINE">Online Bookings</button>
-                    <button type="button" class="btn btn-outline-dark booking-source-filter" data-source="WALK_IN">Walk-in Bookings</button>
-                </div>
-            </div>
-
-            <div class="booking-section-heading">
+            <div class="booking-section-heading" data-booking-source-section="ONLINE">
                 <h2 class="h5 fw-bold text-dark mb-1">Pending Reservations</h2>
                 <p class="text-muted small">New requests waiting for approval. Check the PAYMENT columns before approving.</p>
             </div>
 
-            <div class="card-custom shadow-sm">
+            <div class="card-custom shadow-sm" data-booking-source-section="ONLINE">
                 <div class="table-responsive">
                     <table class="table table-hover align-middle mb-0 booking-table pending-bookings-table">
                         <colgroup>
@@ -619,7 +616,6 @@
                             <tr>
                                 <td class="ps-4">
                                     <div class="fw-bold small text-dark"><%= booking.name %></div>
-                                    <span class="badge <%= (booking.bookingSource || 'ONLINE') === 'WALK_IN' ? 'bg-info-subtle text-info-emphasis' : 'bg-primary-subtle text-primary-emphasis' %>" style="font-size: 0.62rem;"><%= (booking.bookingSource || 'ONLINE') === 'WALK_IN' ? 'WALK-IN' : 'ONLINE' %></span>
                                     <div class="booking-email text-muted" style="font-size: 0.7rem;"><%= booking.email %></div>
                                 </td>
                                 <td class="stay-details-cell">
@@ -639,7 +635,11 @@
                                 </td>
                                 <td class="text-center"><span class="status-tag bg-info-subtle text-info-emphasis"><%= booking.roomType || 'Standard' %></span></td>
                                 <td class="text-center"><span class="guest-badge"><%= booking.people %></span></td>
-                                <td><span class="price-tag"><%= formatPrice(booking.total_price) %></span></td>
+                                <td>
+                                    <button type="button" class="payment-details-trigger" data-bs-toggle="modal" data-bs-target="#downpaymentDetailsModal" data-total="<%= Number(booking.total_price) || 0 %>" data-downpayment="<%= Number(booking.downpayment_amount) || 0 %>" data-method="<%= booking.payment_method || '' %>" data-reference="<%= booking.reference_number || '' %>" data-payment-status="<%= booking.payment_status || '' %>" aria-label="View payment details for booking <%= booking.id %>">
+                                        <span class="price-tag"><%= formatPrice(booking.total_price) %></span>
+                                    </button>
+                                </td>
 
                                 <!-- METHOD -->
                                 <td>
@@ -713,13 +713,19 @@
                             <!-- EDIT MODAL -->
                             <div class="modal fade" id="editModal<%= booking.id %>" tabindex="-1" aria-hidden="true">
                                 <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
-                                    <div class="modal-content border-0 shadow" style="border-radius: 24px;">
+                                    <div class="modal-content border-0 shadow booking-edit-modal">
                                         <form action="/update/<%= booking.id %>" method="POST" class="edit-booking-form" novalidate>
-                                            <div class="modal-header border-bottom-0 pt-4 px-4">
-                                                <h5 class="modal-title fw-bold">Edit Booking #<%= booking.id %></h5>
-                                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                            <div class="modal-header booking-edit-modal-header">
+                                                <div class="d-flex align-items-center gap-3">
+                                                    <span class="booking-edit-modal-icon"><i class="bi bi-calendar2-check" aria-hidden="true"></i></span>
+                                                    <div>
+                                                        <p class="booking-edit-eyebrow">RESERVATION DETAILS</p>
+                                                        <h5 class="modal-title fw-bold">Edit Booking #<%= booking.id %></h5>
+                                                    </div>
+                                                </div>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                                             </div>
-                                            <div class="modal-body px-4">
+                                            <div class="modal-body booking-edit-modal-body">
                                                 
                                                 <input type="hidden" name="checkin" id="editCheckinHidden<%= booking.id %>" value="<%= booking.checkinFormatted %>">
                                                 <input type="hidden" name="checkout" id="editCheckoutHidden<%= booking.id %>" value="<%= booking.checkoutFormatted %>">
@@ -833,8 +839,8 @@
                                                 </div>
 
                                                 <% if (hasPayment) { %>
-                                                <div class="border-top pt-3 mb-3">
-                                                    <h6 class="fw-bold mb-3">Downpayment Details</h6>
+                                                <div class="booking-payment-panel">
+                                                    <h6 class="fw-bold mb-3"><i class="bi bi-credit-card-2-front me-2 text-primary"></i>Downpayment Details</h6>
                                                     <div class="row g-3">
                                                         <div class="col-12 col-sm-6">
                                                             <label class="form-label text-uppercase small fw-bold text-muted" for="editPaymentMethod<%= booking.id %>">Payment Method</label>
@@ -868,7 +874,7 @@
                                                     <textarea name="requests" class="form-control py-2 bg-light border-0 rounded-3" rows="3" placeholder="No special requests"><%= booking.requests || '' %></textarea>
                                                 </div>
                                             </div>
-                                            <div class="modal-footer border-top-0 pb-4 px-4">
+                                            <div class="modal-footer booking-edit-modal-footer">
                                                 <button type="button" class="btn btn-light w-100 py-2 fw-bold" data-bs-dismiss="modal">Cancel</button>
                                                 <button type="submit" class="btn btn-dark w-100 py-2 fw-bold">Save Changes</button>
                                             </div>
@@ -882,11 +888,11 @@
                 </div>
             </div>
 
-            <div class="booking-section-heading">
+            <div class="booking-section-heading" data-booking-source-section="WALK_IN">
                 <h2 class="h5 fw-bold text-dark mb-1">Walk-in Bookings</h2>
                 <p class="text-muted small">Reservations created directly by resort staff.</p>
             </div>
-            <div class="card-custom shadow-sm">
+            <div class="card-custom shadow-sm" data-booking-source-section="WALK_IN">
                 <div class="table-responsive">
                     <table class="table table-hover align-middle mb-0 booking-table walk-in-bookings-table">
                         <colgroup>
@@ -955,10 +961,10 @@
                 </div>
             </div>
 
-            <div class="booking-section-heading">
+            <div class="booking-section-heading" data-booking-source-section="ONLINE">
                 <h2 class="h5 fw-bold text-dark mb-1">Approved History</h2>
             </div>
-            <div class="card-custom border-0 shadow-sm">
+            <div class="card-custom border-0 shadow-sm" data-booking-source-section="ONLINE">
                 <div class="table-responsive">
                     <table class="table table-sm table-hover align-middle mb-0 booking-table approved-bookings-table">
                         <colgroup>
@@ -1013,7 +1019,6 @@
                             <tr data-booking-source="<%= booking.bookingSource || 'ONLINE' %>">
                                 <td class="ps-4">
                                     <div class="fw-bold small"><%= booking.name %></div>
-                                    <span class="badge <%= (booking.bookingSource || 'ONLINE') === 'WALK_IN' ? 'bg-info-subtle text-info-emphasis' : 'bg-primary-subtle text-primary-emphasis' %>" style="font-size: 0.62rem;"><%= (booking.bookingSource || 'ONLINE') === 'WALK_IN' ? 'WALK-IN' : 'ONLINE' %></span>
                                     <div class="text-muted smaller" style="font-size: 0.65rem;">
                                         <% if (isCottage2) { 
                                             const cin2 = new Date(booking.checkin);
@@ -1031,8 +1036,9 @@
                                 <td class="email-cell"><%= booking.email %></td>
                                 <td class="small text-center"><span class="status-tag bg-info-subtle text-info-emphasis"><%= booking.roomType || 'Standard' %></span></td>
                                 <td class="text-center"><span class="guest-badge"><%= booking.people %></span></td>
-                                <td><span class="price-tag"><%= formatPrice(booking.total_price) %></span>
-                                    <div class="text-muted" style="font-size: 0.7rem;">Paid: <%= formatPrice(paidAmount2) %><br>Balance: <%= formatPrice(remainingBalance2) %></div>
+                                <td><button type="button" class="payment-details-trigger" data-bs-toggle="modal" data-bs-target="#downpaymentDetailsModal" data-total="<%= Number(booking.total_price) || 0 %>" data-downpayment="<%= Number(booking.downpayment_amount) || 0 %>" data-method="<%= booking.payment_method || '' %>" data-reference="<%= booking.reference_number || '' %>" data-payment-status="<%= booking.payment_status || '' %>" aria-label="View payment details for booking <%= booking.id %>">
+                                        <span class="price-tag"><%= formatPrice(booking.total_price) %></span>
+                                    </button>
                                 </td>
 
                                 <!-- METHOD -->
@@ -1069,12 +1075,14 @@
                                             <i class="bi bi-three-dots-vertical"></i>
                                         </button>
                                         <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0">
-                                            <% if (remainingBalance2 > 0) { %>
+                                            <% if (remainingBalance2 > 0 && booking.payment_status === 'verified') { %>
                                                 <li>
                                                     <form action="/mark-paid/<%= booking.id %>" method="POST" data-swal-confirm="Mark this booking as fully paid?" data-swal-title="Confirm full payment" data-swal-icon="question" data-swal-confirm-button="Mark fully paid">
                                                         <button type="submit" class="dropdown-item text-success"><i class="bi bi-check2-circle me-2"></i>Mark fully paid</button>
                                                     </form>
                                                 </li>
+                                            <% } else if (remainingBalance2 > 0) { %>
+                                                <li><span class="dropdown-item text-muted disabled" aria-disabled="true" title="Verify the downpayment before marking this booking fully paid"><i class="bi bi-lock me-2"></i>Verify downpayment first</span></li>
                                             <% } else { %>
                                                 <li><span class="dropdown-item-text text-success"><i class="bi bi-check2-circle me-2"></i>Fully paid</span></li>
                                             <% } %>
@@ -1095,13 +1103,19 @@
                             </tr>
                             <div class="modal fade" id="approvedEditModal<%= booking.id %>" tabindex="-1" aria-labelledby="approvedEditModalTitle<%= booking.id %>" aria-hidden="true">
                                 <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
-                                    <div class="modal-content border-0 shadow" style="border-radius: 24px;">
+                                    <div class="modal-content border-0 shadow booking-edit-modal">
                                         <form action="/update/<%= booking.id %>" method="POST" class="edit-booking-form" novalidate>
-                                            <div class="modal-header border-bottom-0 pt-4 px-4">
-                                                <h2 class="modal-title h5 fw-bold" id="approvedEditModalTitle<%= booking.id %>">Edit Booking #<%= booking.id %></h2>
+                                            <div class="modal-header booking-edit-modal-header">
+                                                <div class="d-flex align-items-center gap-3">
+                                                    <span class="booking-edit-modal-icon"><i class="bi bi-calendar2-check" aria-hidden="true"></i></span>
+                                                    <div>
+                                                        <p class="booking-edit-eyebrow">RESERVATION DETAILS</p>
+                                                        <h2 class="modal-title h5 fw-bold" id="approvedEditModalTitle<%= booking.id %>">Edit Booking #<%= booking.id %></h2>
+                                                    </div>
+                                                </div>
                                                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                                             </div>
-                                            <div class="modal-body px-4">
+                                            <div class="modal-body booking-edit-modal-body">
                                                 <input type="hidden" name="checkin" id="editCheckinHidden<%= booking.id %>" value="<%= booking.checkinFormatted %>">
                                                 <input type="hidden" name="checkout" id="editCheckoutHidden<%= booking.id %>" value="<%= booking.checkoutFormatted %>">
                                                 <div class="mb-3">
@@ -1167,10 +1181,10 @@
                                                     </div>
                                                 </div>
                                                 <% if (hasPayment2) { %>
-                                                    <div class="border-top pt-3 mb-3">
+                                                    <div class="booking-payment-panel">
                                                         <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
                                                             <div>
-                                                                <h3 class="h6 fw-bold mb-1">Downpayment Details</h3>
+                                                                <h3 class="h6 fw-bold mb-1"><i class="bi bi-credit-card-2-front me-2 text-primary"></i>Downpayment Details</h3>
                                                                 <p class="text-muted small mb-0">Total: <%= formatPrice(booking.total_price) %> · Paid: <%= formatPrice(paidAmount2) %> · Balance: <%= formatPrice(remainingBalance2) %></p>
                                                             </div>
                                                             <%- paymentBadge(booking.payment_status) %>
@@ -1207,7 +1221,7 @@
                                                     <textarea id="approvedEditRequests<%= booking.id %>" name="requests" class="form-control py-2 bg-light border-0 rounded-3" rows="3" placeholder="No special requests"><%= booking.requests || '' %></textarea>
                                                 </div>
                                             </div>
-                                            <div class="modal-footer border-top-0 pb-4 px-4">
+                                            <div class="modal-footer booking-edit-modal-footer">
                                                 <button type="button" class="btn btn-light w-100 py-2 fw-bold" data-bs-dismiss="modal">Cancel</button>
                                                 <button type="submit" class="btn btn-dark w-100 py-2 fw-bold">Save Changes</button>
                                             </div>
@@ -1293,6 +1307,36 @@
         </div>
     </div>
 
+    <div class="modal fade" id="downpaymentDetailsModal" tabindex="-1" aria-labelledby="downpaymentDetailsTitle" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow" style="border-radius: 16px;">
+                <div class="modal-header">
+                    <div>
+                        <h2 class="modal-title h5 fw-bold mb-1" id="downpaymentDetailsTitle">Payment Details</h2>
+                        <p class="text-muted small mb-0">Downpayment and payment reference</p>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="d-flex justify-content-between align-items-center p-3 mb-3 rounded-3 bg-light">
+                        <span class="small fw-semibold text-muted">Downpayment</span>
+                        <strong class="fs-5 text-dark" id="paymentDetailsDownpayment">₱0.00</strong>
+                    </div>
+                    <dl class="row mb-0 small">
+                        <dt class="col-5 text-muted">Total price</dt>
+                        <dd class="col-7 fw-semibold text-end" id="paymentDetailsTotal">—</dd>
+                        <dt class="col-5 text-muted">Payment method</dt>
+                        <dd class="col-7 fw-semibold text-end text-uppercase" id="paymentDetailsMethod">—</dd>
+                        <dt class="col-5 text-muted">Reference number</dt>
+                        <dd class="col-7 fw-semibold text-end text-break" id="paymentDetailsReference">—</dd>
+                        <dt class="col-5 text-muted">Payment status</dt>
+                        <dd class="col-7 fw-semibold text-end" id="paymentDetailsStatus">—</dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="toast-container position-fixed bottom-0 end-0 p-3">
       <div id="approveToast" class="toast align-items-center text-white bg-success border-0" role="alert" aria-live="assertive" aria-atomic="true">
         <div class="d-flex">
@@ -1312,6 +1356,7 @@
                 const showRequests = button.dataset.bookingView === 'requests';
                 document.getElementById('bookingRecordsView').classList.toggle('d-none', showRequests);
                 document.getElementById('specialRequestsView').classList.toggle('d-none', !showRequests);
+                document.getElementById('bookingSourceFilters').classList.toggle('d-none', showRequests);
                 document.querySelectorAll('.booking-section-tab').forEach(function(tab) {
                     const isActive = tab === button;
                     tab.classList.toggle('active', isActive);
@@ -1328,10 +1373,30 @@
                     item.classList.toggle('btn-outline-dark', item !== button);
                 });
                 var source = button.getAttribute('data-source');
-                document.querySelectorAll('tr[data-booking-source]').forEach(function(row) {
-                    row.style.display = source === 'all' || row.getAttribute('data-booking-source') === source ? '' : 'none';
+                document.querySelectorAll('[data-booking-source-section]').forEach(function(section) {
+                    var showSection = source === 'all' || section.getAttribute('data-booking-source-section') === source;
+                    section.classList.toggle('d-none', !showSection);
                 });
             });
+        });
+
+        document.getElementById('downpaymentDetailsModal').addEventListener('show.bs.modal', function(event) {
+            const trigger = event.relatedTarget;
+            if (!trigger) return;
+
+            const formatPeso = function(value) {
+                return '₱' + Number(value || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            };
+            document.getElementById('paymentDetailsDownpayment').textContent = formatPeso(trigger.dataset.downpayment);
+            document.getElementById('paymentDetailsTotal').textContent = formatPeso(trigger.dataset.total);
+            document.getElementById('paymentDetailsMethod').textContent = trigger.dataset.method || '—';
+            document.getElementById('paymentDetailsReference').textContent = trigger.dataset.reference || '—';
+
+            const paymentStatus = trigger.dataset.paymentStatus;
+            document.getElementById('paymentDetailsStatus').textContent = paymentStatus === 'verified'
+                ? 'Verified'
+                : paymentStatus === 'pending_verification' ? 'Unverified' : 'No online payment';
+
         });
 
         function toggleSidebar() {

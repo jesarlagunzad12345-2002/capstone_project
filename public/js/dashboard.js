@@ -1,4 +1,15 @@
 
+function showDashboardDialog(options) {
+    return Swal.fire({
+        buttonsStyling: false,
+        customClass: {
+            confirmButton: 'btn btn-dark px-4',
+            cancelButton: 'btn btn-light px-4'
+        },
+        ...options
+    });
+}
+
 const DashboardApp = {
 
     refreshInterval: 30000,
@@ -40,7 +51,7 @@ const DashboardApp = {
             document.getElementById('totalGuestsAllTime').textContent = 
                 (data.totalGuestsAllTime || 0) + ' total guests';
 
-            this.renderBookings(data.recentCheckins);
+            this.renderBookings(data.recentOnlineBookings, data.recentWalkInBookings);
 
         } catch (err) {
             console.error('Failed to load stats:', err);
@@ -113,8 +124,20 @@ const DashboardApp = {
     },
 
     async deleteLog(id) {
-        // Ask for confirmation first
-        if (!confirm('Delete this revenue record? This will reduce the Total Revenue.')) {
+        const confirmation = await showDashboardDialog({
+            title: 'Delete revenue record?',
+            text: 'This will reduce the Total Revenue.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Delete record',
+            cancelButtonText: 'Keep record',
+            reverseButtons: true,
+            customClass: {
+                confirmButton: 'btn btn-danger px-4',
+                cancelButton: 'btn btn-light px-4'
+            }
+        });
+        if (!confirmation.isConfirmed) {
             return;
         }
 
@@ -128,16 +151,35 @@ const DashboardApp = {
                 this.loadStats();
                 this.loadRevenueLog();
             } else {
-                alert('Failed to delete: ' + (data.message || 'Unknown error'));
+                await showDashboardDialog({
+                    title: 'Could not delete record',
+                    text: data.message || 'Unknown error',
+                    icon: 'error',
+                    confirmButtonText: 'OK'
+                });
             }
         } catch (err) {
             console.error('Delete error:', err);
-            alert('Error deleting record');
+            await showDashboardDialog({
+                title: 'Error deleting record',
+                text: 'Please try again.',
+                icon: 'error',
+                confirmButtonText: 'OK'
+            });
         }
     },
 
     async resetRevenue() {
-        if (!confirm('Reset daily revenue to ₱0.00?')) return;
+        const confirmation = await showDashboardDialog({
+            title: 'Reset daily revenue?',
+            text: 'Daily revenue will be set to ₱0.00.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Reset revenue',
+            cancelButtonText: 'Cancel',
+            reverseButtons: true
+        });
+        if (!confirmation.isConfirmed) return;
 
         try {
             const res = await fetch('/api/dashboard/reset-revenue', {
@@ -146,26 +188,34 @@ const DashboardApp = {
             const data = await res.json();
 
             if (data.success) {
-                alert('Revenue reset!');
+                await showDashboardDialog({
+                    title: 'Revenue reset',
+                    text: 'Daily revenue is now ₱0.00.',
+                    icon: 'success',
+                    confirmButtonText: 'Done'
+                });
                 this.loadStats();
                 this.loadRevenueLog();
                 document.getElementById('lastReset').textContent = 'Reset just now';
             }
         } catch (err) {
             console.error('Reset error:', err);
-            alert('Error resetting revenue');
+            await showDashboardDialog({
+                title: 'Error resetting revenue',
+                text: 'Please try again.',
+                icon: 'error',
+                confirmButtonText: 'OK'
+            });
         }
     },
 
-    renderBookings(bookings) {
-        const tbody = document.getElementById('bookingsTable');
+    renderBookings(onlineBookings, walkInBookings) {
+        const renderRows = (bookings, showPaymentMethod = false) => {
+            if (!bookings || bookings.length === 0) {
+                return '<tr><td colspan="4" class="text-center py-4 text-muted">No bookings yet</td></tr>';
+            }
 
-        if (!bookings || bookings.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted">No current bookings</td></tr>';
-            return;
-        }
-
-        tbody.innerHTML = bookings.map(booking => {
+            return bookings.map(booking => {
             const initials = booking.name
                 .split(' ')
                 .map(n => n[0])
@@ -186,14 +236,26 @@ const DashboardApp = {
                 statusText = booking.status;
             }
 
+            let paymentStatusMarkup;
+            if (showPaymentMethod) {
+                paymentStatusMarkup = `<span class="small fw-semibold text-uppercase">${booking.payment_method || 'Not recorded'}</span>`;
+            } else {
+                paymentStatusMarkup = '<span class="text-muted small">No online payment</span>';
+                if (booking.payment_status === 'verified') {
+                    paymentStatusMarkup = '<span class="badge bg-success">Verified</span>';
+                } else if (booking.payment_status === 'pending_verification') {
+                    paymentStatusMarkup = '<span class="badge bg-warning text-dark">Unverified</span>';
+                }
+            }
+
             return `
                 <tr>
-                    <td class="ps-4">
+                    <td class="ps-3">
                         <div class="d-flex align-items-center">
-                            <div class="bg-light rounded-3 p-2 fw-bold me-3 text-dark small">
+                            <div class="bg-light rounded-3 p-2 fw-bold me-2 text-dark small">
                                 ${initials}
                             </div>
-                            <div>
+                            <div class="text-truncate">
                                 <div class="fw-bold small">${booking.name}</div>
                                 <div class="text-muted" style="font-size: 0.7rem;">
                                     ${booking.roomType}
@@ -201,17 +263,18 @@ const DashboardApp = {
                             </div>
                         </div>
                     </td>
-                    <td class="small">${booking.roomType}</td>
-                    <td class="small">${booking.people} guest(s)</td>
-                    <td>
+                    <td class="small text-center">${booking.people} guest(s)</td>
+                    <td class="text-center">
                         <span class="status-tag ${statusClass}">${statusText}</span>
                     </td>
-                    <td class="text-end pe-4">
-                        <i class="bi bi-three-dots text-muted"></i>
-                    </td>
+                    <td class="text-center">${paymentStatusMarkup}</td>
                 </tr>
             `;
-        }).join('');
+            }).join('');
+        };
+
+        document.getElementById('onlineBookingsTable').innerHTML = renderRows(onlineBookings);
+        document.getElementById('walkInBookingsTable').innerHTML = renderRows(walkInBookings, true);
     },
 
     isToday(date) {

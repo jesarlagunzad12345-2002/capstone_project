@@ -595,8 +595,10 @@
 
             document.getElementById('checkin').required = !isCottage;
             document.getElementById('bookingDate').required = isCottage;
-            document.getElementById('checkinTime').required = isCottage;
-            document.getElementById('checkoutTime').required = isCottage;
+            [document.getElementById('checkinTime'), document.getElementById('checkoutTime')].forEach(function(timeInput) {
+                timeInput.disabled = !isCottage;
+                timeInput.required = isCottage;
+            });
 
             calculateTotal();
         }

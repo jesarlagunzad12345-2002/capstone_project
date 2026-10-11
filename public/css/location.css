@@ -19,8 +19,8 @@
 }
 
 html, body {
-  height: 100%;
-  overflow: hidden;
+  min-height: 100%;
+  overflow-x: hidden;
 }
 
 body {
@@ -28,6 +28,9 @@ body {
   background-color: var(--white);
   color: var(--black);
   line-height: 1.6;
+  min-height: 100vh;
+  min-height: 100svh;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
 }
@@ -59,7 +62,7 @@ header {
 }
 
 .navbar-nav {
-  gap: 2.5rem;
+  gap: clamp(0.75rem, 1.4vw, 1.25rem);
 }
 
 .nav-link {
@@ -151,18 +154,19 @@ header {
    ============================================ */
 main.container {
   flex: 1;
+  min-height: 0;
   max-width: 1400px;
   margin: 0 auto;
   padding: 1rem 2rem !important;
   width: 100%;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow: visible;
 }
 
 main .row {
   flex: 1;
-  height: 100%;
+  min-height: 0;
   align-items: stretch;
   margin: 0;
 }
@@ -177,7 +181,7 @@ main .col-lg-5 {
 main .col-lg-7 {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  min-height: 0;
   padding: 0 1rem;
 }
 
@@ -286,7 +290,7 @@ main h1 {
   box-shadow: 0 8px 32px rgba(3, 105, 161, 0.15);
   position: relative;
   overflow: hidden;
-  height: 100%;
+  height: clamp(360px, 66svh, 620px);
   margin-bottom: 1.5rem;
 }
 
@@ -328,7 +332,32 @@ footer p {
 /* ============================================
    RESPONSIVE - ALLOW SCROLL ON MOBILE
    ============================================ */
-@media (max-width: 991px) {
+@media (max-width: 1199.98px) {
+  .navbar-collapse {
+    background: var(--dark-gray);
+    padding: 1rem;
+    border-radius: 8px;
+    margin-top: 1rem;
+  }
+
+  .navbar-nav {
+    gap: 0.25rem;
+  }
+
+  .header-actions {
+    flex-direction: column;
+    width: 100%;
+    margin-top: 1rem;
+  }
+
+  .search-input,
+  .book-btn {
+    width: 100%;
+    text-align: center;
+  }
+}
+
+@media (max-width: 991.98px) {
   html, body {
     height: auto;
     overflow: auto;

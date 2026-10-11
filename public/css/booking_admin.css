@@ -192,6 +192,24 @@ header {
     font-size: 0.92rem;
 }
 
+.payment-details-trigger {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+}
+
+.payment-details-trigger:hover .price-tag {
+    color: #0284c7 !important;
+    text-decoration: underline;
+}
+
+.payment-details-trigger:focus-visible {
+    outline: 2px solid #0284c7;
+    outline-offset: 3px;
+    border-radius: 3px;
+}
+
 /* ============================================
    GUEST BADGE - BLACK TEXT
    ============================================ */
@@ -319,6 +337,15 @@ header {
 
 .dropdown-item i {
     font-size: 0.9rem;
+}
+
+.quick-booking-dropdown .dropdown-item {
+    font-size: var(--bs-dropdown-font-size);
+    padding: var(--bs-dropdown-item-padding-y) var(--bs-dropdown-item-padding-x);
+}
+
+.quick-booking-dropdown .dropdown-item i {
+    font-size: 1rem;
 }
 
 .notification-menu {
@@ -493,6 +520,7 @@ header {
 
 .booking-section-tabs {
     display: flex;
+    align-items: center;
     flex-wrap: wrap;
     gap: 0.5rem;
     border-bottom: 1px solid #dbe3ec;
@@ -526,6 +554,10 @@ header {
     white-space: nowrap;
 }
 
+.booking-source-filter-group {
+    margin-left: auto;
+}
+
 .booking-section-heading {
     margin: 1.75rem 0 0.75rem;
 }
@@ -554,6 +586,20 @@ header {
 .bookings-page .booking-table {
     width: 100%;
     table-layout: fixed;
+}
+
+.bookings-page .booking-table th:not(:first-child),
+.bookings-page .booking-table td:not(:first-child) {
+    text-align: center !important;
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+}
+
+.bookings-page .booking-table th:first-child,
+.bookings-page .booking-table td:first-child,
+.bookings-page .approved-bookings-table th:nth-child(2),
+.bookings-page .approved-bookings-table td:nth-child(2) {
+    text-align: left !important;
 }
 
 .bookings-page .pending-bookings-table {
@@ -816,6 +862,93 @@ header {
     background: #fff;
 }
 
+.booking-edit-modal {
+    overflow: hidden;
+    border-radius: 18px;
+}
+
+.booking-edit-modal-header {
+    gap: 1rem;
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid #e6ebf1;
+    background: linear-gradient(120deg, #f8fbff, #fff);
+}
+
+.booking-edit-modal-icon {
+    display: grid;
+    width: 42px;
+    height: 42px;
+    flex: 0 0 42px;
+    place-items: center;
+    border-radius: 12px;
+    background: #e8f5fc;
+    color: #0284c7;
+    font-size: 1.15rem;
+}
+
+.booking-edit-eyebrow {
+    margin: 0 0 0.15rem;
+    color: #64748b;
+    font-size: 0.62rem;
+    font-weight: 800;
+}
+
+.booking-edit-modal-header .modal-title {
+    color: #0f172a;
+    font-size: 1.05rem;
+}
+
+.booking-edit-modal-body {
+    padding: 1.25rem 1.5rem;
+}
+
+.booking-edit-modal-body .form-label {
+    margin-bottom: 0.4rem;
+    color: #64748b !important;
+    font-size: 0.66rem;
+    font-weight: 800 !important;
+}
+
+.booking-edit-modal-body .form-control,
+.booking-edit-modal-body .form-select {
+    min-height: 42px;
+    border: 1px solid #dce4ec !important;
+    border-radius: 8px !important;
+    background-color: #fff !important;
+    transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.booking-edit-modal-body .form-control:focus,
+.booking-edit-modal-body .form-select:focus {
+    border-color: #38bdf8 !important;
+    box-shadow: 0 0 0 0.2rem rgba(56, 189, 248, 0.16) !important;
+}
+
+.booking-payment-panel {
+    margin: 0.5rem 0 1.25rem;
+    padding: 1rem;
+    border: 1px solid #dceaf3;
+    border-radius: 12px;
+    background: #f7fbfe;
+}
+
+.booking-payment-panel > h3,
+.booking-payment-panel > h6 {
+    color: #17324a;
+}
+
+.booking-edit-modal-footer {
+    gap: 0.75rem;
+    padding: 0 1.5rem 1.5rem;
+}
+
+.booking-edit-modal-footer .btn {
+    width: auto !important;
+    flex: 1;
+    min-height: 42px;
+    border-radius: 8px;
+}
+
 /* ============================================
    RESPONSIVE
    ============================================ */
@@ -829,6 +962,17 @@ header {
 @media (max-width: 576px) {
     .bookings-page {
         padding: 1rem !important;
+    }
+
+    .booking-edit-modal-header,
+    .booking-edit-modal-body {
+        padding-right: 1rem;
+        padding-left: 1rem;
+    }
+
+    .booking-edit-modal-footer {
+        padding-right: 1rem;
+        padding-left: 1rem;
     }
 
     .booking-page-header .btn-group {
@@ -845,6 +989,17 @@ header {
     .booking-section-tab {
         flex: 1;
         padding-inline: 0.55rem;
+    }
+
+    .booking-source-filter-group {
+        width: 100%;
+        margin-left: 0;
+    }
+
+    .booking-source-filter {
+        flex: 1;
+        padding-inline: 0.35rem;
+        white-space: normal;
     }
 
     .special-requests-heading {

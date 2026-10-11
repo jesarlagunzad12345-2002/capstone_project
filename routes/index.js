@@ -726,19 +726,30 @@ router.get("/api/dashboard/stats", checkAuth, async (req, res) => {
         );
         const totalGuestsAllTime = totalGuestsResults[0].total_guests || 0;
 
-        const checkins = await dbQuery(`
-            SELECT name, roomType, checkin, status, people 
-            FROM bookings 
-            ORDER BY id DESC 
-            LIMIT 5
-        `);
+        const [onlineCheckins, walkInCheckins] = await Promise.all([
+            dbQuery(`
+                SELECT name, roomType, checkin, status, people, payment_status, payment_method
+                FROM bookings
+                WHERE bookingSource IS NULL OR bookingSource != 'WALK_IN'
+                ORDER BY id DESC
+                LIMIT 5
+            `),
+            dbQuery(`
+                SELECT name, roomType, checkin, status, people, payment_status, payment_method
+                FROM bookings
+                WHERE bookingSource = 'WALK_IN'
+                ORDER BY id DESC
+                LIMIT 5
+            `)
+        ]);
 
         res.json({ 
             dailyRevenue, 
             activeGuests, 
             totalRevenue,
             totalGuestsAllTime,
-            recentCheckins: checkins || [] 
+            recentOnlineBookings: onlineCheckins || [],
+            recentWalkInBookings: walkInCheckins || []
         });
     } catch (err) {
         console.error("❌ Dashboard stats error:", err);

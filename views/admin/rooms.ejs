@@ -159,7 +159,7 @@
 
             <!-- Add button pushed to right -->
             <div class="header-controls ms-auto">
-                <button class="btn btn-dark fw-bold d-flex align-items-center gap-2 rounded-3 px-4" data-bs-toggle="modal" data-bs-target="#addRoomModal" id="addBtn">
+                <button class="btn btn-dark d-flex align-items-center gap-2 rounded-3 px-4" data-bs-toggle="modal" data-bs-target="#addRoomModal" id="addBtn">
                     <i class="bi bi-plus-lg"></i> <span>Add Room or Cottage</span>
                 </button>
             </div>
@@ -278,71 +278,92 @@
 
 <!-- Add Room Modal -->
 <div class="modal fade" id="addRoomModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered modal-md">
-        <div class="modal-content border-0 shadow-lg" style="border-radius: 20px;">
-            <div class="modal-header border-bottom-0 p-4">
-                <div>
-                    <h5 class="fw-bold mb-0">Create New Room or Cottage</h5>
-                    <small class="text-muted">Configure inventory settings.</small>
+    <div class="modal-dialog modal-dialog-centered admin-entry-dialog">
+        <div class="modal-content admin-entry-modal">
+            <div class="modal-header admin-entry-header">
+                <div class="admin-entry-heading">
+                    <div class="admin-entry-icon"><i class="bi bi-door-open"></i></div>
+                    <div>
+                        <span class="admin-entry-kicker">ROOM INVENTORY</span>
+                        <h5 class="modal-title" id="addRoomModalLabel">Create Room or Cottage</h5>
+                        <p>Set up the details, pricing, and availability.</p>
+                    </div>
                 </div>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <div class="modal-body p-4">
-                <h6 class="text-info fw-bold text-uppercase small mb-3" style="letter-spacing: 1px;">Room or Cottage Specifications</h6>
-                <div class="row g-3 mb-4">
-                    <div class="col-12">
-                        <label class="form-label small fw-bold text-muted">Room or Cottage Name / Title</label>
-                        <input type="text" class="form-control bg-light border-0" id="roomName" placeholder="e.g. Master Ocean Suite">
+            <div class="modal-body admin-entry-body">
+                <section class="admin-entry-section">
+                    <div class="admin-section-heading">
+                        <span class="admin-section-icon"><i class="bi bi-card-text"></i></span>
+                        <h6>Room details</h6>
                     </div>
-                    <div class="col-6">
-                        <label class="form-label small fw-bold text-muted">Room or Cottage Number</label>
-                        <input type="text" class="form-control bg-light border-0" id="roomNumber" placeholder="e.g. 104">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label" for="roomName">Room or Cottage Name</label>
+                            <input type="text" class="form-control" id="roomName" placeholder="e.g. Master Ocean Suite">
+                        </div>
+                        <div class="col-sm-6">
+                            <label class="form-label" for="roomNumber">Room or Cottage Number</label>
+                            <input type="text" class="form-control" id="roomNumber" placeholder="e.g. 104">
+                        </div>
+                        <div class="col-sm-6">
+                            <label class="form-label" for="roomCategory">Category</label>
+                            <select class="form-select" id="roomCategory">
+                                <option value="Standard">Standard</option>
+                                <option value="Cottage">Cottage</option>
+                            </select>
+                        </div>
                     </div>
-                    <div class="col-6">
-                        <label class="form-label small fw-bold text-muted">Category</label>
-                        <select class="form-select bg-light border-0" id="roomCategory">
-                            <option value="Standard">Standard</option>
-                            <option value="Cottage">Cottage</option>
-                        </select>
-                    </div>
-                </div>
+                </section>
 
-                <h6 class="text-info fw-bold text-uppercase small mb-3" style="letter-spacing: 1px;">Pricing & Capacity</h6>
-                <div class="row g-3 mb-4">
-                    <div class="col-6">
-                        <label class="form-label small fw-bold text-muted">Base Price (₱)</label>
-                        <input type="number" class="form-control bg-light border-0" id="roomPrice" placeholder="250">
+                <section class="admin-entry-section">
+                    <div class="admin-section-heading">
+                        <span class="admin-section-icon"><i class="bi bi-cash-coin"></i></span>
+                        <h6>Pricing & capacity</h6>
                     </div>
-                    <div class="col-6">
-                        <label class="form-label small fw-bold text-muted">Max Occupancy</label>
-                        <input type="number" class="form-control bg-light border-0" id="roomOccupancy" value="2">
+                    <div class="row g-3">
+                        <div class="col-6">
+                            <label class="form-label" for="roomPrice">Base Price (₱)</label>
+                            <input type="number" class="form-control" id="roomPrice" placeholder="250">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label" for="roomOccupancy">Max Occupancy</label>
+                            <input type="number" class="form-control" id="roomOccupancy" value="2">
+                        </div>
                     </div>
-                </div>
+                </section>
 
-                <h6 class="text-info fw-bold text-uppercase small mb-3" style="letter-spacing: 1px;">Room or Cottage Status</h6>
-                <div class="col-12 mb-4">
-                    <select class="form-select bg-light border-0" id="roomStatus">
+                <section class="admin-entry-section">
+                    <div class="admin-section-heading">
+                        <span class="admin-section-icon"><i class="bi bi-toggle-on"></i></span>
+                        <h6>Availability</h6>
+                    </div>
+                    <label class="form-label" for="roomStatus">Room or Cottage Status</label>
+                    <select class="form-select" id="roomStatus">
                         <option value="available">Available</option>
                         <option value="occupied">Occupied</option>
                         <option value="cleaning">Cleaning</option>
                     </select>
-                </div>
+                </section>
 
-                <h6 class="text-info fw-bold text-uppercase small mb-3" style="letter-spacing: 1px;">Room or Cottage Image</h6>
-                <div class="col-12">
+                <section class="admin-entry-section">
+                    <div class="admin-section-heading">
+                        <span class="admin-section-icon"><i class="bi bi-image"></i></span>
+                        <h6>Room photo</h6>
+                    </div>
                     <div class="file-upload-wrapper" id="fileUploadWrapper">
                         <input type="file" class="file-upload-input" id="roomImageFile" accept="image/*" onchange="handleImageUpload(this)">
                         <div class="file-upload-icon"><i class="bi bi-cloud-arrow-up"></i></div>
                         <div class="file-upload-text">Click or drag image here</div>
-                        <div class="file-upload-hint">PNG, JPG up to 5MB</div>
-                        <img id="imagePreview" class="file-preview" alt="Preview">
+                        <div class="file-upload-hint">PNG or JPG, up to 5 MB</div>
+                        <img id="imagePreview" class="file-preview" alt="Room or cottage preview">
                     </div>
                     <input type="hidden" id="roomImageBase64">
-                </div>
+                </section>
             </div>
-            <div class="modal-footer border-top-0 p-4 pt-0 d-flex gap-2">
-                <button type="button" class="btn btn-light flex-grow-1 fw-bold" data-bs-dismiss="modal" onclick="resetForm()">CANCEL</button>
-                <button type="button" class="btn btn-info flex-grow-1 fw-bold text-white" onclick="saveRoom()">SAVE</button>
+            <div class="modal-footer admin-entry-footer">
+                <button type="button" class="btn admin-entry-cancel" data-bs-dismiss="modal" onclick="resetForm()">Cancel</button>
+                <button type="button" class="btn admin-entry-submit" onclick="saveRoom()"><i class="bi bi-check2 me-1"></i>Save Room</button>
             </div>
         </div>
     </div>

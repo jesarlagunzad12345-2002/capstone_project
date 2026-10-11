@@ -588,6 +588,11 @@ router.post("/mark-paid/:id", checkAuth, async (req, res) => {
     if (rows.length === 0) return res.redirect("/bookings");
 
     const booking = rows[0];
+    if (booking.payment_status !== 'verified') {
+      req.session.error = "Verify the downpayment before marking this booking fully paid.";
+      return res.redirect("/bookings");
+    }
+
     const total = Number(booking.total_price) || 0;
     const downpayment = Math.min(Math.max(Number(booking.downpayment_amount) || 0, 0), total);
     const previouslyPaid = Math.min(Math.max(Number(booking.amount_paid) || 0, downpayment), total);

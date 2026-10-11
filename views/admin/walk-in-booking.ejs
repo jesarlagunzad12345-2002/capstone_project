@@ -16,6 +16,12 @@
         .summary-card { background: #0f172a; color: white; border-radius: 18px; }
         .summary-card .label { color: #94a3b8; font-size: .78rem; }
         .summary-card .value { font-size: 1.35rem; font-weight: 800; }
+        .walk-in-dashboard-link { white-space: nowrap; }
+        @media (max-width: 575.98px) {
+            .walk-in-dashboard-label { display: none; }
+            .walk-in-dashboard-link { width: 40px; height: 40px; display: inline-flex; align-items: center; justify-content: center; }
+            .walk-in-dashboard-link i { margin-right: 0 !important; }
+        }
         @media (max-width: 992px) { .sidebar { margin-left: -280px; } .main-wrapper { margin-left: 0; width: 100%; } }
     </style>
 </head>
@@ -36,7 +42,7 @@
     <div class="main-wrapper">
         <header class="d-flex align-items-center justify-content-between px-4">
             <div class="d-flex align-items-center gap-3"><a href="/bookings" class="btn btn-light"><i class="bi bi-arrow-left me-1"></i>Back to Bookings</a><span class="fw-bold text-dark">Walk-in Booking</span></div>
-            <a href="/admin-dashboard" class="text-decoration-none text-muted"><i class="bi bi-grid-1x2 me-1"></i>Dashboard</a>
+            <a href="/admin-dashboard" class="walk-in-dashboard-link text-decoration-none text-muted" aria-label="Dashboard" title="Dashboard"><i class="bi bi-grid-1x2 me-1" aria-hidden="true"></i><span class="walk-in-dashboard-label">Dashboard</span></a>
         </header>
 
         <main class="container-fluid p-4">

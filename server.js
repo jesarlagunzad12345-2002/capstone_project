@@ -55,14 +55,6 @@ app.use(session({
 
 app.use("/", routes);
 
-// =====================================================================
-// FIX: Malformed / unparsable JSON bodies used to fall through to
-// Express's default HTML error page. The frontend's fetch() calls do
-// res.json() on the response, which throws on HTML, showing a vague
-// "Could not reserve your slot" style alert instead of the real cause.
-// This middleware catches that specific case and always answers with
-// JSON so the client can show a meaningful message.
-// =====================================================================
 app.use((err, req, res, next) => {
     if (err && err.type === 'entity.parse.failed') {
         console.error('❌ Malformed JSON body on', req.method, req.path, '-', err.message);
@@ -71,13 +63,6 @@ app.use((err, req, res, next) => {
     next(err);
 });
 
-// =====================================================================
-// FIX: Catch-all error handler. Any route (including ones inside
-// routes/*.js) that throws synchronously or forgets to catch a
-// rejected promise used to crash straight to Express's default HTML
-// error page. For /api/* routes we always want JSON back; for normal
-// pages we show a simple readable error instead of a raw stack trace.
-// =====================================================================
 app.use((err, req, res, next) => {
     console.error('🔥 Unhandled error on', req.method, req.path, '-', err && err.stack ? err.stack : err);
     if (res.headersSent) return next(err);
@@ -90,13 +75,6 @@ app.use((err, req, res, next) => {
     );
 });
 
-// =====================================================================
-// FIX: Guard against the whole Node process dying on an unexpected
-// async error somewhere (e.g. a rejected promise no one awaited).
-// Previously this could silently kill the server, which explains
-// booking requests intermittently failing with a generic network
-// error until the process was restarted.
-// =====================================================================
 process.on('unhandledRejection', (reason) => {
     console.error('🔥 Unhandled Rejection:', reason);
 });
