@@ -573,27 +573,37 @@ router.get("/api/gallery", async (req, res) => {
 });
 
 
-// ===================== /create (LEGACY — kept for reference, no longer called by =====================
-// ===================== the booking form now that the hold+payment flow is live)   =====================
+// ===================== Submit an online booking for admin approval =====================
 router.post("/create", async (req, res) => {
-    const { name, email, people, roomType, requests, checkin, checkout, bookingDate, checkinTime, checkoutTime } = req.body;
-
-    console.log("📥 /create received:", { 
-        roomType, bookingDate, checkinTime, checkoutTime, checkin, checkout 
-    });
-
-    // ===================== STEP 1: CHECK EMAIL VERIFICATION =====================
-    if (!req.session.verificationCodes || 
-        !req.session.verificationCodes[email] || 
-        !req.session.verificationCodes[email].verified) {
-        
-        req.session.error = "Please verify your email address before booking. Click 'Send Code' and enter the verification code.";
+    const body = req.body || {};
+    const { name, people, roomType, requests, checkin, bookingDate, checkinTime, checkoutTime } = body;
+    const phone = String(body.phone || '').trim();
+    const email = String(body.email || '').trim().toLowerCase();
+    const wantsJson = req.is('application/json');
+    const reject = (message, status = 400) => {
+        if (wantsJson) return res.status(status).json({ success: false, message });
+        req.session.error = message;
         return res.redirect("/booking");
+    };
+
+    if (!name || !phone || !email || !roomType) {
+        return reject("Please fill in your name, phone number, email, and choose an accommodation.");
+    }
+
+    if (phone.length > 30) {
+        return reject("Phone number must be 30 characters or fewer.");
+    }
+
+    if (!req.session.verificationCodes ||
+        !req.session.verificationCodes[email] ||
+        !req.session.verificationCodes[email].verified) {
+        return reject("Please verify your email address before submitting your booking.");
     }
 
     try {
         const roomResults = await dbQuery("SELECT price, category, occupancy FROM rooms WHERE name = ? LIMIT 1", [roomType]);
-        const roomCategory = roomResults.length > 0 ? roomResults[0].category : 'Room';
+        if (roomResults.length === 0) return reject("Selected accommodation was not found.");
+        const roomCategory = roomResults[0].category;
         const isCottage = (roomCategory === 'Cottage');
 
         const maxOccupancy = roomResults.length > 0 ? parseInt(roomResults[0].occupancy) : 1;
@@ -604,21 +614,36 @@ router.post("/create", async (req, res) => {
 
         if (isCottage) {
             if (!bookingDate || !checkinTime || !checkoutTime) {
-                req.session.error = "Please fill in the booking date, check-in time, and check-out time for the cottage.";
-                return res.redirect("/booking");
+                return reject("Please fill in the booking date, check-in time, and check-out time for the cottage.");
             }
 
             // BLOCK MONDAY & TUESDAY
             if (isMondayOrTuesday(bookingDate)) {
-                req.session.error = "We are closed every Monday and Tuesday. Please choose a different date.";
-                return res.redirect("/booking");
+                return reject("We are closed every Monday and Tuesday. Please choose a different date.");
             }
 
             // Combine into MySQL DATETIME format
             finalCheckin = bookingDate + ' ' + checkinTime + ':00';
             finalCheckout = bookingDate + ' ' + checkoutTime + ':00';
 
-            console.log("🕐 Cottage datetime strings:", { finalCheckin, finalCheckout });
+            if (checkinTime >= checkoutTime) {
+                return reject("Check-out time must be later than check-in time.");
+            }
+
+            const duplicate = await dbQuery(`
+                SELECT id FROM bookings
+                WHERE LOWER(email) = ? AND roomType = ?
+                  AND DATE(checkin) = DATE(?) AND DATE(checkout) = DATE(?)
+                  AND status IN ('pending', 'approved', 'pending_payment')
+                LIMIT 1
+            `, [email, roomType, finalCheckin, finalCheckout]);
+            if (duplicate.length > 0) {
+                const message = "This booking request is already on file and waiting for admin approval.";
+                delete req.session.verificationCodes[email];
+                req.session.msg = message;
+                if (wantsJson) return res.json({ success: true, duplicate: true, bookingId: duplicate[0].id, message });
+                return res.redirect("/booking");
+            }
 
             // Check ALL bookings (pending + approved) for same-day double booking
             const overlapCheck = await dbQuery(`
@@ -629,8 +654,7 @@ router.post("/create", async (req, res) => {
 
             if (overlapCheck.length > 0) {
                 const dateStr = new Date(bookingDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-                req.session.error = `"${roomType}" is already booked on ${dateStr}. Please choose another cottage or a different date.`;
-                return res.redirect("/booking");
+                return reject(`"${roomType}" is already booked on ${dateStr}. Please choose another cottage or a different date.`, 409);
             }
 
             const roomPrice = roomResults.length > 0 ? parseFloat(roomResults[0].price) : 0;
@@ -640,21 +664,32 @@ router.post("/create", async (req, res) => {
         } else {
             // ROOMS: Only check-in date needed — auto-calculate checkout
             if (!checkin) {
-                req.session.error = "Please select a check-in date.";
-                return res.redirect("/booking");
+                return reject("Please select a check-in date.");
             }
 
             // BLOCK MONDAY & TUESDAY for checkin
             if (isMondayOrTuesday(checkin)) {
-                req.session.error = "Check-in cannot be on Monday or Tuesday. We are closed those days.";
-                return res.redirect("/booking");
+                return reject("Check-in cannot be on Monday or Tuesday. We are closed those days.");
             }
 
             // Auto-calculate checkout (next day, skip Mon/Tue)
             finalCheckin = checkin;
             finalCheckout = getAutoCheckout(checkin);
 
-            console.log("🛏️ Room auto-checkout:", { finalCheckin, finalCheckout });
+            const duplicate = await dbQuery(`
+                SELECT id FROM bookings
+                WHERE LOWER(email) = ? AND roomType = ?
+                  AND DATE(checkin) = DATE(?) AND DATE(checkout) = DATE(?)
+                  AND status IN ('pending', 'approved', 'pending_payment')
+                LIMIT 1
+            `, [email, roomType, finalCheckin, finalCheckout]);
+            if (duplicate.length > 0) {
+                const message = "This booking request is already on file and waiting for admin approval.";
+                delete req.session.verificationCodes[email];
+                req.session.msg = message;
+                if (wantsJson) return res.json({ success: true, duplicate: true, bookingId: duplicate[0].id, message });
+                return res.redirect("/booking");
+            }
 
             // Check ALL bookings (pending + approved) for date overlap
             const overlapCheck = await dbQuery(`
@@ -667,8 +702,7 @@ router.post("/create", async (req, res) => {
                 const existing = overlapCheck[0];
                 const inStr = new Date(existing.checkin).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
                 const outStr = new Date(existing.checkout).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-                req.session.error = `"${roomType}" is already booked from ${inStr} to ${outStr}. Please choose another room or different dates.`;
-                return res.redirect("/booking");
+                return reject(`"${roomType}" is already booked from ${inStr} to ${outStr}. Please choose another room or different dates.`, 409);
             }
 
             const checkinDate = new Date(finalCheckin);
@@ -678,25 +712,24 @@ router.post("/create", async (req, res) => {
             totalPrice = roomPrice * nights;
         }
 
-        // Clear verification code after successful booking (one-time use)
-        delete req.session.verificationCodes[email];
-
-        await dbQuery(
-            "INSERT INTO bookings (name, email, people, checkin, checkout, roomType, requests, status, total_price, nights) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)",
-            [name, email, guestCount, finalCheckin, finalCheckout, roomType, requests || null, totalPrice, nights]
+        const result = await dbQuery(
+            "INSERT INTO bookings (name, phone, email, people, checkin, checkout, roomType, requests, status, total_price, nights) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)",
+            [name, phone, email, guestCount, finalCheckin, finalCheckout, roomType, requests || null, totalPrice, nights]
         );
 
-        console.log("✅ Saved to DB:", { finalCheckin, finalCheckout, totalPrice });
+        delete req.session.verificationCodes[email];
 
         const priceLabel = isCottage 
             ? `₱${totalPrice.toLocaleString()} (Flat Rate - Day Use)` 
             : `₱${totalPrice.toLocaleString()} for ${nights} night(s)`;
-            
-        req.session.msg = `Booking request submitted! ${roomCategory}: ${priceLabel}. Please wait for admin approval.`;
+        const message = `Booking request submitted! ${roomCategory}: ${priceLabel}. Please wait for admin approval.`;
+        req.session.msg = message;
+        if (wantsJson) return res.json({ success: true, bookingId: result.insertId, message });
         res.redirect("/booking");
 
     } catch (err) {
         console.error("❌ SQL Error in /create:", err);
+        if (wantsJson) return res.status(500).json({ success: false, message: "Could not submit your booking. Please try again." });
         res.status(500).send("Database Error: " + (err.message || "Unknown error"));
     }
 });
@@ -728,7 +761,7 @@ router.get("/api/dashboard/stats", checkAuth, async (req, res) => {
 
         const [onlineCheckins, walkInCheckins] = await Promise.all([
             dbQuery(`
-                SELECT name, roomType, checkin, status, people, payment_status, payment_method
+                SELECT name, roomType, checkin, status, people
                 FROM bookings
                 WHERE bookingSource IS NULL OR bookingSource != 'WALK_IN'
                 ORDER BY id DESC

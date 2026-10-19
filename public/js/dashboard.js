@@ -212,7 +212,7 @@ const DashboardApp = {
     renderBookings(onlineBookings, walkInBookings) {
         const renderRows = (bookings, showPaymentMethod = false) => {
             if (!bookings || bookings.length === 0) {
-                return '<tr><td colspan="4" class="text-center py-4 text-muted">No bookings yet</td></tr>';
+                return `<tr><td colspan="${showPaymentMethod ? 4 : 3}" class="text-center py-4 text-muted">No bookings yet</td></tr>`;
             }
 
             return bookings.map(booking => {
@@ -236,17 +236,9 @@ const DashboardApp = {
                 statusText = booking.status;
             }
 
-            let paymentStatusMarkup;
-            if (showPaymentMethod) {
-                paymentStatusMarkup = `<span class="small fw-semibold text-uppercase">${booking.payment_method || 'Not recorded'}</span>`;
-            } else {
-                paymentStatusMarkup = '<span class="text-muted small">No online payment</span>';
-                if (booking.payment_status === 'verified') {
-                    paymentStatusMarkup = '<span class="badge bg-success">Verified</span>';
-                } else if (booking.payment_status === 'pending_verification') {
-                    paymentStatusMarkup = '<span class="badge bg-warning text-dark">Unverified</span>';
-                }
-            }
+            const paymentMethodMarkup = showPaymentMethod
+                ? `<td class="text-center"><span class="small fw-semibold text-uppercase">${booking.payment_method || 'Not recorded'}</span></td>`
+                : '';
 
             return `
                 <tr>
@@ -267,7 +259,7 @@ const DashboardApp = {
                     <td class="text-center">
                         <span class="status-tag ${statusClass}">${statusText}</span>
                     </td>
-                    <td class="text-center">${paymentStatusMarkup}</td>
+                    ${paymentMethodMarkup}
                 </tr>
             `;
             }).join('');

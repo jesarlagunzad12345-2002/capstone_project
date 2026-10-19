@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="css/experience.css">
     <link rel="icon" type="image/png" sizes="32x32" href="img/logo.jpg">
     
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <!-- EmailJS SDK -->
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 </head>
@@ -120,7 +121,6 @@
                         <!-- Dynamic note based on status -->
                         <div id="statusNote" class="status-note pending-note">
                             <strong>Instant Cancel:</strong> Your booking will be cancelled immediately and removed from our system.
-                            <div class="mt-1"><i class="bi bi-exclamation-triangle-fill text-danger me-1"></i><span class="text-danger fw-semibold">Any downpayment already made is non-refundable.</span></div>
                         </div>
 
                         <!-- Mismatch warning message -->
@@ -275,19 +275,13 @@
             }
         }
 
-        // FIX: both notes now carry the same non-refundable-downpayment
-        // warning so it's visible however the guest cancels — an
-        // instant self-cancel of a pending booking, or a request to
-        // cancel an already-approved one.
         function updateStatusNote(status) {
             if (status === 'pending') {
                 statusNote.className  = 'status-note pending-note';
-                statusNote.innerHTML  = '<strong>Instant Cancel:</strong> Your booking will be cancelled immediately and removed from our system.'
-                    + '<div class="mt-1"><i class="bi bi-exclamation-triangle-fill text-danger me-1"></i><span class="text-danger fw-semibold">Any downpayment already made is non-refundable.</span></div>';
+                statusNote.innerHTML  = '<strong>Instant Cancel:</strong> Your booking will be cancelled immediately and removed from our system.';
             } else {
                 statusNote.className  = 'status-note approved-note';
-                statusNote.innerHTML  = '<strong>Request Only:</strong> This will notify our admin team. Please wait for a confirmation email once your request is processed.'
-                    + '<div class="mt-1"><i class="bi bi-exclamation-triangle-fill text-danger me-1"></i><span class="text-danger fw-semibold">Any downpayment already made is non-refundable.</span></div>';
+                statusNote.innerHTML  = '<strong>Request Only:</strong> This will notify our admin team. Please wait for a confirmation email once your request is processed.';
             }
         }
 
@@ -446,7 +440,12 @@
             // 🛡️ Must be verified
             const isVerified = document.getElementById('emailVerified').value === 'true';
             if (!isVerified) {
-                alert('⚠️ Please verify your email address before submitting a cancellation.');
+                await Swal.fire({
+                    icon: 'warning',
+                    title: 'Email verification required',
+                    text: 'Please verify your email address before submitting a cancellation.',
+                    confirmButtonColor: '#0284c7'
+                });
                 return;
             }
 
@@ -474,7 +473,12 @@
                 const verifyResult = await verifyRes.json();
                 
                 if (!verifyResult.success) {
-                    alert('❌ ' + verifyResult.message);
+                    await Swal.fire({
+                        icon: 'error',
+                        title: 'Booking not found',
+                        text: verifyResult.message,
+                        confirmButtonColor: '#0284c7'
+                    });
                     refreshButton();
                     return;
                 }
@@ -506,7 +510,12 @@
                 const result = await response.json();
                 
                 if (!result.success) {
-                    alert('❌ ' + result.message);
+                    await Swal.fire({
+                        icon: 'error',
+                        title: 'Cancellation unsuccessful',
+                        text: result.message,
+                        confirmButtonColor: '#0284c7'
+                    });
                     refreshButton();
                     return;
                 }
@@ -555,18 +564,22 @@
                 await emailjs.send('service_kmlresort', TEMPLATE_ID, adminParams);
                 console.log('✅ Admin email sent to:', ADMIN_EMAIL);
 
-                // FIX: on-screen confirmation now also states the
-                // downpayment is non-refundable, so the guest sees it
-                // immediately and not only in the follow-up email —
-                // only mentioned when there actually was a downpayment.
-                const downpaymentNotice = downpaymentAmount > 0
-                    ? `\n\nNote: Your downpayment of ${downpaymentFormatted} is non-refundable per our booking policy.`
-                    : '';
-
                 if (status === 'pending') {
-                    alert('✅ Your booking has been cancelled successfully!' + downpaymentNotice + '\n\nA confirmation email has been sent to ' + email);
+                    await Swal.fire({
+                        icon: 'success',
+                        title: 'Booking Cancelled',
+                        text: `Your booking has been cancelled successfully. A confirmation email has been sent to ${email}.`,
+                        confirmButtonText: 'Done',
+                        confirmButtonColor: '#0284c7'
+                    });
                 } else {
-                    alert('✅ Your cancellation request has been submitted to our admin team!' + downpaymentNotice + '\n\nYou will receive a confirmation email once your request is processed.');
+                    await Swal.fire({
+                        icon: 'success',
+                        title: 'Cancellation Request Submitted',
+                        text: 'Your request has been sent to our admin team. You will receive an email once it has been processed.',
+                        confirmButtonText: 'Done',
+                        confirmButtonColor: '#0284c7'
+                    });
                 }
 
                 cancelForm.reset();
@@ -575,7 +588,12 @@
 
             } catch (err) {
                 console.error('❌ Error:', err);
-                alert('❌ Something went wrong. Please try again or contact us directly.');
+                await Swal.fire({
+                    icon: 'error',
+                    title: 'Something went wrong',
+                    text: 'Please try again or contact us directly.',
+                    confirmButtonColor: '#0284c7'
+                });
             } finally {
                 refreshButton();
             }

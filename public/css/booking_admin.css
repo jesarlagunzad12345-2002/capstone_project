@@ -597,13 +597,19 @@ header {
 
 .bookings-page .booking-table th:first-child,
 .bookings-page .booking-table td:first-child,
+.bookings-page .pending-bookings-table th:nth-child(2),
+.bookings-page .pending-bookings-table td:nth-child(2),
 .bookings-page .approved-bookings-table th:nth-child(2),
 .bookings-page .approved-bookings-table td:nth-child(2) {
     text-align: left !important;
 }
 
+.bookings-page .booking-table td.empty-bookings-message {
+    text-align: center !important;
+}
+
 .bookings-page .pending-bookings-table {
-    min-width: 1400px;
+    min-width: 1355px;
 }
 
 .bookings-page .walk-in-bookings-table {
@@ -922,19 +928,6 @@ header {
 .booking-edit-modal-body .form-select:focus {
     border-color: #38bdf8 !important;
     box-shadow: 0 0 0 0.2rem rgba(56, 189, 248, 0.16) !important;
-}
-
-.booking-payment-panel {
-    margin: 0.5rem 0 1.25rem;
-    padding: 1rem;
-    border: 1px solid #dceaf3;
-    border-radius: 12px;
-    background: #f7fbfe;
-}
-
-.booking-payment-panel > h3,
-.booking-payment-panel > h6 {
-    color: #17324a;
 }
 
 .booking-edit-modal-footer {

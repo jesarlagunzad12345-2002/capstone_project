@@ -132,7 +132,6 @@ async function calculateBookingPrice(roomType, checkin, checkout, bookingDate, c
 router.get("/bookings", checkAuth, async (req, res) => {
   const triggerApprove = req.session.triggerApprove || false;
   const triggerCancel = req.session.triggerCancel || false;
-  const triggerPaid = req.session.triggerPaid || false;
   const successMsg = req.session.msg || null;
   
   const errorMsg = req.session.error || null;
@@ -148,13 +147,9 @@ router.get("/bookings", checkAuth, async (req, res) => {
     in: req.session.guestIn || null,
     out: req.session.guestOut || null,
     people: req.session.guestPeople || null,
-    requests: req.session.guestRequests || null,
-    // FIX: carry the price breakdown through too, so the approval
-    // email can show what was paid as downpayment vs. what's still
-    // owed (paid walk-in at check-in).
-    totalPrice: req.session.guestTotalPrice || null,
-    downpayment: req.session.guestDownpayment || null
+    requests: req.session.guestRequests || null
   };
+  const guestTotalPrice = Number(req.session.guestTotalPrice) || 0;
 
   const cData = {
     email: req.session.cancelGuestEmail || null,
@@ -162,25 +157,15 @@ router.get("/bookings", checkAuth, async (req, res) => {
     room: req.session.cancelGuestRoom || null,
     checkin: req.session.cancelGuestCheckin || null,
     id: req.session.cancelGuestId || null,
-    downpayment: req.session.cancelGuestDownpayment || null
-  };
-
-  const pData = {
-    email: req.session.paidGuestEmail || null,
-    name: req.session.paidGuestName || null,
-    room: req.session.paidGuestRoom || null,
-    checkin: req.session.paidGuestCheckin || null,
-    total: req.session.paidGuestTotal || null,
-    downpayment: req.session.paidGuestDownpayment || 0,
-    amountPaid: req.session.paidGuestAmountPaid || 0,
-    balance: req.session.paidGuestBalance || 0
+    source: req.session.cancelGuestSource || null
   };
 
   ['triggerApprove', 'guestName', 'guestEmail', 'guestRoom', 'guestIn', 'guestOut', 
-   'guestPeople', 'guestRequests', 'guestTotalPrice', 'guestDownpayment', 'error', 'triggerCancel',
-  'cancelGuestEmail', 'cancelGuestName', 'cancelGuestRoom', 'cancelGuestCheckin', 'cancelGuestId',
+   'guestPeople', 'guestRequests', 'error', 'triggerCancel',
+  'cancelGuestEmail', 'cancelGuestName', 'cancelGuestRoom', 'cancelGuestCheckin', 'cancelGuestId', 'cancelGuestSource',
   'cancelGuestDownpayment', 'triggerPaid', 'paidGuestEmail', 'paidGuestName', 'paidGuestRoom',
-  'paidGuestCheckin', 'paidGuestTotal', 'paidGuestDownpayment', 'paidGuestAmountPaid', 'paidGuestBalance', 'msg']
+  'paidGuestCheckin', 'paidGuestTotal', 'paidGuestDownpayment', 'paidGuestAmountPaid', 'paidGuestBalance',
+  'msg']
    .forEach(key => delete req.session[key]);
 
   try {
@@ -212,26 +197,16 @@ router.get("/bookings", checkAuth, async (req, res) => {
       guestOut: gData.out, 
       guestPeople: gData.people,
       guestRequests: gData.requests,
-      guestTotalPrice: gData.totalPrice,
-      guestDownpayment: gData.downpayment,
+      guestTotalPrice,
       error: errorMsg,
       message: successMsg,
       triggerCancel,
-      triggerPaid,
-      paidGuestEmail: pData.email,
-      paidGuestName: pData.name,
-      paidGuestRoom: pData.room,
-      paidGuestCheckin: pData.checkin,
-      paidGuestTotal: pData.total,
-      paidGuestDownpayment: pData.downpayment,
-      paidGuestAmountPaid: pData.amountPaid,
-      paidGuestBalance: pData.balance,
       cancelGuestEmail: cData.email,
       cancelGuestName: cData.name,
       cancelGuestRoom: cData.room,
       cancelGuestCheckin: cData.checkin,
       cancelGuestId: cData.id,
-      cancelGuestDownpayment: cData.downpayment
+      cancelGuestSource: cData.source
     });
   } catch (err) {
     console.error("❌ SQL Error in /bookings:", err);
@@ -367,11 +342,6 @@ router.post("/approve/:id", checkAuth, async (req, res) => {
     if (bookingRows.length === 0) return res.redirect("/bookings");
 
     const row = bookingRows[0];
-    if (row.reference_number && row.payment_status !== 'verified') {
-      req.session.error = "Payment must be verified before this booking can be approved.";
-      return res.redirect("/bookings");
-    }
-
     await dbQuery("UPDATE bookings SET status = 'approved' WHERE id = ?", [bookingId]);
 
     const indexRouter = require("./index");
@@ -384,13 +354,9 @@ router.post("/approve/:id", checkAuth, async (req, res) => {
     req.session.guestRoom = row.roomType;
     req.session.guestPeople = row.people;
     req.session.guestRequests = row.requests || "None";
+    req.session.guestTotalPrice = Number(row.total_price) || 0;
     req.session.guestIn = new Date(row.checkin).toLocaleDateString('en-US', dateOptions);
     req.session.guestOut = new Date(row.checkout).toLocaleDateString('en-US', dateOptions);
-    // FIX: pass the price breakdown through session so the admin
-    // page's confirmation email can show downpayment paid vs.
-    // remaining balance due at check-in.
-    req.session.guestTotalPrice = row.total_price || 0;
-    req.session.guestDownpayment = row.downpayment_amount || 0;
     addAdminNotification(
       req,
       'approved',
@@ -409,14 +375,19 @@ router.post("/approve/:id", checkAuth, async (req, res) => {
 // ===================== POST: Edit Booking =====================
 router.post("/update/:id", checkAuth, async (req, res) => {
   const bookingId = req.params.id;
-  const { name, email, people, checkin, checkout, roomType, requests, payment_method, amount_paid, downpayment_amount, payment_status, reference_number } = req.body;
+  const { name, email, phone, people, checkin, checkout, roomType, requests, payment_method, amount_paid } = req.body;
   let isWalkInBooking = false;
   
   try {
-    const existingRows = await dbQuery("SELECT bookingSource, total_price, amount_paid, downpayment_amount, payment_status, payment_method, reference_number FROM bookings WHERE id = ? LIMIT 1", [bookingId]);
+    const existingRows = await dbQuery("SELECT bookingSource, amount_paid, phone FROM bookings WHERE id = ? LIMIT 1", [bookingId]);
     const existingBooking = existingRows[0];
     if (!existingBooking) return res.redirect("/bookings");
     isWalkInBooking = existingBooking.bookingSource === 'WALK_IN';
+    const phoneNumber = phone === undefined ? existingBooking.phone : String(phone).trim();
+    if (phoneNumber && phoneNumber.length > 30) {
+      req.session.error = "Phone number must be 30 characters or fewer.";
+      return res.redirect("/bookings");
+    }
     // Get room category
     const roomInfo = await dbQuery("SELECT category, occupancy FROM rooms WHERE name = ? LIMIT 1", [roomType]);
     const roomCategory = roomInfo.length > 0 ? roomInfo[0].category : 'Room';
@@ -501,59 +472,18 @@ router.post("/update/:id", checkAuth, async (req, res) => {
       amountPaidForUpdate = amountPaid;
     }
 
-    let paymentUpdate = null;
-    if (existingBooking && existingBooking.bookingSource !== 'WALK_IN' && payment_status !== undefined) {
-      const validPaymentMethods = ['gcash', 'maya', 'cash', 'card'];
-      const validPaymentStatuses = ['pending_verification', 'verified'];
-      const normalizedMethod = String(payment_method || '').toLowerCase();
-      const normalizedStatus = String(payment_status || '');
-      const reference = String(reference_number || '').trim();
-      const requestedDownpayment = Number(downpayment_amount);
-
-      if (!validPaymentMethods.includes(normalizedMethod) || !validPaymentStatuses.includes(normalizedStatus) || !reference || !Number.isFinite(requestedDownpayment) || requestedDownpayment < 0) {
-        req.session.error = "Please provide valid downpayment details and payment status.";
-        return res.redirect("/bookings");
-      }
-
-      const duplicateReference = await dbQuery(
-        "SELECT id FROM bookings WHERE reference_number = ? AND id != ? LIMIT 1",
-        [reference, bookingId]
-      );
-      if (duplicateReference.length > 0) {
-        req.session.error = "That payment reference number is already assigned to another booking.";
-        return res.redirect("/bookings");
-      }
-
-      paymentUpdate = {
-        method: normalizedMethod,
-        status: normalizedStatus,
-        reference,
-        downpayment: Math.min(requestedDownpayment, Number(calc.totalPrice) || 0)
-      };
-    }
-    
     await dbQuery(
-      `UPDATE bookings 
-       SET name = ?, email = ?, people = ?, checkin = ?, checkout = ?, 
-           roomType = ?, requests = ?, total_price = ?, nights = ? 
+      `UPDATE bookings
+       SET name = ?, email = ?, phone = ?, people = ?, checkin = ?, checkout = ?,
+           roomType = ?, requests = ?, total_price = ?, nights = ?
        WHERE id = ?`,
-      [name, email, guestCount, finalCheckin, finalCheckout, roomType, requests || null, calc.totalPrice, calc.nights, bookingId]
+      [name, email, phoneNumber || null, guestCount, finalCheckin, finalCheckout, roomType, requests || null, calc.totalPrice, calc.nights, bookingId]
     );
 
     if (existingBooking && existingBooking.bookingSource === 'WALK_IN') {
       await dbQuery(
         "UPDATE bookings SET payment_method = ?, amount_paid = ?, balance = ? WHERE id = ?",
         [payment_method || 'cash', amountPaidForUpdate, Math.max(0, Number(calc.totalPrice) - amountPaidForUpdate), bookingId]
-      );
-    } else if (paymentUpdate) {
-      const total = Number(calc.totalPrice) || 0;
-      const paidSoFar = Math.min(
-        Math.max(Number(existingBooking.amount_paid) || 0, paymentUpdate.downpayment),
-        total
-      );
-      await dbQuery(
-        "UPDATE bookings SET payment_method = ?, reference_number = ?, downpayment_amount = ?, payment_status = ?, balance = ? WHERE id = ?",
-        [paymentUpdate.method, paymentUpdate.reference, paymentUpdate.downpayment, paymentUpdate.status, Math.max(0, total - paidSoFar), bookingId]
       );
     }
 
@@ -581,51 +511,6 @@ router.post("/delete/:id", checkAuth, async (req, res) => {
   }
 });
 
-// ===================== POST: Mark Booking Fully Paid =====================
-router.post("/mark-paid/:id", checkAuth, async (req, res) => {
-  try {
-    const rows = await dbQuery("SELECT * FROM bookings WHERE id = ? LIMIT 1", [req.params.id]);
-    if (rows.length === 0) return res.redirect("/bookings");
-
-    const booking = rows[0];
-    if (booking.payment_status !== 'verified') {
-      req.session.error = "Verify the downpayment before marking this booking fully paid.";
-      return res.redirect("/bookings");
-    }
-
-    const total = Number(booking.total_price) || 0;
-    const downpayment = Math.min(Math.max(Number(booking.downpayment_amount) || 0, 0), total);
-    const previouslyPaid = Math.min(Math.max(Number(booking.amount_paid) || 0, downpayment), total);
-    const amountPaidNow = Math.max(0, total - previouslyPaid);
-    await dbQuery(
-      "UPDATE bookings SET amount_paid = ?, balance = 0, payment_status = 'verified' WHERE id = ?",
-      [total, booking.id]
-    );
-
-    req.session.triggerPaid = true;
-    req.session.paidGuestEmail = booking.email;
-    req.session.paidGuestName = booking.name;
-    req.session.paidGuestRoom = booking.roomType;
-    req.session.paidGuestCheckin = formatDateForInput(booking.checkin);
-    req.session.paidGuestTotal = total;
-    req.session.paidGuestDownpayment = downpayment;
-    req.session.paidGuestAmountPaid = amountPaidNow;
-    req.session.paidGuestBalance = 0;
-    addAdminNotification(
-      req,
-      'paid',
-      'Payment fully paid',
-      `${booking.name} · ${booking.roomType} · ₱${total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-    );
-    req.session.msg = "Booking marked as fully paid.";
-    res.redirect("/bookings");
-  } catch (err) {
-    console.error("❌ Mark paid error:", err);
-    res.status(500).send("Could not mark booking as fully paid: " + (err.message || "Unknown error"));
-  }
-});
-
-
 // ===================== POST: Admin Cancel Approved Booking =====================
 router.post("/admin-cancel/:id", checkAuth, async (req, res) => {
   try {
@@ -641,10 +526,7 @@ router.post("/admin-cancel/:id", checkAuth, async (req, res) => {
       req.session.cancelGuestRoom = booking.roomType;
       req.session.cancelGuestCheckin = formatDateForInput(booking.checkin);
       req.session.cancelGuestId = booking.id;
-      // FIX: carry the downpayment amount through too, so the
-      // cancellation email can clearly show the guest exactly how
-      // much was forfeited (downpayments are non-refundable).
-      req.session.cancelGuestDownpayment = booking.downpayment_amount || 0;
+      req.session.cancelGuestSource = booking.bookingSource || 'ONLINE';
       addAdminNotification(
         req,
         'cancelled',
@@ -735,7 +617,7 @@ router.post("/cancel-booking", async (req, res) => {
 
 // POST: Request verification code
 router.post("/api/request-verification-code", async (req, res) => {
-    const { email } = req.body;
+    const email = String((req.body || {}).email || '').trim().toLowerCase();
     
     if (!email || !email.includes('@')) {
         return res.json({ success: false, message: "Please enter a valid email address." });
@@ -770,7 +652,8 @@ router.post("/api/request-verification-code", async (req, res) => {
 
 // POST: Verify the code entered by user
 router.post("/api/verify-code", async (req, res) => {
-    const { email, code } = req.body;
+    const email = String((req.body || {}).email || '').trim().toLowerCase();
+    const code = String((req.body || {}).code || '');
     
     if (!req.session.verificationCodes || !req.session.verificationCodes[email]) {
         return res.json({ success: false, message: "No verification code found. Please request a new one." });
