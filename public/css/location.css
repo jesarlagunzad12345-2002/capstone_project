@@ -25,7 +25,7 @@ html, body {
 
 body {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  background-color: var(--white);
+  background-color: #17332e;
   color: var(--black);
   line-height: 1.6;
   min-height: 100vh;
@@ -33,6 +33,26 @@ body {
   overflow-y: auto;
   display: flex;
   flex-direction: column;
+  position: relative;
+  isolation: isolate;
+}
+
+body::before,
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+
+body::before {
+  z-index: -2;
+  background: url('../img/dine.jpg') center 55% / cover no-repeat;
+}
+
+body::after {
+  z-index: -1;
+  background: rgba(248, 250, 252, 0.72);
 }
 
 /* ============================================
@@ -202,7 +222,7 @@ main h1 {
 
 .info-card {
   padding: 0.75rem 1rem;
-  background: var(--light-gray);
+  background: rgba(248, 250, 252, 0.94);
   border-radius: 8px;
   border-left: 4px solid var(--primary-blue);
   transition: all 0.3s ease;
@@ -279,7 +299,7 @@ main h1 {
    ============================================ */
 #map-container {
   flex: 1;
-  background: linear-gradient(135deg, var(--black) 0%, var(--dark-gray) 100%);
+  background: rgba(15, 23, 42, 0.94);
   border-radius: 12px;
   min-height: 0;
   display: flex;
@@ -527,6 +547,7 @@ footer p {
 
   main.container {
     display: block;
+    width: 100%;
     height: auto;
     min-height: 0;
     padding: 1rem !important;
@@ -553,6 +574,7 @@ footer p {
     height: clamp(300px, 48svh, 480px);
     min-height: 300px;
     margin-top: 1.5rem;
+    margin-bottom: 1rem;
   }
 
   .map-btn {

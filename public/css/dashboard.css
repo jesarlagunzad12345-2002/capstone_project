@@ -592,7 +592,25 @@ p {
   }
 }
 
-/* Keep touch browsers usable when "desktop site" reports a wider viewport. */
+/* ============================================
+   ANIMATIONS
+   ============================================ */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+main .row {
+  animation: fadeInUp 0.6s ease-out;
+}
+
+/* Touch browsers can report a desktop-width viewport when desktop site is enabled. */
 @media (hover: none) and (pointer: coarse) and (max-width: 1400px) {
   .custom-navbar {
     padding: 1rem;
@@ -643,7 +661,8 @@ p {
   }
 
   .hero {
-    min-height: 0;
+    min-height: calc(100vh - 72px);
+    min-height: calc(100svh - 72px);
   }
 
   .hero .row > .hero-text,
@@ -672,22 +691,4 @@ p {
     max-height: 460px;
     aspect-ratio: 16 / 10;
   }
-}
-
-/* ============================================
-   ANIMATIONS
-   ============================================ */
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-main .row {
-  animation: fadeInUp 0.6s ease-out;
 }
