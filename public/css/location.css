@@ -475,15 +475,10 @@ footer p {
   }
 }
 
-/* Keep touch devices responsive when the browser requests a desktop site. */
+/* Keep touch browsers usable when "desktop site" reports a wider viewport. */
 @media (hover: none) and (pointer: coarse) and (max-width: 1400px) {
   .custom-navbar {
-    flex-wrap: wrap;
     padding: 1rem;
-  }
-
-  .custom-navbar > .container-fluid {
-    flex-wrap: wrap;
   }
 
   .navbar-expand-lg .navbar-toggler {
@@ -500,19 +495,23 @@ footer p {
     flex-basis: 100%;
   }
 
+  .navbar-expand-lg .navbar-nav {
+    flex-direction: column;
+  }
+
   .navbar-collapse {
-    background: var(--dark-gray);
+    margin-top: 1rem;
     padding: 1rem;
     border-radius: 8px;
-    margin-top: 1rem;
+    background: var(--dark-gray);
   }
 
   .navbar-nav {
     gap: 0.25rem;
   }
 
-  .navbar-expand-lg .navbar-nav {
-    flex-direction: column;
+  .search-input.invisible {
+    display: none !important;
   }
 
   .header-actions {
@@ -521,7 +520,6 @@ footer p {
     margin-top: 1rem;
   }
 
-  .search-input,
   .book-btn {
     width: 100%;
     text-align: center;
