@@ -25,7 +25,7 @@ html, body {
 
 body {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  background-color: #17332e;
+  background-color: var(--light-gray);
   color: var(--black);
   line-height: 1.6;
   min-height: 100vh;
@@ -33,26 +33,6 @@ body {
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  position: relative;
-  isolation: isolate;
-}
-
-body::before,
-body::after {
-  content: '';
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-}
-
-body::before {
-  z-index: -2;
-  background: url('../img/dine.jpg') center 55% / cover no-repeat;
-}
-
-body::after {
-  z-index: -1;
-  background: rgba(248, 250, 252, 0.72);
 }
 
 /* ============================================

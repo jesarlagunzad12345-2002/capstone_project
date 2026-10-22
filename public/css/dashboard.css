@@ -42,13 +42,17 @@ body {
   color: var(--black);
   line-height: 1.6;
   min-height: 100vh;
+  min-height: 100svh;
   overflow-x: hidden;   /* Prevent horizontal scroll only */
+  display: flex;
+  flex-direction: column;
 }
 
 /* --- HEADER & NAV --- */
 header {
   background: linear-gradient(135deg, var(--black) 0%, var(--dark-gray) 100%);
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  flex-shrink: 0;
 }
 
 .custom-navbar {
@@ -160,7 +164,15 @@ header {
 }
 
 /* --- MAIN CONTENT --- */
+main {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
 .max-width-container {
+  width: 100%;
   max-width: 1400px;
   margin: 0 auto;
   padding: 1rem 2rem;
@@ -225,12 +237,26 @@ p {
 
 .hero {
   position: relative;
-  min-height: calc(100svh - 72px);
+  flex: 1;
+  min-height: 0;
   margin-top: 0;
   overflow: hidden;
   display: flex;
   align-items: center;
-  padding: 1rem 0;
+  padding: clamp(1rem, 3vh, 2rem) 0;
+}
+
+.hero .container-fluid {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding-top: clamp(1rem, 3vh, 2rem) !important;
+  padding-bottom: clamp(1rem, 3vh, 2rem) !important;
+}
+
+.hero .row {
+  width: 100%;
+  min-height: 0;
 }
 
 .hero::before {
@@ -255,6 +281,8 @@ p {
 }
 
 .hero-text h1 {
+  font-size: clamp(2.25rem, 4vw, 3.5rem) !important;
+  line-height: 1.1;
   text-shadow: 1px 1px 6px rgba(255, 255, 255, 0.8);
 }
 
@@ -298,7 +326,7 @@ p {
 
 .hero-entrance-wrapper {
   width: 100%;
-  height: clamp(300px, 62svh, 580px);
+  height: clamp(300px, 58svh, 560px);
   max-width: 100%;
   border-radius: 24px;
   overflow: hidden;
@@ -332,7 +360,7 @@ p {
   flex-direction: column;
   align-items: flex-start;
   gap: 1rem;
-  padding: 1.2rem 1.8rem;
+  padding: 1rem 1.5rem;
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(12px);
   border: 1px solid var(--border-gray);
@@ -419,6 +447,23 @@ p {
   color: var(--text-muted-custom);
 }
 
+footer {
+  flex-shrink: 0;
+  background: var(--black);
+  color: var(--white);
+  text-align: center;
+  padding: 1.5rem;
+  font-size: 0.9rem;
+  letter-spacing: 0.5px;
+}
+
+footer p {
+  max-width: none;
+  margin-bottom: 0;
+  color: inherit;
+  font-size: inherit;
+}
+
 /* ============================================
    RESPONSIVE BREAKPOINTS
    ============================================ */
@@ -473,6 +518,10 @@ p {
   .hero {
     padding: 1rem 0;
     min-height: auto;
+  }
+
+  main {
+    flex: 1 0 auto;
   }
 }
 
@@ -661,8 +710,8 @@ main .row {
   }
 
   .hero {
-    min-height: calc(100vh - 72px);
-    min-height: calc(100svh - 72px);
+    min-height: auto;
+    flex: 1 0 auto;
   }
 
   .hero .row > .hero-text,
