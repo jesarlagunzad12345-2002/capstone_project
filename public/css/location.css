@@ -474,3 +474,91 @@ footer p {
     height: 300px;
   }
 }
+
+/* Keep touch devices responsive when the browser requests a desktop site. */
+@media (hover: none) and (pointer: coarse) and (max-width: 1400px) {
+  .custom-navbar {
+    flex-wrap: wrap;
+    padding: 1rem;
+  }
+
+  .custom-navbar > .container-fluid {
+    flex-wrap: wrap;
+  }
+
+  .navbar-expand-lg .navbar-toggler {
+    display: block;
+  }
+
+  .navbar-expand-lg .navbar-collapse:not(.show):not(.collapsing) {
+    display: none !important;
+  }
+
+  .navbar-expand-lg .navbar-collapse.show,
+  .navbar-expand-lg .navbar-collapse.collapsing {
+    display: block !important;
+    flex-basis: 100%;
+  }
+
+  .navbar-collapse {
+    background: var(--dark-gray);
+    padding: 1rem;
+    border-radius: 8px;
+    margin-top: 1rem;
+  }
+
+  .navbar-nav {
+    gap: 0.25rem;
+  }
+
+  .navbar-expand-lg .navbar-nav {
+    flex-direction: column;
+  }
+
+  .header-actions {
+    flex-direction: column;
+    width: 100%;
+    margin-top: 1rem;
+  }
+
+  .search-input,
+  .book-btn {
+    width: 100%;
+    text-align: center;
+  }
+
+  main.container {
+    display: block;
+    height: auto;
+    min-height: 0;
+    padding: 1rem !important;
+  }
+
+  main .row {
+    display: block;
+    height: auto;
+  }
+
+  main .col-lg-5,
+  main .col-lg-7 {
+    display: block;
+    width: 100%;
+    height: auto;
+    padding: 0;
+  }
+
+  main h1 {
+    font-size: clamp(1.75rem, 6vw, 2.5rem);
+  }
+
+  #map-container {
+    height: clamp(300px, 48svh, 480px);
+    min-height: 300px;
+    margin-top: 1.5rem;
+  }
+
+  .map-btn {
+    width: 100%;
+    text-align: center;
+  }
+}
