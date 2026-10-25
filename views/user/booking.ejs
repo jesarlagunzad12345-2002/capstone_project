@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="css/booking.css">
     <link rel="icon" type="image/jpeg" sizes="32x32" href="img/logo.jpg">
 
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
     <script type="text/javascript">
         (function() { 
@@ -56,14 +57,14 @@
                         </div>
 
                         <% if (typeof message !== 'undefined' && message) { %>
-                            <div class="alert alert-success alert-dismissible fade show m-4" role="alert">
+                            <div class="alert alert-success alert-dismissible fade show m-4 booking-flash-alert" role="alert">
                                 <strong>Success!</strong> <%= message %>
                                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                             </div>
                         <% } %>
 
                         <% if (typeof error !== 'undefined' && error) { %>
-                            <div class="alert alert-danger alert-dismissible fade show m-4" role="alert">
+                            <div class="alert alert-danger alert-dismissible fade show m-4 booking-flash-alert" role="alert">
                                 <i class="bi bi-exclamation-triangle-fill me-2"></i>
                                 <strong>Booking Conflict!</strong> <%= error %>
                                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
@@ -80,7 +81,10 @@
 
                                 <div class="mb-3">
                                     <label class="form-label fw-semibold">Phone Number</label>
-                                    <input type="tel" name="phone" id="phone" class="form-control custom-input" placeholder="Enter your phone number" maxlength="30" required>
+                                    <div class="input-group">
+                                        <span class="input-group-text">+63</span>
+                                        <input type="tel" name="phone" id="phone" class="form-control custom-input" placeholder="09XXXXXXXXX" inputmode="numeric" autocomplete="tel-national" pattern="(?:9[0-9]{9}|09[0-9]{9})" required>
+                                    </div>
                                 </div>
                                 
                                 <div class="mb-3">
@@ -123,9 +127,17 @@
 
                             <div class="form-section" id="bookingDetailsSection">
                                 <h3>2. Stay Details</h3>
+                                <div class="alert alert-light border mb-3" id="entranceFeeDisplay" role="status" aria-live="polite">
+                                    <strong>Entrance Fee:</strong>
+                                    <span id="entranceFeeCalculation">₱30 × <span id="entranceFeeGuestCount">1</span>
+                                    <span id="entranceFeeGuestLabel">person</span> =
+                                    <strong>₱<span id="entranceFeeTotal">30</span></strong></span>
+                                    <strong id="roomEntranceFeeMessage" style="display: none;">Free for overnight room guests.</strong>
+                                </div>
                                 <div class="mb-3">
                                     <label class="form-label fw-semibold">Number of People</label>
-                                    <input type="number" name="people" id="people" class="form-control custom-input" min="1" max="20" value="1" required onchange="calculateTotal()">
+                                    <input type="number" name="people" id="people" class="form-control custom-input" min="1" max="20" value="1" required>
+                                    <div class="form-text" id="guestPricingHint">For overnight rooms, the listed occupancy is included in the room rate. Each additional guest is ₱200 per night (up to 20 guests total).</div>
                                 </div>
 
                                 <div class="mb-3">
@@ -144,7 +156,7 @@
                                                 <optgroup label="<%= category === 'Cottage' ? '🏡 Cottages' : '🏨 ' + category + ' Rooms' %>">
                                                     <% items.forEach(room => { %>
                                                         <option value="<%= room.name %>" data-price="<%= room.price %>" data-category="<%= room.category %>" data-occupancy="<%= room.occupancy %>">
-                                                            <%= room.name %> — ₱<%= room.price %><%= room.category === 'Cottage' ? ' (Flat Rate)' : '/night' %> (Max <%= room.occupancy %> guests)
+                                                            <%= room.name %> — ₱<%= room.price %><%= room.category === 'Cottage' ? ' (Flat Rate, max ' + room.occupancy + ' guests)' : '/night (' + room.occupancy + ' guests included)' %>
                                                         </option>
                                                     <% }) %>
                                                 </optgroup>
@@ -200,6 +212,60 @@
                             </div>
 
                             <div class="form-section">
+                                <h3><i class="bi bi-stars me-2 text-primary"></i>Optional Add-ons</h3>
+                                <p class="text-muted small mb-3">Choose pool access or KTV for your stay. Overnight room guests within included occupancy receive free pool access; paid pool access is available for additional guests.</p>
+                                <div class="booking-schedule-section">
+                                    <button class="schedule-header w-100 text-start border-0" type="button" id="addonsToggle" aria-expanded="false" aria-controls="addonsContent">
+                                        <h6 class="mb-0 fw-bold"><i class="bi bi-plus-circle me-2 text-primary"></i>Choose optional add-ons</h6>
+                                        <i class="bi bi-chevron-down" id="addonsToggleIcon" aria-hidden="true"></i>
+                                    </button>
+                                    <div class="schedule-content p-3" id="addonsContent" style="display: none;">
+                                        <div class="form-check mb-3" id="poolAddonOption" style="display: none;">
+                                            <input class="form-check-input" type="checkbox" name="addons" value="pool" id="poolAddon">
+                                            <label class="form-check-label fw-semibold" for="poolAddon">Swimming pool</label>
+                                            <div class="form-text" id="poolAddonHint">₱150 per adult; ₱100 per child under 4 ft.</div>
+                                        </div>
+                                        <div class="row g-3 mb-3" id="poolGuestCounts" style="display: none;">
+                                            <div class="col-sm-6">
+                                                <label class="form-label fw-semibold" for="poolAdultCount">Adults swimming</label>
+                                                <input class="form-control custom-input" type="number" id="poolAdultCount" min="0" value="0" inputmode="numeric">
+                                            </div>
+                                            <div class="col-sm-6">
+                                                <label class="form-label fw-semibold" for="poolChildCount">Children under 4 ft swimming</label>
+                                                <input class="form-control custom-input" type="number" id="poolChildCount" min="0" value="0" inputmode="numeric">
+                                            </div>
+                                        </div>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" name="addons" value="ktv" id="ktvAddon">
+                                            <label class="form-check-label fw-semibold" for="ktvAddon">KTV room</label>
+                                            <div class="form-text">₱1,000 for 3 hours, up to 15 guests. KTV hours are 8:00 AM–6:00 PM; the resort is closed Monday and Tuesday.</div>
+                                        </div>
+                                        <div class="row g-3 mt-1 mb-3" id="ktvGuestCountFields" style="display: none;">
+                                            <div class="col-sm-6">
+                                                <label class="form-label fw-semibold" for="ktvGuestCount">KTV guests (max 15)</label>
+                                                <input class="form-control custom-input" type="number" id="ktvGuestCount" name="ktvGuestCount" min="1" max="15" step="1" value="1" inputmode="numeric" disabled>
+                                            </div>
+                                        </div>
+                                        <div id="ktvScheduleFields" class="mt-3" style="display:none;">
+                                            <div class="row g-3">
+                                                <div class="col-sm-6">
+                                                    <label class="form-label fw-semibold" for="ktvBookingDate">KTV schedule date</label>
+                                                    <input class="form-control custom-input" type="date" id="ktvBookingDate" readonly>
+                                                </div>
+                                                <div class="col-sm-6">
+                                                    <label class="form-label fw-semibold" for="ktvStartTime">Available KTV time (3 hours)</label>
+                                                    <select class="form-select custom-input" id="ktvStartTime" name="ktvStartTime" disabled>
+                                                        <option value="">Choose an available time</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            <div id="ktvAvailabilityMessage" class="form-text mt-2" aria-live="polite">Select a stay date to see KTV availability.</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="form-section">
                                 <h3><i class="bi bi-calendar-week me-2 text-primary"></i>Booking Schedule</h3>
                                 <p class="text-muted small mb-3">Check which rooms are already reserved before booking your stay.</p>
                                 <div class="booking-schedule-section">
@@ -208,6 +274,26 @@
                                         <i class="bi bi-chevron-down" id="scheduleToggleIcon"></i>
                                     </div>
                                     <div class="schedule-content" id="scheduleContent" style="display: none;">
+                                        <div class="row g-2 p-3 border-bottom">
+                                            <div class="col-md-4">
+                                                <label class="form-label small fw-semibold mb-1" for="scheduleRoomFilter">Filter by accommodation</label>
+                                                <select id="scheduleRoomFilter" class="form-select form-select-sm">
+                                                    <option value="">All accommodations</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label small fw-semibold mb-1" for="scheduleDateFilter">Filter by stay date</label>
+                                                <input type="date" id="scheduleDateFilter" class="form-control form-control-sm">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label small fw-semibold mb-1" for="scheduleSourceFilter">Filter by booking source</label>
+                                                <select id="scheduleSourceFilter" class="form-select form-select-sm">
+                                                    <option value="">All booking sources</option>
+                                                    <option value="ONLINE">Online</option>
+                                                    <option value="WALK_IN">Walk-in</option>
+                                                </select>
+                                            </div>
+                                        </div>
                                         <div id="scheduleLoading" class="text-center py-4">
                                             <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
                                             <span class="ms-2 text-muted">Loading schedule...</span>
@@ -215,8 +301,9 @@
                                         <div id="scheduleData" style="display: none;"></div>
                                         <div id="scheduleEmpty" class="text-center py-4 text-muted" style="display: none;">
                                             <i class="bi bi-calendar-check fs-1 text-success"></i>
-                                            <p class="mb-0 mt-2 fw-semibold">No bookings yet. All rooms are available!</p>
+                                            <p class="mb-0 mt-2 fw-semibold">No upcoming bookings match these filters.</p>
                                         </div>
+                                        <div id="scheduleError" class="text-center py-4 text-danger" style="display:none;">Unable to load the booking schedule. Please try again.</div>
                                     </div>
                                 </div>
                             </div>
@@ -256,7 +343,254 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        document.querySelectorAll('.booking-flash-alert').forEach(alert => {
+            window.setTimeout(() => bootstrap.Alert.getOrCreateInstance(alert).close(), 4000);
+        });
+
         let scheduleData = {};
+        const scheduleRoomFilter = document.getElementById('scheduleRoomFilter');
+        const scheduleDateFilter = document.getElementById('scheduleDateFilter');
+        const scheduleSourceFilter = document.getElementById('scheduleSourceFilter');
+        const phoneInput = document.getElementById('phone');
+        phoneInput.addEventListener('input', function() {
+            const inputDigits = this.value.replace(/\D/g, '');
+            const maxDigits = inputDigits.startsWith('09') ? 11 : 10;
+            const digits = inputDigits.slice(0, maxDigits);
+            this.value = digits;
+            const validPrefix = digits === '' || digits === '0' || digits.startsWith('09') || digits.startsWith('9');
+            const expectedLength = digits.startsWith('09') ? 11 : 10;
+            this.setCustomValidity(!validPrefix
+                ? 'Phone number must start with 9 or 09.'
+                : digits.length > 0 && digits.length < expectedLength
+                    ? `Phone number must contain ${expectedLength} digits for this prefix.`
+                    : '');
+            if (digits.length === maxDigits && this.dataset.limitNotified !== 'true') {
+                this.dataset.limitNotified = 'true';
+                Swal.fire({
+                    icon: 'info',
+                    title: 'Phone number limit reached',
+                    text: `You can enter up to ${maxDigits} digits for this phone number format.`,
+                    confirmButtonColor: '#0d6efd'
+                });
+            } else if (digits.length < maxDigits) {
+                this.dataset.limitNotified = 'false';
+            }
+        });
+
+        const addonPrices = { poolAdult: 150, poolChild: 100, ktv: 1000 };
+        const entranceFeePerPerson = 30;
+        const extraOvernightGuestPrice = 200;
+        const addonsToggle = document.getElementById('addonsToggle');
+        const addonsContent = document.getElementById('addonsContent');
+        const poolAddon = document.getElementById('poolAddon');
+        const ktvAddon = document.getElementById('ktvAddon');
+        const poolGuestCounts = document.getElementById('poolGuestCounts');
+        const poolAddonOption = document.getElementById('poolAddonOption');
+        const poolAddonHint = document.getElementById('poolAddonHint');
+        const poolAdultCount = document.getElementById('poolAdultCount');
+        const poolChildCount = document.getElementById('poolChildCount');
+        const ktvGuestCount = document.getElementById('ktvGuestCount');
+        const ktvGuestCountFields = document.getElementById('ktvGuestCountFields');
+        const ktvScheduleFields = document.getElementById('ktvScheduleFields');
+        const ktvBookingDateInput = document.getElementById('ktvBookingDate');
+        const ktvStartTime = document.getElementById('ktvStartTime');
+        const ktvAvailabilityMessage = document.getElementById('ktvAvailabilityMessage');
+        const peopleInput = document.getElementById('people');
+        let ktvAvailabilityRequest = 0;
+        let ktvAvailabilityForDate = '';
+
+        function getSelectedStayDate() {
+            const roomSelect = document.getElementById('roomType');
+            const option = roomSelect.options[roomSelect.selectedIndex];
+            return option?.getAttribute('data-category') === 'Cottage'
+                ? document.getElementById('bookingDate').value
+                : document.getElementById('checkin').value;
+        }
+
+        async function refreshKtvSchedule() {
+            ktvScheduleFields.style.display = ktvAddon.checked ? '' : 'none';
+            if (!ktvAddon.checked) {
+                ktvStartTime.value = '';
+                ktvStartTime.disabled = true;
+                ktvAvailabilityForDate = '';
+                return;
+            }
+
+            const bookingDate = getSelectedStayDate();
+            ktvBookingDateInput.value = bookingDate;
+            const previousSelection = ktvStartTime.value;
+            ktvStartTime.replaceChildren(new Option('Loading available times...', ''));
+            ktvStartTime.disabled = true;
+            ktvAvailabilityForDate = '';
+            const requestId = ++ktvAvailabilityRequest;
+
+            if (!bookingDate) {
+                ktvStartTime.replaceChildren(new Option('Choose a stay date first', ''));
+                ktvAvailabilityMessage.textContent = 'Select an accommodation and stay date to view available KTV times.';
+                return;
+            }
+            if (isMondayOrTuesday(bookingDate)) {
+                ktvStartTime.replaceChildren(new Option('KTV is closed on this date', ''));
+                ktvAvailabilityMessage.textContent = 'The resort and KTV are closed every Monday and Tuesday.';
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/ktv-schedule?date=${encodeURIComponent(bookingDate)}`, { cache: 'no-store' });
+                if (!response.ok) throw new Error(`KTV availability request failed with status ${response.status}.`);
+                const data = await response.json();
+                if (!data.success || !Array.isArray(data.slots) || !Array.isArray(data.bookings)) {
+                    throw new Error(data.error || 'The KTV availability response was invalid.');
+                }
+                if (requestId !== ktvAvailabilityRequest) return;
+
+                const dayBookings = data.bookings.filter(booking => getScheduleDateKey(booking.date) === bookingDate);
+                const hasUnscheduledBooking = dayBookings.some(booking => booking.schedulePending);
+                const reservedTimes = new Set(dayBookings.map(booking => String(booking.startTime || '').slice(0, 8)).filter(Boolean));
+                ktvStartTime.replaceChildren(new Option('Choose an available time', ''));
+                data.slots.forEach(slot => {
+                    const option = new Option(slot.label, slot.start);
+                    if (hasUnscheduledBooking || reservedTimes.has(slot.start)) {
+                        option.disabled = true;
+                        option.textContent = `${slot.label} — Booked`;
+                    } else {
+                        option.textContent = `${slot.label} — Available`;
+                    }
+                    ktvStartTime.add(option);
+                });
+                const normalizedSelection = String(previousSelection || '').slice(0, 8);
+                if (normalizedSelection && data.slots.some(slot => slot.start === normalizedSelection) &&
+                    !hasUnscheduledBooking && !reservedTimes.has(normalizedSelection)) {
+                    ktvStartTime.value = normalizedSelection;
+                }
+                const availableCount = data.slots.filter(slot => !hasUnscheduledBooking && !reservedTimes.has(slot.start)).length;
+                ktvStartTime.disabled = availableCount === 0;
+                ktvAvailabilityForDate = bookingDate;
+                const bookedLabels = data.slots
+                    .filter(slot => reservedTimes.has(slot.start))
+                    .map(slot => slot.label);
+                ktvAvailabilityMessage.textContent = hasUnscheduledBooking
+                    ? 'KTV already has a reservation on this date with no time assigned. Please choose another date.'
+                    : availableCount
+                        ? `Available: ${data.slots.filter(slot => !reservedTimes.has(slot.start)).map(slot => slot.label).join(', ')}.${bookedLabels.length ? ` Booked: ${bookedLabels.join(', ')}.` : ''}`
+                        : 'All KTV time slots are booked for this date. Choose another stay date.';
+            } catch (error) {
+                if (requestId !== ktvAvailabilityRequest) return;
+                console.error('Failed to load KTV availability:', error);
+                ktvStartTime.replaceChildren(new Option('Availability unavailable', ''));
+                ktvAvailabilityMessage.textContent = 'Could not load KTV availability. Please try again before submitting.';
+            }
+        }
+
+        function updateKtvGuestLimit(guestCount, initialize = false) {
+            const maxKtvGuests = Math.min(15, guestCount);
+            ktvGuestCount.max = String(maxKtvGuests);
+            ktvGuestCountFields.style.display = ktvAddon.checked ? 'flex' : 'none';
+            ktvGuestCount.disabled = !ktvAddon.checked;
+            if (ktvAddon.checked) {
+                if (initialize && (!ktvGuestCount.value || Number(ktvGuestCount.value) < 1)) {
+                    ktvGuestCount.value = String(maxKtvGuests);
+                } else if (ktvGuestCount.value && Number(ktvGuestCount.value) > maxKtvGuests) {
+                    ktvGuestCount.value = String(maxKtvGuests);
+                }
+            } else {
+                ktvGuestCount.value = '0';
+            }
+        }
+
+        function updatePoolGuestLimits(maxUsers, changedInput) {
+            const limit = Math.max(0, Number(maxUsers) || 0);
+            let adults = Math.max(0, Number(poolAdultCount.value) || 0);
+            let children = Math.max(0, Number(poolChildCount.value) || 0);
+
+            if (adults + children > limit) {
+                if (changedInput === poolAdultCount) {
+                    children = Math.min(children, limit);
+                    adults = Math.min(adults, limit - children);
+                } else if (changedInput === poolChildCount) {
+                    adults = Math.min(adults, limit);
+                    children = Math.min(children, limit - adults);
+                } else {
+                    adults = Math.min(adults, limit);
+                    children = Math.min(children, limit - adults);
+                }
+            }
+
+            if (poolAdultCount.value !== '' || adults !== 0) {
+                poolAdultCount.value = String(adults);
+            }
+            if (poolChildCount.value !== '' || children !== 0) {
+                poolChildCount.value = String(children);
+            }
+            poolAdultCount.max = String(Math.max(0, limit - children));
+            poolChildCount.max = String(Math.max(0, limit - adults));
+        }
+
+        function updateEntranceFee() {
+            const guestCount = Math.max(1, parseInt(peopleInput.value, 10) || 1);
+            const roomSelect = document.getElementById('roomType');
+            const selectedOption = roomSelect.selectedOptions[0];
+            const isCottage = roomSelect.value && selectedOption.getAttribute('data-category') === 'Cottage';
+            document.getElementById('entranceFeeCalculation').style.display = isCottage ? '' : 'none';
+            document.getElementById('roomEntranceFeeMessage').style.display = isCottage ? 'none' : '';
+            document.getElementById('roomEntranceFeeMessage').textContent = roomSelect.value
+                ? 'Free for overnight room guests.'
+                : 'Overnight room entrance is free; cottage entrance is ₱30 per person.';
+            document.getElementById('entranceFeeGuestCount').textContent = guestCount.toLocaleString();
+            document.getElementById('entranceFeeGuestLabel').textContent = guestCount === 1 ? 'person' : 'people';
+            document.getElementById('entranceFeeTotal').textContent =
+                (guestCount * entranceFeePerPerson).toLocaleString();
+        }
+
+        peopleInput.addEventListener('input', calculateTotal);
+        updateEntranceFee();
+
+        addonsToggle.addEventListener('click', function() {
+            const isExpanded = this.getAttribute('aria-expanded') === 'true';
+            this.setAttribute('aria-expanded', String(!isExpanded));
+            addonsContent.style.display = isExpanded ? 'none' : 'block';
+            document.getElementById('addonsToggleIcon').classList.toggle('bi-chevron-down', isExpanded);
+            document.getElementById('addonsToggleIcon').classList.toggle('bi-chevron-up', !isExpanded);
+        });
+
+        function getAddonEstimate() {
+            const adults = Number(poolAdultCount.value) || 0;
+            const children = Number(poolChildCount.value) || 0;
+            const lines = [];
+            let total = 0;
+
+            if (poolAddon.checked) {
+                const poolTotal = adults * addonPrices.poolAdult + children * addonPrices.poolChild;
+                total += poolTotal;
+                lines.push(`Pool: ₱${poolTotal.toLocaleString()}`);
+            }
+            if (ktvAddon.checked) {
+                total += addonPrices.ktv;
+                lines.push(`KTV (3 hours): ₱${addonPrices.ktv.toLocaleString()}`);
+            }
+            return { total, lines };
+        }
+
+        function updateAddonFields() {
+            poolGuestCounts.style.display = poolAddon.checked ? 'flex' : 'none';
+            updateKtvGuestLimit(Math.max(1, Number(peopleInput.value) || 1), true);
+            refreshKtvSchedule();
+            calculateTotal();
+        }
+
+        [poolAddon, ktvAddon].forEach(input => input.addEventListener('change', updateAddonFields));
+        ktvGuestCount.addEventListener('input', calculateTotal);
+        [poolAdultCount, poolChildCount].forEach(input => input.addEventListener('input', function() {
+            const roomSelect = document.getElementById('roomType');
+            const selectedOption = roomSelect.options[roomSelect.selectedIndex];
+            const guestCount = Math.max(1, Number(peopleInput.value) || 1);
+            const occupancy = Number(selectedOption?.getAttribute('data-occupancy')) || 1;
+            const maxPoolUsers = selectedOption?.getAttribute('data-category') === 'Cottage'
+                ? guestCount
+                : Math.max(0, guestCount - occupancy);
+            updatePoolGuestLimits(maxPoolUsers, this);
+            calculateTotal();
+        }));
 
         // ============================================
         // EMAIL VERIFICATION FUNCTIONS
@@ -451,9 +785,6 @@
             const [year, month, day] = checkinStr.split('-').map(Number);
             const date = new Date(year, month - 1, day);
             date.setDate(date.getDate() + 1);
-            while (date.getDay() === 1 || date.getDay() === 2) {
-                date.setDate(date.getDate() + 1);
-            }
             const y = date.getFullYear();
             const m = String(date.getMonth() + 1).padStart(2, '0');
             const d = String(date.getDate()).padStart(2, '0');
@@ -500,9 +831,18 @@
             const selectedOption = roomSelect.options[roomSelect.selectedIndex];
             const category = selectedOption.getAttribute('data-category') || 'Room';
             const isCottage = (category === 'Cottage');
+            const peopleInput = document.getElementById('people');
+            const maxOccupancy = parseInt(selectedOption.getAttribute('data-occupancy'), 10) || 1;
 
             document.getElementById('roomDateFields').style.display = isCottage ? 'none' : 'flex';
             document.getElementById('cottageFields').style.display = isCottage ? 'flex' : 'none';
+            peopleInput.max = isCottage ? maxOccupancy : 20;
+            document.getElementById('guestPricingHint').textContent = isCottage
+                ? `Cottages are day-use and have a limit of ${maxOccupancy} guests.`
+                : `The first ${maxOccupancy} guests are included in the overnight room rate. Each additional guest is ₱${extraOvernightGuestPrice} per night (up to 20 guests total).`;
+            if (isCottage && Number(peopleInput.value) > maxOccupancy) {
+                peopleInput.value = maxOccupancy;
+            }
 
             document.getElementById('checkin').required = !isCottage;
             document.getElementById('bookingDate').required = isCottage;
@@ -511,12 +851,19 @@
                 timeInput.required = isCottage;
             });
 
+            refreshKtvSchedule();
             calculateTotal();
         }
 
+        ['checkin', 'bookingDate'].forEach(id => {
+            document.getElementById(id).addEventListener('change', refreshKtvSchedule);
+        });
+
         function calculateTotal() {
+            updateEntranceFee();
             const roomSelect = document.getElementById('roomType');
             if (!roomSelect.value) {
+                poolAddonOption.style.display = 'none';
                 document.getElementById('priceDisplay').style.display = 'none';
                 return;
             }
@@ -527,20 +874,33 @@
             const isCottage = (category === 'Cottage');
             const people = parseInt(document.getElementById('people').value) || 1;
             const maxOccupancy = parseInt(selectedOption.getAttribute('data-occupancy')) || 1;
+            const extraGuestCount = isCottage ? 0 : Math.max(0, people - maxOccupancy);
+            const maxPoolUsers = isCottage ? people : extraGuestCount;
+            updateKtvGuestLimit(people);
+            poolAddonOption.style.display = isCottage || extraGuestCount > 0 ? '' : 'none';
+            poolAddonHint.textContent = isCottage
+                ? `Pool use is limited to the ${people} guest${people === 1 ? '' : 's'} on this booking. ₱150 per adult; ₱100 per child under 4 ft.`
+                : `Paid pool access is available for up to ${extraGuestCount} additional guest${extraGuestCount === 1 ? '' : 's'}. ₱150 per adult; ₱100 per child under 4 ft.`;
+            updatePoolGuestLimits(maxPoolUsers);
+            if (!isCottage && extraGuestCount === 0) {
+                poolAddon.checked = false;
+                poolAdultCount.value = '0';
+                poolChildCount.value = '0';
+                poolGuestCounts.style.display = 'none';
+            }
 
-            if (people > maxOccupancy && maxOccupancy > 0) {
+            if (isCottage && people > maxOccupancy) {
                 alert('⚠️ ' + category + ' "' + selectedOption.text.split('—')[0].trim() + '" can only accommodate ' + maxOccupancy + ' guests. Please adjust.');
                 document.getElementById('people').value = maxOccupancy;
                 return calculateTotal();
             }
 
+            let basePrice = 0;
+            let baseDescription = '';
             if (isCottage) {
                 if (price > 0) {
-                    document.getElementById('totalPrice').textContent = price.toLocaleString();
-                    document.getElementById('priceBreakdown').textContent = '₱' + price.toLocaleString() + ' — Flat Rate (Day Use)';
-                    document.getElementById('priceDisplay').style.display = 'block';
-                } else {
-                    document.getElementById('priceDisplay').style.display = 'none';
+                    basePrice = price;
+                    baseDescription = `₱${price.toLocaleString()} — Flat Rate (Day Use)`;
                 }
             } else {
                 const checkin = document.getElementById('checkin').value;
@@ -548,14 +908,22 @@
                     const start = new Date(checkin);
                     const end = new Date(getAutoCheckout(checkin));
                     const nights = Math.max(1, Math.ceil((end - start) / (1000 * 60 * 60 * 24)));
-                    const total = price * nights;
-                    document.getElementById('totalPrice').textContent = total.toLocaleString();
-                    document.getElementById('priceBreakdown').textContent = '₱' + price.toLocaleString() + ' × ' + nights + ' night(s) — ' + category;
-                    document.getElementById('priceDisplay').style.display = 'block';
-                } else {
-                    document.getElementById('priceDisplay').style.display = 'none';
+                    const extraGuestFee = extraGuestCount * extraOvernightGuestPrice * nights;
+                    basePrice = price * nights + extraGuestFee;
+                    baseDescription = `₱${price.toLocaleString()} × ${nights} night(s) — ${category}`;
+                    if (extraGuestFee > 0) {
+                        baseDescription += ` + ${extraGuestCount} extra guest(s) × ₱${extraOvernightGuestPrice} × ${nights} night(s)`;
+                    }
                 }
             }
+            const entranceFee = isCottage ? people * entranceFeePerPerson : 0;
+            const entranceDescription = isCottage
+                ? `Entrance fee (${people} guest${people === 1 ? '' : 's'}): ₱${entranceFee.toLocaleString()}`
+                : '';
+            const addonEstimate = getAddonEstimate();
+            document.getElementById('totalPrice').textContent = (basePrice + entranceFee + addonEstimate.total).toLocaleString();
+            document.getElementById('priceBreakdown').textContent = [baseDescription, entranceDescription, ...addonEstimate.lines].filter(Boolean).join(' + ');
+            document.getElementById('priceDisplay').style.display = basePrice > 0 ? 'block' : 'none';
             checkDoubleBooking();
         }
 
@@ -566,10 +934,7 @@
                 content.style.display = 'block';
                 icon.classList.remove('bi-chevron-down');
                 icon.classList.add('bi-chevron-up');
-                if (!content.dataset.loaded) {
-                    loadBookingSchedule();
-                    content.dataset.loaded = 'true';
-                }
+                loadBookingSchedule();
             } else {
                 content.style.display = 'none';
                 icon.classList.remove('bi-chevron-up');
@@ -577,79 +942,138 @@
             }
         }
 
-        // ============================================
-        // Auto-filter expired bookings
-        // ============================================
+        function escapeScheduleText(value) {
+            return String(value ?? '').replace(/[&<>"']/g, character => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#39;'
+            })[character]);
+        }
+
+        function renderBookingSchedule() {
+            const selectedRoom = scheduleRoomFilter.value;
+            const selectedDate = scheduleDateFilter.value;
+            const selectedSource = scheduleSourceFilter.value;
+            const targetStart = selectedDate ? new Date(`${selectedDate}T00:00:00`) : null;
+            const targetEnd = targetStart ? new Date(targetStart.getTime() + 86400000) : null;
+            const filteredSchedule = {};
+
+            for (const [roomName, bookings] of Object.entries(scheduleData)) {
+                if (selectedRoom && roomName !== selectedRoom) continue;
+                const matchingBookings = bookings.filter(booking => {
+                    if (selectedSource && booking.bookingSource !== selectedSource) return false;
+                    if (!targetStart) return true;
+                    const checkin = new Date(String(booking.checkin).replace(' ', 'T'));
+                    const checkout = new Date(String(booking.checkout).replace(' ', 'T'));
+                    if (booking.category !== 'Cottage') {
+                        return getScheduleDateKey(booking.checkin) <= selectedDate &&
+                            getScheduleDateKey(booking.checkout) >= selectedDate;
+                    }
+                    return checkin < targetEnd && checkout > targetStart;
+                });
+                if (matchingBookings.length > 0) filteredSchedule[roomName] = matchingBookings;
+            }
+
+            const container = document.getElementById('scheduleData');
+            const empty = document.getElementById('scheduleEmpty');
+            if (Object.keys(filteredSchedule).length === 0) {
+                container.innerHTML = '';
+                container.style.display = 'none';
+                empty.style.display = 'block';
+                return;
+            }
+
+            empty.style.display = 'none';
+            let html = '';
+            for (const [roomName, bookings] of Object.entries(filteredSchedule)) {
+                html += `<div class="schedule-room-group"><div class="schedule-room-name"><i class="bi bi-house-door-fill"></i> ${escapeScheduleText(roomName)}<span class="ms-auto badge bg-secondary rounded-pill" style="font-size: 0.7rem;">${bookings.length} booking${bookings.length > 1 ? 's' : ''}</span></div><div class="schedule-dates">`;
+                bookings.forEach(booking => {
+                    const cinDate = new Date(String(booking.checkin).replace(' ', 'T'));
+                    const coutDate = new Date(String(booking.checkout).replace(' ', 'T'));
+                    const sameDay = booking.category === 'Cottage' || cinDate.toDateString() === coutDate.toDateString();
+                    const guestCount = Number(booking.guests) || 0;
+                    const sourceBadge = `<span class="badge bg-light text-secondary border">${booking.bookingSource === 'WALK_IN' ? 'Walk-in' : 'Online'}</span>`;
+
+                    if (sameDay) {
+                        const cinTime = cinDate.toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit', hour12:true});
+                        const coutTime = coutDate.toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit', hour12:true});
+                        const dateStr = cinDate.toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
+                        html += `<div class="schedule-date-item"><div class="schedule-date-range"><i class="bi bi-calendar-x-fill text-danger"></i> ${dateStr} | ${cinTime} - ${coutTime}</div><div class="d-flex align-items-center gap-2"><span class="schedule-guests"><i class="bi bi-people-fill me-1"></i>${guestCount} guest${guestCount === 1 ? '' : 's'}</span>${sourceBadge}<span class="schedule-badge-booked">Booked</span></div></div>`;
+                    } else {
+                        const checkin = cinDate.toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
+                        const checkout = coutDate.toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
+                        html += `<div class="schedule-date-item"><div class="schedule-date-range"><i class="bi bi-calendar-x-fill text-danger"></i> ${checkin} <i class="bi bi-arrow-right mx-1 text-muted"></i> ${checkout}</div><div class="d-flex align-items-center gap-2"><span class="schedule-guests"><i class="bi bi-people-fill me-1"></i>${guestCount} guest${guestCount === 1 ? '' : 's'}</span>${sourceBadge}<span class="schedule-badge-booked">Booked</span></div></div>`;
+                    }
+                });
+                html += `</div></div>`;
+            }
+            container.innerHTML = html;
+            container.style.display = 'block';
+        }
+
+        function getScheduleDateKey(value) {
+            const date = new Date(String(value).replace(' ', 'T'));
+            if (Number.isNaN(date.getTime())) return '';
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
         async function loadBookingSchedule() {
+            const loading = document.getElementById('scheduleLoading');
+            const container = document.getElementById('scheduleData');
+            const empty = document.getElementById('scheduleEmpty');
+            const error = document.getElementById('scheduleError');
+            loading.style.display = 'block';
+            container.style.display = 'none';
+            empty.style.display = 'none';
+            error.style.display = 'none';
+
             try {
                 const res = await fetch('/api/booking-schedule');
+                if (!res.ok) throw new Error(`Schedule request failed with status ${res.status}.`);
                 const data = await res.json();
-                
-                // AUTO-FILTER: Remove expired bookings based on time rules
-                const now = new Date();
-                
-                if (data.schedule) {
-                    for (const [roomName, bookings] of Object.entries(data.schedule)) {
-                        data.schedule[roomName] = bookings.filter(booking => {
-                            const cinDate = new Date(booking.checkin);
-                            const coutDate = new Date(booking.checkout);
-                            
-                            // COTTAGE = same-day booking (day-use)
-                            // ROOM = overnight (different days)
-                            const isCottage = cinDate.toDateString() === coutDate.toDateString();
-                            
-                            if (isCottage) {
-                                // Cottage: remove after checkout time ends
-                                return now < coutDate;
-                            } else {
-                                // Room: remove 22 hours after check-in
-                                const hoursSinceCheckin = (now - cinDate) / (1000 * 60 * 60);
-                                return hoursSinceCheckin < 22;
-                            }
-                        });
-                        
-                        // Clean up empty rooms from schedule
-                        if (data.schedule[roomName].length === 0) {
-                            delete data.schedule[roomName];
-                        }
-                    }
-                }
-                
-                if (data.schedule) scheduleData = data.schedule;
-                document.getElementById('scheduleLoading').style.display = 'none';
-
-                if (!data.schedule || Object.keys(data.schedule).length === 0) {
-                    document.getElementById('scheduleEmpty').style.display = 'block';
-                    return;
+                if (!data.success || !data.schedule) {
+                    throw new Error(data.error || 'The schedule response was invalid.');
                 }
 
-                const container = document.getElementById('scheduleData');
-                let html = '';
-                for (const [roomName, bookings] of Object.entries(data.schedule)) {
-                    html += `<div class="schedule-room-group"><div class="schedule-room-name"><i class="bi bi-house-door-fill"></i> ${roomName}<span class="ms-auto badge bg-secondary rounded-pill" style="font-size: 0.7rem;">${bookings.length} booking${bookings.length > 1 ? 's' : ''}</span></div><div class="schedule-dates">`;
-                    bookings.forEach(booking => {
-                        const cinDate = new Date(booking.checkin);
-                        const coutDate = new Date(booking.checkout);
-                        const sameDay = cinDate.toDateString() === coutDate.toDateString();
-                        
-                        if (sameDay) {
-                            const cinTime = cinDate.toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit', hour12:true});
-                            const coutTime = coutDate.toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit', hour12:true});
-                            const dateStr = cinDate.toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
-                            html += `<div class="schedule-date-item"><div class="schedule-date-range"><i class="bi bi-calendar-x-fill text-danger"></i> ${dateStr} | ${cinTime} - ${coutTime}</div><div class="d-flex align-items-center gap-2"><span class="schedule-guests"><i class="bi bi-people-fill me-1"></i>${booking.guests} guest${booking.guests > 1 ? 's' : ''}</span><span class="schedule-badge-booked">Booked</span></div></div>`;
-                        } else {
-                            const checkin = cinDate.toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
-                            const checkout = coutDate.toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
-                            html += `<div class="schedule-date-item"><div class="schedule-date-range"><i class="bi bi-calendar-x-fill text-danger"></i> ${checkin} <i class="bi bi-arrow-right mx-1 text-muted"></i> ${checkout}</div><div class="d-flex align-items-center gap-2"><span class="schedule-guests"><i class="bi bi-people-fill me-1"></i>${booking.guests} guest${booking.guests > 1 ? 's' : ''}</span><span class="schedule-badge-booked">Booked</span></div></div>`;
-                        }
-                    });
-                    html += `</div></div>`;
-                }
-                container.innerHTML = html;
-                container.style.display = 'block';
+                scheduleData = data.schedule;
+                const selectedRoom = scheduleRoomFilter.value;
+                const roomNames = Object.keys(scheduleData);
+                scheduleRoomFilter.replaceChildren(new Option('All accommodations', ''));
+                roomNames.forEach(roomName => scheduleRoomFilter.add(new Option(roomName, roomName)));
+                if (roomNames.includes(selectedRoom)) scheduleRoomFilter.value = selectedRoom;
+                renderBookingSchedule();
             } catch (err) {
                 console.error('Failed to load schedule:', err);
+                error.style.display = 'block';
+            } finally {
+                loading.style.display = 'none';
             }
+        }
+
+        scheduleRoomFilter.addEventListener('change', renderBookingSchedule);
+        scheduleDateFilter.addEventListener('input', renderBookingSchedule);
+        scheduleSourceFilter.addEventListener('change', renderBookingSchedule);
+
+        function getScheduleConflictMessage(booking, isCottage, dateValue) {
+            const accommodation = isCottage ? 'cottage' : 'room';
+            const date = new Date(`${dateValue}T00:00:00`).toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric'
+            });
+
+            if (booking.bookingSource === 'WALK_IN') {
+                return `This ${accommodation} is already approved and recorded as a walk-in booking for ${date}. Please choose another ${accommodation} or change the date.`;
+            }
+            if (booking.status === 'approved') {
+                return `This ${accommodation} already has an approved online booking for ${date}. Please choose another ${accommodation} or change the date.`;
+            }
+            return `An online booking request for this ${accommodation} is already on file for ${date} and is awaiting approval. Please choose another ${accommodation} or change the date.`;
         }
 
         function checkDoubleBooking() {
@@ -698,8 +1122,7 @@
                 for (const booking of roomBookings) {
                     const existingDate = new Date(booking.checkin).toISOString().split('T')[0];
                     if (existingDate === bookingDate) {
-                        const dateStr = new Date(bookingDate).toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
-                        conflictMessage.innerHTML = '<strong>"' + selectedRoom + '" is already booked on ' + dateStr + '.</strong><br>Please choose another cottage or a different date.';
+                        conflictMessage.textContent = getScheduleConflictMessage(booking, true, bookingDate);
                         conflictAlert.style.display = 'block';
                         submitBtn.disabled = true;
                         return false;
@@ -714,9 +1137,7 @@
                     const existingStart = new Date(booking.checkin);
                     const existingEnd = new Date(booking.checkout);
                     if (newStart < existingEnd && newEnd > existingStart) {
-                        const inStr = existingStart.toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
-                        const outStr = existingEnd.toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
-                        conflictMessage.innerHTML = '<strong>"' + selectedRoom + '" is already booked from ' + inStr + ' to ' + outStr + '.</strong><br>Please choose another room or different dates.';
+                        conflictMessage.textContent = getScheduleConflictMessage(booking, false, checkinVal);
                         conflictAlert.style.display = 'block';
                         submitBtn.disabled = true;
                         return false;
@@ -735,6 +1156,13 @@
         // FORM SUBMIT HANDLER
         // ============================================
 
+        function showBookingError(message) {
+            const conflictAlert = document.getElementById('conflictAlert');
+            document.getElementById('conflictMessage').textContent = message;
+            conflictAlert.style.display = 'block';
+            conflictAlert.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+
         async function submitBooking(payload) {
             const submitBtn = document.getElementById('submitBtn');
             submitBtn.disabled = true;
@@ -746,9 +1174,12 @@
                     headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
                     body: JSON.stringify(payload)
                 });
-                const data = await res.json();
+                const contentType = res.headers.get('content-type') || '';
+                const data = contentType.includes('application/json')
+                    ? await res.json()
+                    : { success: false, message: 'The booking server returned an unexpected response. Please refresh and try again.' };
                 if (!res.ok || !data.success) {
-                    alert('⚠️ ' + (data.message || 'Could not submit your booking. Please try again.'));
+                    showBookingError(data.message || 'Could not submit your booking. Please try again.');
                     unlockSubmitButton();
                     return;
                 }
@@ -757,13 +1188,25 @@
                 setTimeout(() => window.location.href = '/booking', 3000);
             } catch (err) {
                 console.error('Booking submission error:', err);
-                alert('⚠️ ' + (err.message || 'Could not submit your booking. Please try again.'));
+                showBookingError(err.message || 'Could not submit your booking. Please try again.');
                 unlockSubmitButton();
             }
         }
 
         document.getElementById('bookingForm').addEventListener('submit', function(e) {
             e.preventDefault();
+            const phoneDigits = phoneInput.value.trim();
+            if (!/^(?:9\d{9}|09\d{9})$/.test(phoneDigits)) {
+                const requiredLength = phoneDigits.startsWith('09') ? 11 : 10;
+                phoneInput.setCustomValidity(phoneDigits.startsWith('9') || phoneDigits.startsWith('09')
+                    ? `Phone number must contain exactly ${requiredLength} digits.`
+                    : 'Phone number must start with 9 or 09.');
+                phoneInput.reportValidity();
+                phoneInput.focus();
+                return;
+            }
+            phoneInput.setCustomValidity('');
+            const phone = `+63${phoneDigits.startsWith('0') ? phoneDigits.slice(1) : phoneDigits}`;
 
             // FIRST CHECK: Is email verified?
             const isVerified = document.getElementById('emailVerified').value === 'true';
@@ -774,7 +1217,7 @@
 
             // SECOND CHECK: Any double booking conflicts?
             if (!checkDoubleBooking()) {
-                alert('⚠️ This accommodation is already booked or the selected date is not available.');
+                document.getElementById('conflictAlert').scrollIntoView({ behavior: 'smooth', block: 'center' });
                 return;
             }
 
@@ -799,6 +1242,11 @@
                     alert('⚠️ We are closed on Mondays and Tuesdays. Please choose a different date.');
                     return;
                 }
+                const cottageMax = parseInt(selectedOption.getAttribute('data-occupancy'), 10) || 1;
+                if ((parseInt(document.getElementById('people').value, 10) || 1) > cottageMax) {
+                    alert(`⚠️ This cottage can accommodate up to ${cottageMax} guests.`);
+                    return;
+                }
             } else {
                 const checkin = document.getElementById('checkin').value;
                 if (!checkin) {
@@ -811,13 +1259,48 @@
                 }
             }
 
+            const guestCount = parseInt(document.getElementById('people').value, 10) || 0;
+            const poolUsers = (parseInt(poolAdultCount.value, 10) || 0) + (parseInt(poolChildCount.value, 10) || 0);
+            if (poolAddon.checked && poolUsers < 1) {
+                alert('Please enter how many adults and children will use the pool.');
+                poolAdultCount.focus();
+                return;
+            }
+            const isCottage = selectedOption.getAttribute('data-category') === 'Cottage';
+            const includedOccupancy = parseInt(selectedOption.getAttribute('data-occupancy'), 10) || 1;
+            const maxPaidPoolUsers = isCottage ? guestCount : Math.max(0, guestCount - includedOccupancy);
+            if (poolAddon.checked && poolUsers > maxPaidPoolUsers) {
+                alert(`Pool users cannot exceed the ${maxPaidPoolUsers} guests eligible for paid pool access.`);
+                poolAdultCount.focus();
+                return;
+            }
+            if (ktvAddon.checked && (!Number.isInteger(Number(ktvGuestCount.value)) || Number(ktvGuestCount.value) < 1 || Number(ktvGuestCount.value) > Math.min(15, guestCount))) {
+                alert(`KTV guest count must be between 1 and ${Math.min(15, guestCount)}.`);
+                ktvGuestCount.focus();
+                return;
+            }
+            if (ktvAddon.checked) {
+                const stayDate = getSelectedStayDate();
+                if (!ktvStartTime.value || ktvAvailabilityForDate !== stayDate) {
+                    showBookingError('Choose an available KTV time slot for your stay date.');
+                    refreshKtvSchedule();
+                    ktvStartTime.focus();
+                    return;
+                }
+            }
+
             submitBooking({
                 name: document.getElementById('name').value.trim(),
-                phone: document.getElementById('phone').value.trim(),
+                phone,
                 email: document.getElementById('email').value.trim(),
                 people: document.getElementById('people').value,
                 roomType: roomSelect.value,
                 requests: document.querySelector('textarea[name="requests"]').value.trim(),
+                addons: [...document.querySelectorAll('input[name="addons"]:checked')].map(input => input.value),
+                poolAdultCount: poolAdultCount.value,
+                poolChildCount: poolChildCount.value,
+                ktvGuestCount: ktvGuestCount.value,
+                ktvStartTime: ktvStartTime.value,
                 checkin: document.getElementById('checkin').value,
                 bookingDate: document.getElementById('bookingDate').value,
                 checkinTime: document.getElementById('checkinTime').value,

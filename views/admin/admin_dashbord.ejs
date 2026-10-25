@@ -182,6 +182,13 @@
             padding: 0.85rem 1.25rem;
             border-bottom: 1px solid #f1f5f9;
             transition: background 0.2s;
+            width: 100%;
+            background: #fff;
+            border-top: 0;
+            border-left: 0;
+            border-right: 0;
+            text-align: left;
+            cursor: pointer;
         }
 
         .revenue-log-item:hover {
@@ -222,6 +229,79 @@
 
         .revenue-log-item:hover .delete-log-btn {
             opacity: 1;
+        }
+
+        .revenue-booking-summary {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 0.75rem;
+            margin-bottom: 1.25rem;
+        }
+
+        .revenue-booking-summary-card {
+            padding: 0.9rem 1rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 14px;
+            background: #f8fafc;
+        }
+
+        .revenue-booking-summary-label {
+            display: block;
+            margin-bottom: 0.25rem;
+            color: #64748b;
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .revenue-booking-summary-value {
+            color: #0f172a;
+            font-size: 1.05rem;
+            font-weight: 800;
+        }
+
+        .revenue-booking-table thead th {
+            color: #64748b;
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            white-space: nowrap;
+            text-align: center;
+            vertical-align: middle;
+        }
+
+        .revenue-booking-table {
+            width: 100%;
+            min-width: 1050px;
+            table-layout: fixed;
+        }
+
+        .revenue-booking-table .revenue-col-guest { width: 14%; }
+        .revenue-booking-table .revenue-col-room { width: 12%; }
+        .revenue-booking-table .revenue-col-booking-status { width: 12%; }
+        .revenue-booking-table .revenue-col-payment-status { width: 12%; }
+        .revenue-booking-table .revenue-col-method { width: 12%; }
+        .revenue-booking-table .revenue-col-money { width: 10%; }
+        .revenue-booking-table .revenue-col-action { width: 8%; }
+
+        .revenue-booking-table tbody td {
+            padding-top: 0.85rem;
+            padding-bottom: 0.85rem;
+            font-size: 0.82rem;
+            text-align: center;
+            vertical-align: middle;
+            overflow-wrap: anywhere;
+        }
+
+        .revenue-booking-table .revenue-booking-money {
+            text-align: center;
+            white-space: nowrap;
+            font-variant-numeric: tabular-nums;
+        }
+
+        @media (max-width: 575.98px) {
+            .revenue-booking-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         }
 
         .delete-log-btn:hover {
@@ -439,6 +519,59 @@
                                         </tbody>
                                     </table>
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal fade" id="revenueBookingsModal" tabindex="-1" aria-labelledby="revenueBookingsModalTitle" aria-hidden="true">
+                <div class="modal-dialog modal-xl modal-dialog-scrollable">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <div>
+                                <h2 class="modal-title fs-5 fw-bold" id="revenueBookingsModalTitle">Bookings and payments</h2>
+                                <div class="small text-muted" id="revenueBookingsModalDate"></div>
+                            </div>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="revenue-booking-summary">
+                                <div class="revenue-booking-summary-card"><span class="revenue-booking-summary-label">Bookings</span><span class="revenue-booking-summary-value" id="revenueSummaryBookings">0</span></div>
+                                <div class="revenue-booking-summary-card"><span class="revenue-booking-summary-label">Online</span><span class="revenue-booking-summary-value" id="revenueSummaryOnline">0</span></div>
+                                <div class="revenue-booking-summary-card"><span class="revenue-booking-summary-label">Walk-in</span><span class="revenue-booking-summary-value" id="revenueSummaryWalkIn">0</span></div>
+                                <div class="revenue-booking-summary-card"><span class="revenue-booking-summary-label">Amount paid</span><span class="revenue-booking-summary-value" id="revenueSummaryPaid">₱0.00</span></div>
+                            </div>
+                            <div class="table-responsive">
+                                <table class="table table-hover align-middle revenue-booking-table">
+                                    <colgroup>
+                                        <col class="revenue-col-guest">
+                                        <col class="revenue-col-room">
+                                        <col class="revenue-col-booking-status">
+                                        <col class="revenue-col-payment-status">
+                                        <col class="revenue-col-method">
+                                        <col class="revenue-col-money">
+                                        <col class="revenue-col-money">
+                                        <col class="revenue-col-money">
+                                        <col class="revenue-col-action">
+                                    </colgroup>
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Guest / source</th>
+                                            <th>Room / guests</th>
+                                            <th>Booking status</th>
+                                            <th>Payment status</th>
+                                            <th>Payment method</th>
+                                            <th>Total</th>
+                                            <th>Paid</th>
+                                            <th>Balance</th>
+                                            <th>Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="revenueBookingRows">
+                                        <tr><td colspan="9" class="text-center text-muted py-4">Select a revenue date to view its bookings.</td></tr>
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
                     </div>

@@ -5,6 +5,15 @@ const path = require("path");
 const fs = require("fs");
 const os = require("os");
 const db = require("../config/database");
+const {
+  normalizeBookingAddons,
+  stripCalculatedBookingRequests,
+  getOvernightExtraGuestFee,
+  getEntranceFee,
+  EXTRA_OVERNIGHT_GUEST_PRICE,
+  ENTRANCE_FEE_PER_PERSON,
+  MAX_BOOKING_GUESTS
+} = require("../utils/booking-addons");
 
 const dbQuery = (sql, params = []) => new Promise((resolve, reject) => {
   db.query(sql, params, (err, results) => (err ? reject(err) : resolve(results)));
@@ -78,9 +87,6 @@ function getAutoCheckout(checkinStr) {
   const [year, month, day] = checkinStr.split('-').map(Number);
   const date = new Date(year, month - 1, day);
   date.setDate(date.getDate() + 1);
-  while (date.getDay() === 1 || date.getDay() === 2) {
-    date.setDate(date.getDate() + 1);
-  }
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, '0');
   const d = String(date.getDate()).padStart(2, '0');
@@ -153,8 +159,19 @@ router.post("/api/create-hold", async (req, res) => {
     const roomCategory = roomResults[0].category;
     const isCottage = roomCategory === 'Cottage';
     const maxOccupancy = parseInt(roomResults[0].occupancy) || 1;
-    let guestCount = parseInt(people) || 1;
-    if (guestCount > maxOccupancy && maxOccupancy > 0) guestCount = maxOccupancy;
+    const guestCount = Number(people);
+    if (!Number.isInteger(guestCount) || guestCount < 1 || guestCount > MAX_BOOKING_GUESTS) {
+      return res.status(400).json({ success: false, message: `Guest count must be between 1 and ${MAX_BOOKING_GUESTS}.` });
+    }
+    if (isCottage && guestCount > maxOccupancy) {
+      return res.status(400).json({ success: false, message: `This cottage can accommodate up to ${maxOccupancy} guests.` });
+    }
+
+    const maxPaidPoolUsers = isCottage ? guestCount : Math.max(0, guestCount - maxOccupancy);
+    const addons = normalizeBookingAddons(body, guestCount, maxPaidPoolUsers);
+    if (addons.error) {
+      return res.status(400).json({ success: false, message: addons.error });
+    }
 
     let finalCheckin, finalCheckout, totalPrice, nights;
 
@@ -202,16 +219,27 @@ router.post("/api/create-hold", async (req, res) => {
       totalPrice = parseFloat(roomResults[0].price) * nights;
     }
 
+    const extraGuestCount = isCottage ? 0 : Math.max(0, guestCount - maxOccupancy);
+    const extraGuestFee = getOvernightExtraGuestFee(guestCount, maxOccupancy, nights);
+    const entranceFee = getEntranceFee(guestCount, isCottage);
+    totalPrice += addons.price + extraGuestFee + entranceFee;
+    const bookingRequests = stripCalculatedBookingRequests(requests);
     const downpayment = Math.ceil(totalPrice * DOWNPAYMENT_PERCENT);
     const holdExpires = new Date(Date.now() + HOLD_MINUTES * 60 * 1000);
 
     const result = await dbQuery(
       `INSERT INTO bookings
         (name, email, people, checkin, checkout, roomType, requests, status,
-         total_price, nights, downpayment_amount, payment_status, hold_expires_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 'pending_payment', ?, ?, ?, 'unpaid', ?)`,
-      [name, email, guestCount, finalCheckin, finalCheckout, roomType, requests || null,
-       totalPrice, nights, downpayment, holdExpires]
+         total_price, nights, downpayment_amount, payment_status, hold_expires_at,
+         pool_addon, pool_adult_count, pool_child_count, pool_fee, ktv_addon, ktv_fee, ktv_guest_count,
+         overnight_extra_guest_count, overnight_extra_guest_rate, overnight_extra_guest_fee,
+         entrance_fee_per_person, entrance_fee_total)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'pending_payment', ?, ?, ?, 'unpaid', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [name, email, guestCount, finalCheckin, finalCheckout, roomType, bookingRequests,
+       totalPrice, nights, downpayment, holdExpires,
+       addons.poolSelected ? 1 : 0, addons.poolAdultCount, addons.poolChildCount, addons.poolFee,
+       addons.ktvSelected ? 1 : 0, addons.ktvFee, addons.ktvGuestCount, extraGuestCount, EXTRA_OVERNIGHT_GUEST_PRICE,
+       extraGuestFee, isCottage ? ENTRANCE_FEE_PER_PERSON : 0, entranceFee]
     );
 
     res.json({
@@ -328,7 +356,16 @@ router.delete("/api/cancel-hold/:id", async (req, res) => {
 router.post("/api/verify-payment/:id", async (req, res) => {
   if (!req.session.isLoggedIn) return res.status(401).json({ success: false, message: "Not authorized." });
   try {
-    await dbQuery("UPDATE bookings SET payment_status = 'verified' WHERE id = ?", [req.params.id]);
+    await dbQuery(
+      `UPDATE bookings
+       SET payment_status = 'verified',
+           amount_paid = GREATEST(amount_paid, downpayment_amount),
+           balance = GREATEST(0, total_price - GREATEST(amount_paid, downpayment_amount))
+       WHERE id = ?`,
+      [req.params.id]
+    );
+    const indexRouter = require("./index");
+    await indexRouter.addRevenueForBooking(req.params.id);
     res.json({ success: true });
   } catch (err) {
     console.error("❌ verify-payment error:", err);

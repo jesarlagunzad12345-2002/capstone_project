@@ -5,6 +5,22 @@ const bcrypt = require("bcrypt");
 const emailjs = require('@emailjs/nodejs'); // EmailJS for OTP
 const bookingRoutes = require("./bookings");
 const paymentRoutes = require("./payments"); // <-- NEW: GCash/Maya downpayment flow
+const {
+    normalizeBookingAddons,
+    stripCalculatedBookingRequests,
+    getOvernightExtraGuestFee,
+    getEntranceFee,
+    EXTRA_OVERNIGHT_GUEST_PRICE,
+    ENTRANCE_FEE_PER_PERSON,
+    MAX_BOOKING_GUESTS
+} = require("../utils/booking-addons");
+const {
+    KTV_TIME_SLOTS,
+    normalizeKtvStartTime,
+    withKtvScheduleLock,
+    findKtvConflict,
+    isMondayOrTuesday: isKtvClosedDay
+} = require("../utils/ktv-schedule");
 const getDb = () => require("../config/database");
 
 const checkAuth = (req, res, next) => req.session.isLoggedIn ? next() : res.redirect("/login");
@@ -21,65 +37,135 @@ function isMondayOrTuesday(dateString) {
     return dayOfWeek === 1 || dayOfWeek === 2; // 1=Mon, 2=Tue
 }
 
-// ===================== HELPER: Auto-checkout for rooms (next day, skip Mon/Tue) =====================
+// ===================== HELPER: Auto-checkout for rooms (next calendar day) =====================
 function getAutoCheckout(checkinStr) {
     const [year, month, day] = checkinStr.split('-').map(Number);
     const date = new Date(year, month - 1, day);
     date.setDate(date.getDate() + 1);
-    while (date.getDay() === 1 || date.getDay() === 2) {
-        date.setDate(date.getDate() + 1);
-    }
     const y = date.getFullYear();
     const m = String(date.getMonth() + 1).padStart(2, '0');
     const d = String(date.getDate()).padStart(2, '0');
     return `${y}-${m}-${d}`;
 }
 
+async function queryWithConnection(connection, sql, params = []) {
+    const [results] = await connection.query(sql, params);
+    return results;
+}
+
+function getRevenueDate(checkin) {
+    if (!checkin) throw new Error("Cannot synchronize revenue without a booking date.");
+    if (typeof checkin === 'string') return checkin.split(/[ T]/)[0];
+    const date = new Date(checkin);
+    if (Number.isNaN(date.getTime())) throw new Error("Cannot synchronize revenue with an invalid booking date.");
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+async function applyRevenueDelta(connection, revenueDate, amountDelta, guestDelta) {
+    await queryWithConnection(
+        connection,
+        `INSERT IGNORE INTO daily_revenue (revenue_date, total_amount, guest_count, last_reset)
+         VALUES (?, 0, 0, NOW())`,
+        [revenueDate]
+    );
+    await queryWithConnection(
+        connection,
+        `UPDATE daily_revenue
+         SET total_amount = GREATEST(0, total_amount + ?),
+             guest_count = GREATEST(0, guest_count + ?)
+         WHERE revenue_date = ?`,
+        [amountDelta, guestDelta, revenueDate]
+    );
+}
+
 async function addRevenueForBooking(bookingId) {
+    const connection = await getDb().promise().getConnection();
+
     try {
-        const bookings = await dbQuery(
-            "SELECT total_price, people, checkin FROM bookings WHERE id = ?",
+        await connection.beginTransaction();
+
+        const bookings = await queryWithConnection(
+            connection,
+            `SELECT name, email, roomType, people, total_price, amount_paid, balance,
+                    payment_method, payment_status, bookingSource, status,
+                    DATE_FORMAT(checkin, '%Y-%m-%d') AS checkin_date
+             FROM bookings WHERE id = ? LIMIT 1`,
             [bookingId]
         );
 
-        if (bookings.length === 0) return;
-
-        const booking = bookings[0];
-
-        const checkinStr = booking.checkin;
-        let revenueDate;
-
-        if (typeof checkinStr === 'string') {
-            if (checkinStr.includes('T')) {
-                revenueDate = checkinStr.split('T')[0];
-            } else if (checkinStr.includes(' ')) {
-                revenueDate = checkinStr.split(' ')[0];
-            } else {
-                revenueDate = checkinStr;
-            }
-        } else {
-            const date = new Date(checkinStr);
-            const year = date.getFullYear();
-            const month = String(date.getMonth() + 1).padStart(2, '0');
-            const day = String(date.getDate()).padStart(2, '0');
-            revenueDate = `${year}-${month}-${day}`;
+        if (bookings.length === 0) {
+            await connection.commit();
+            return;
         }
 
-        const amount = parseFloat(booking.total_price) || 0;
-        const guestCount = 1;
-
-        await dbQuery(
-            `INSERT INTO daily_revenue (revenue_date, total_amount, guest_count, last_reset) 
-             VALUES (?, ?, ?, NOW()) 
-             ON DUPLICATE KEY UPDATE 
-                total_amount = total_amount + VALUES(total_amount),
-                guest_count = guest_count + VALUES(guest_count)`,
-            [revenueDate, amount, guestCount]
+        const booking = bookings[0];
+        const revenueDate = getRevenueDate(booking.checkin_date);
+        const amount = booking.status === 'approved'
+            ? Math.round((Number(booking.total_price) || 0) * 100) / 100
+            : 0;
+        const guestCount = booking.status === 'approved' ? 1 : 0;
+        const contributions = await queryWithConnection(
+            connection,
+            `SELECT DATE_FORMAT(revenue_date, '%Y-%m-%d') AS revenue_date, amount, guest_count
+             FROM booking_revenue_contributions
+             WHERE booking_id = ? FOR UPDATE`,
+            [bookingId]
         );
 
-        console.log(`✅ Revenue added: ₱${amount} for 1 guest on ${revenueDate}`);
+        if (contributions.length === 0) {
+            await queryWithConnection(
+                connection,
+                `INSERT INTO booking_revenue_contributions
+                    (booking_id, revenue_date, amount, guest_count, guest_name, email, room_type,
+                     people, booking_status, booking_source, total_price, amount_paid, balance,
+                     payment_method, payment_status)
+                 VALUES (?, ?, 0, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [bookingId, revenueDate, booking.name, booking.email, booking.roomType, booking.people,
+                 booking.status, booking.bookingSource || 'ONLINE', booking.total_price, booking.amount_paid,
+                 booking.balance, booking.payment_method, booking.payment_status]
+            );
+        }
+
+        const previous = contributions[0];
+        const previousDate = previous ? getRevenueDate(previous.revenue_date) : revenueDate;
+        const previousAmount = previous ? Math.round((Number(previous.amount) || 0) * 100) / 100 : 0;
+        const previousGuestCount = previous ? Number(previous.guest_count) || 0 : 0;
+
+        if (previous && previousDate !== revenueDate) {
+            await applyRevenueDelta(connection, previousDate, -previousAmount, -previousGuestCount);
+            await applyRevenueDelta(connection, revenueDate, amount, guestCount);
+        } else {
+            await applyRevenueDelta(
+                connection,
+                revenueDate,
+                amount - previousAmount,
+                guestCount - previousGuestCount
+            );
+        }
+
+        await queryWithConnection(
+            connection,
+            `UPDATE booking_revenue_contributions
+             SET revenue_date = ?, amount = ?, guest_count = ?, guest_name = ?, email = ?,
+                 room_type = ?, people = ?, booking_status = ?, booking_source = ?,
+                 total_price = ?, amount_paid = ?, balance = ?, payment_method = ?, payment_status = ?
+             WHERE booking_id = ?`,
+            [revenueDate, amount, guestCount, booking.name, booking.email, booking.roomType,
+             booking.people, booking.status, booking.bookingSource || 'ONLINE', booking.total_price,
+             booking.amount_paid, booking.balance, booking.payment_method, booking.payment_status, bookingId]
+        );
+        await connection.commit();
+
+        console.log(`✅ Revenue synchronized: ₱${amount} for booking #${bookingId} on ${revenueDate}`);
     } catch (err) {
+        await connection.rollback();
         console.error("❌ Error adding revenue for booking:", err);
+        throw err;
+    } finally {
+        connection.release();
     }
 }
 
@@ -274,8 +360,6 @@ function buildWhere(baseSql, filters) {
 // ===================== BOOKING SCHEDULE API (Public) =====================
 router.get("/api/booking-schedule", async (req, res) => {
     try {
-        const now = new Date();
-        
         const bookings = await dbQuery(`
             SELECT 
                 b.roomType,
@@ -283,49 +367,83 @@ router.get("/api/booking-schedule", async (req, res) => {
                 b.checkout,
                 b.people,
                 b.status,
+                b.bookingSource,
                 r.category
             FROM bookings b
             LEFT JOIN rooms r ON b.roomType = r.name
-            WHERE b.checkout >= CURDATE()
+            WHERE (
+                (r.category = 'Cottage' AND b.checkout > NOW())
+                OR (COALESCE(r.category, '') <> 'Cottage' AND DATE(b.checkout) >= CURDATE())
+            )
+              AND b.status IN ('pending', 'approved', 'pending_payment')
+              AND (b.status <> 'pending_payment' OR b.hold_expires_at > NOW())
             ORDER BY b.checkin ASC
         `);
 
         const schedule = {};
 
         bookings.forEach(booking => {
-            const checkin = new Date(booking.checkin);
-            const checkout = new Date(booking.checkout);
-            const isCottage = booking.category === 'Cottage';
-            
-            let isExpired = false;
-            
-            if (isCottage) {
-                isExpired = now >= checkout;
-            } else {
-                const hoursSinceCheckin = (now - checkin) / (1000 * 60 * 60);
-                isExpired = hoursSinceCheckin >= 22;
-            }
-            
-            if (!isExpired) {
-                const roomName = booking.roomType;
+            const roomName = booking.roomType;
 
-                if (!schedule[roomName]) {
-                    schedule[roomName] = [];
-                }
-
-                schedule[roomName].push({
-                    checkin: booking.checkin,
-                    checkout: booking.checkout,
-                    guests: booking.people,
-                    status: booking.status
-                });
+            if (!schedule[roomName]) {
+                schedule[roomName] = [];
             }
+
+            schedule[roomName].push({
+                checkin: booking.checkin,
+                checkout: booking.checkout,
+                guests: booking.people,
+                status: booking.status,
+                category: booking.category || 'Room',
+                bookingSource: booking.bookingSource || 'ONLINE'
+            });
         });
 
         res.json({ success: true, schedule });
     } catch (err) {
         console.error("❌ Booking schedule error:", err);
         res.status(500).json({ error: "Failed to load booking schedule" });
+    }
+});
+
+router.get("/api/ktv-schedule", async (req, res) => {
+    try {
+        res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+        const requestedDate = /^\d{4}-\d{2}-\d{2}$/.test(String(req.query.date || ''))
+            ? String(req.query.date)
+            : null;
+        const excludeBookingId = req.session.isLoggedIn && /^\d+$/.test(String(req.query.excludeBookingId || ''))
+            ? Number(req.query.excludeBookingId)
+            : null;
+        const bookings = await dbQuery(`
+            SELECT id, DATE_FORMAT(COALESCE(ktv_booking_date, DATE(checkin)), '%Y-%m-%d') AS bookingDate,
+                   ktv_start_time, status, bookingSource
+            FROM bookings
+            WHERE ktv_addon = 1
+              AND COALESCE(ktv_booking_date, DATE(checkin)) >= CURDATE()
+              AND (
+                status IN ('pending', 'approved')
+                OR (status = 'pending_payment' AND hold_expires_at > NOW())
+              )
+              AND (? IS NULL OR COALESCE(ktv_booking_date, DATE(checkin)) = ?)
+              AND (? IS NULL OR id <> ?)
+            ORDER BY bookingDate, ktv_start_time
+        `, [requestedDate, requestedDate, excludeBookingId, excludeBookingId]);
+
+        res.json({
+            success: true,
+            slots: KTV_TIME_SLOTS,
+            bookings: bookings.map(booking => ({
+                date: String(booking.bookingDate).slice(0, 10),
+                startTime: booking.ktv_start_time ? String(booking.ktv_start_time).slice(0, 8) : null,
+                status: booking.status,
+                bookingSource: booking.bookingSource || 'ONLINE',
+                schedulePending: !booking.ktv_start_time
+            }))
+        });
+    } catch (err) {
+        console.error("❌ KTV schedule error:", err);
+        res.status(500).json({ success: false, error: "Failed to load KTV availability" });
     }
 });
 
@@ -585,13 +703,29 @@ router.post("/create", async (req, res) => {
         req.session.error = message;
         return res.redirect("/booking");
     };
+    const bookingConflictMessage = (booking, isCottage, dateValue) => {
+        const accommodation = isCottage ? "cottage" : "room";
+        const date = new Date(`${dateValue}T00:00:00`).toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric'
+        });
+
+        if (booking.bookingSource === 'WALK_IN') {
+            return `This ${accommodation} is already approved and recorded as a walk-in booking for ${date}. Please choose another ${accommodation} or change the date.`;
+        }
+        if (booking.status === 'approved') {
+            return `This ${accommodation} already has an approved online booking for ${date}. Please choose another ${accommodation} or change the date.`;
+        }
+        return `An online booking request for this ${accommodation} is already on file for ${date} and is awaiting approval. Please choose another ${accommodation} or change the date.`;
+    };
 
     if (!name || !phone || !email || !roomType) {
         return reject("Please fill in your name, phone number, email, and choose an accommodation.");
     }
 
-    if (phone.length > 30) {
-        return reject("Phone number must be 30 characters or fewer.");
+    if (!/^\+639\d{9}$/.test(phone)) {
+        return reject("Enter a valid mobile number starting with 9 or 09, followed by nine more digits.");
     }
 
     if (!req.session.verificationCodes ||
@@ -601,14 +735,33 @@ router.post("/create", async (req, res) => {
     }
 
     try {
+        // The public booking form submits directly to this route, so also
+        // clear expired holds here before checking availability.
+        await dbQuery(
+            "DELETE FROM bookings WHERE status = 'pending_payment' AND hold_expires_at IS NOT NULL AND hold_expires_at < NOW()"
+        );
+
         const roomResults = await dbQuery("SELECT price, category, occupancy FROM rooms WHERE name = ? LIMIT 1", [roomType]);
         if (roomResults.length === 0) return reject("Selected accommodation was not found.");
         const roomCategory = roomResults[0].category;
         const isCottage = (roomCategory === 'Cottage');
 
-        const maxOccupancy = roomResults.length > 0 ? parseInt(roomResults[0].occupancy) : 1;
-        let guestCount = parseInt(people) || 1;
-        if (guestCount > maxOccupancy && maxOccupancy > 0) guestCount = maxOccupancy;
+        const maxOccupancy = parseInt(roomResults[0].occupancy, 10) || 1;
+        const guestCount = Number(people);
+        if (!Number.isInteger(guestCount) || guestCount < 1 || guestCount > MAX_BOOKING_GUESTS) {
+            return reject(`Guest count must be between 1 and ${MAX_BOOKING_GUESTS}.`);
+        }
+        if (isCottage && guestCount > maxOccupancy) {
+            return reject(`This cottage can accommodate up to ${maxOccupancy} guests.`);
+        }
+
+        const maxPaidPoolUsers = isCottage ? guestCount : Math.max(0, guestCount - maxOccupancy);
+        const addons = normalizeBookingAddons(body, guestCount, maxPaidPoolUsers);
+        if (addons.error) return reject(addons.error);
+        const ktvStartTime = addons.ktvSelected ? normalizeKtvStartTime(body.ktvStartTime) : null;
+        if (addons.ktvSelected && !ktvStartTime) {
+            return reject("Select an available KTV time slot.");
+        }
 
         let finalCheckin, finalCheckout, totalPrice, nights;
 
@@ -631,30 +784,32 @@ router.post("/create", async (req, res) => {
             }
 
             const duplicate = await dbQuery(`
-                SELECT id FROM bookings
+                SELECT id, bookingSource, status FROM bookings
                 WHERE LOWER(email) = ? AND roomType = ?
                   AND DATE(checkin) = DATE(?) AND DATE(checkout) = DATE(?)
-                  AND status IN ('pending', 'approved', 'pending_payment')
+                  AND (
+                    status IN ('pending', 'approved')
+                    OR (status = 'pending_payment' AND hold_expires_at > NOW())
+                  )
                 LIMIT 1
             `, [email, roomType, finalCheckin, finalCheckout]);
             if (duplicate.length > 0) {
-                const message = "This booking request is already on file and waiting for admin approval.";
-                delete req.session.verificationCodes[email];
-                req.session.msg = message;
-                if (wantsJson) return res.json({ success: true, duplicate: true, bookingId: duplicate[0].id, message });
-                return res.redirect("/booking");
+                return reject(bookingConflictMessage(duplicate[0], isCottage, bookingDate), 409);
             }
 
-            // Check ALL bookings (pending + approved) for same-day double booking
+            // Include online and walk-in reservations, but ignore cancelled bookings and expired holds.
             const overlapCheck = await dbQuery(`
-                SELECT checkin, checkout FROM bookings 
+                SELECT checkin, checkout, bookingSource, status FROM bookings
                 WHERE roomType = ? AND DATE(checkin) = DATE(?)
+                  AND (
+                    status IN ('pending', 'approved')
+                    OR (status = 'pending_payment' AND hold_expires_at > NOW())
+                  )
                 LIMIT 1
             `, [roomType, finalCheckin]);
 
             if (overlapCheck.length > 0) {
-                const dateStr = new Date(bookingDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-                return reject(`"${roomType}" is already booked on ${dateStr}. Please choose another cottage or a different date.`, 409);
+                return reject(bookingConflictMessage(overlapCheck[0], isCottage, bookingDate), 409);
             }
 
             const roomPrice = roomResults.length > 0 ? parseFloat(roomResults[0].price) : 0;
@@ -672,37 +827,37 @@ router.post("/create", async (req, res) => {
                 return reject("Check-in cannot be on Monday or Tuesday. We are closed those days.");
             }
 
-            // Auto-calculate checkout (next day, skip Mon/Tue)
+            // Room checkout is the next calendar day, including Monday after a Sunday check-in.
             finalCheckin = checkin;
             finalCheckout = getAutoCheckout(checkin);
 
             const duplicate = await dbQuery(`
-                SELECT id FROM bookings
+                SELECT id, bookingSource, status FROM bookings
                 WHERE LOWER(email) = ? AND roomType = ?
                   AND DATE(checkin) = DATE(?) AND DATE(checkout) = DATE(?)
-                  AND status IN ('pending', 'approved', 'pending_payment')
+                  AND (
+                    status IN ('pending', 'approved')
+                    OR (status = 'pending_payment' AND hold_expires_at > NOW())
+                  )
                 LIMIT 1
             `, [email, roomType, finalCheckin, finalCheckout]);
             if (duplicate.length > 0) {
-                const message = "This booking request is already on file and waiting for admin approval.";
-                delete req.session.verificationCodes[email];
-                req.session.msg = message;
-                if (wantsJson) return res.json({ success: true, duplicate: true, bookingId: duplicate[0].id, message });
-                return res.redirect("/booking");
+                return reject(bookingConflictMessage(duplicate[0], isCottage, checkin), 409);
             }
 
-            // Check ALL bookings (pending + approved) for date overlap
+            // Include online and walk-in reservations, but ignore cancelled bookings and expired holds.
             const overlapCheck = await dbQuery(`
-                SELECT checkin, checkout FROM bookings 
+                SELECT checkin, checkout, bookingSource, status FROM bookings
                 WHERE roomType = ? AND checkin < ? AND checkout > ?
+                  AND (
+                    status IN ('pending', 'approved')
+                    OR (status = 'pending_payment' AND hold_expires_at > NOW())
+                  )
                 LIMIT 1
             `, [roomType, finalCheckout, finalCheckin]);
 
             if (overlapCheck.length > 0) {
-                const existing = overlapCheck[0];
-                const inStr = new Date(existing.checkin).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-                const outStr = new Date(existing.checkout).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-                return reject(`"${roomType}" is already booked from ${inStr} to ${outStr}. Please choose another room or different dates.`, 409);
+                return reject(bookingConflictMessage(overlapCheck[0], isCottage, checkin), 409);
             }
 
             const checkinDate = new Date(finalCheckin);
@@ -712,17 +867,62 @@ router.post("/create", async (req, res) => {
             totalPrice = roomPrice * nights;
         }
 
-        const result = await dbQuery(
-            "INSERT INTO bookings (name, phone, email, people, checkin, checkout, roomType, requests, status, total_price, nights) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)",
-            [name, phone, email, guestCount, finalCheckin, finalCheckout, roomType, requests || null, totalPrice, nights]
-        );
+        const ktvBookingDate = addons.ktvSelected ? String(finalCheckin).slice(0, 10) : null;
+        if (addons.ktvSelected && isKtvClosedDay(ktvBookingDate)) {
+            return reject("The KTV is closed on Mondays and Tuesdays. Please select another booking date.");
+        }
+
+        const basePrice = totalPrice;
+        const extraGuestCount = isCottage ? 0 : Math.max(0, guestCount - maxOccupancy);
+        const extraGuestFee = getOvernightExtraGuestFee(guestCount, maxOccupancy, nights);
+        const entranceFee = getEntranceFee(guestCount, isCottage);
+        totalPrice += addons.price + extraGuestFee + entranceFee;
+        const bookingRequests = stripCalculatedBookingRequests(requests);
+        const insertSql = `INSERT INTO bookings
+             (name, phone, email, people, checkin, checkout, roomType, requests, status, total_price, nights,
+              pool_addon, pool_adult_count, pool_child_count, pool_fee, ktv_addon, ktv_fee, ktv_guest_count,
+              ktv_booking_date, ktv_start_time,
+              overnight_extra_guest_count, overnight_extra_guest_rate, overnight_extra_guest_fee,
+              entrance_fee_per_person, entrance_fee_total)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)` ;
+        const insertParams = [
+            name, phone, email, guestCount, finalCheckin, finalCheckout, roomType, bookingRequests, totalPrice, nights,
+            addons.poolSelected ? 1 : 0, addons.poolAdultCount, addons.poolChildCount, addons.poolFee,
+            addons.ktvSelected ? 1 : 0, addons.ktvFee, addons.ktvGuestCount, ktvBookingDate, ktvStartTime,
+            extraGuestCount, EXTRA_OVERNIGHT_GUEST_PRICE, extraGuestFee,
+            isCottage ? ENTRANCE_FEE_PER_PERSON : 0, entranceFee
+        ];
+        let result;
+        if (addons.ktvSelected) {
+            const reservation = await withKtvScheduleLock(async connection => {
+                const conflict = await findKtvConflict(connection, ktvBookingDate, ktvStartTime);
+                if (conflict) return { conflict: true };
+                const [insertResult] = await connection.query(insertSql, insertParams);
+                return { result: insertResult };
+            });
+            if (reservation.conflict) {
+                return reject("That KTV time slot was just booked. Please choose another available time.", 409);
+            }
+            result = reservation.result;
+        } else {
+            result = await dbQuery(insertSql, insertParams);
+        }
 
         delete req.session.verificationCodes[email];
 
         const priceLabel = isCottage 
-            ? `₱${totalPrice.toLocaleString()} (Flat Rate - Day Use)` 
-            : `₱${totalPrice.toLocaleString()} for ${nights} night(s)`;
-        const message = `Booking request submitted! ${roomCategory}: ${priceLabel}. Please wait for admin approval.`;
+            ? `₱${basePrice.toLocaleString()} (Flat Rate - Day Use)`
+            : `₱${basePrice.toLocaleString()} for ${nights} night(s)`;
+        const chargeDetails = [];
+        if (addons.price > 0) chargeDetails.push(`Add-ons: ₱${addons.price.toLocaleString()}`);
+        if (addons.ktvSelected) {
+            const slot = KTV_TIME_SLOTS.find(item => item.start === ktvStartTime);
+            chargeDetails.push(`KTV schedule: ${ktvBookingDate}, ${slot.label}`);
+        }
+        if (extraGuestFee > 0) chargeDetails.push(`Extra overnight guests: ₱${extraGuestFee.toLocaleString()}`);
+        if (entranceFee > 0) chargeDetails.push(`Entrance fee: ₱${entranceFee.toLocaleString()}`);
+        const chargeLabel = chargeDetails.length > 0 ? ` ${chargeDetails.join(". ")}.` : "";
+        const message = `Booking request submitted! ${roomCategory}: ${priceLabel}.${chargeLabel} Total: ₱${totalPrice.toLocaleString()}. Please wait for admin approval.`;
         req.session.msg = message;
         if (wantsJson) return res.json({ success: true, bookingId: result.insertId, message });
         res.redirect("/booking");
@@ -797,7 +997,7 @@ router.get("/api/dashboard/revenue-log", checkAuth, async (req, res) => {
         const log = await dbQuery(`
             SELECT 
                 id,
-                revenue_date,
+                DATE_FORMAT(revenue_date, '%Y-%m-%d') AS revenue_date,
                 total_amount,
                 guest_count,
                 last_reset
@@ -809,6 +1009,78 @@ router.get("/api/dashboard/revenue-log", checkAuth, async (req, res) => {
     } catch (err) {
         console.error("❌ Revenue log error:", err);
         res.status(500).json({ error: "Failed to load revenue log" });
+    }
+});
+
+router.get("/api/dashboard/revenue-log/:date/bookings", checkAuth, async (req, res) => {
+    const date = String(req.params.date || '');
+    const [year, month, day] = date.split('-').map(Number);
+    const parsedDate = new Date(Date.UTC(year, month - 1, day));
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) ||
+        parsedDate.getUTCFullYear() !== year ||
+        parsedDate.getUTCMonth() !== month - 1 ||
+        parsedDate.getUTCDate() !== day) {
+        return res.status(400).json({ success: false, error: "A valid revenue date is required." });
+    }
+
+    try {
+        const bookings = await dbQuery(`
+            SELECT booking_id AS id, guest_name AS name, email, room_type AS roomType,
+                   people, booking_status AS status, booking_source AS bookingSource,
+                   total_price, amount_paid, balance, payment_method, payment_status
+            FROM booking_revenue_contributions
+            WHERE revenue_date = ?
+            ORDER BY booking_source, guest_name, booking_id
+        `, [date]);
+        res.json({ success: true, date, bookings: bookings || [] });
+    } catch (err) {
+        console.error("❌ Revenue booking records error:", err);
+        res.status(500).json({ success: false, error: "Failed to load bookings for this revenue date." });
+    }
+});
+
+router.delete("/api/dashboard/revenue-log/:date/bookings/:bookingId", checkAuth, async (req, res) => {
+    const { date, bookingId } = req.params;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d+$/.test(bookingId)) {
+        return res.status(400).json({ success: false, error: "A valid revenue date and booking record are required." });
+    }
+
+    let connection;
+    try {
+        connection = await getDb().promise().getConnection();
+        await connection.beginTransaction();
+        const [records] = await connection.query(
+            `SELECT amount, guest_count
+             FROM booking_revenue_contributions
+             WHERE booking_id = ? AND revenue_date = ?
+             FOR UPDATE`,
+            [bookingId, date]
+        );
+        if (!records.length) {
+            await connection.rollback();
+            return res.status(404).json({ success: false, error: "The revenue booking record was not found." });
+        }
+
+        const record = records[0];
+        await connection.query(
+            `UPDATE daily_revenue
+             SET total_amount = GREATEST(0, total_amount - ?),
+                 guest_count = GREATEST(0, guest_count - ?)
+             WHERE revenue_date = ?`,
+            [record.amount, record.guest_count, date]
+        );
+        await connection.query(
+            "DELETE FROM booking_revenue_contributions WHERE booking_id = ? AND revenue_date = ?",
+            [bookingId, date]
+        );
+        await connection.commit();
+        res.json({ success: true, message: "Revenue booking record deleted." });
+    } catch (err) {
+        if (connection) await connection.rollback();
+        console.error("❌ Delete revenue booking record error:", err);
+        res.status(500).json({ success: false, error: "Failed to delete the revenue booking record." });
+    } finally {
+        if (connection) connection.release();
     }
 });
 

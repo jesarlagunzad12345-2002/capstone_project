@@ -17,6 +17,11 @@
         .summary-card .label { color: #94a3b8; font-size: .78rem; }
         .summary-card .value { font-size: 1.35rem; font-weight: 800; }
         .walk-in-dashboard-link { white-space: nowrap; }
+        .booking-schedule-section { border: 1px solid #dbe5f0; border-radius: 10px; overflow: hidden; }
+        .schedule-header { min-height: 48px; display: flex; align-items: center; justify-content: space-between; padding: .75rem 1rem; background: #f8fafc; color: #0f172a; cursor: pointer; }
+        .schedule-header:hover { background: #f1f5f9; }
+        .schedule-header h6 { margin: 0; }
+        .schedule-content { border-top: 1px solid #dbe5f0; }
         @media (max-width: 575.98px) {
             .walk-in-dashboard-label { display: none; }
             .walk-in-dashboard-link { width: 40px; height: 40px; display: inline-flex; align-items: center; justify-content: center; }
@@ -48,21 +53,27 @@
         <main class="container-fluid p-4">
             <div class="booking-panel">
                 <div class="mb-4">
-                    <span class="badge bg-info-subtle text-info-emphasis rounded-pill mb-2">IN-PERSON RESERVATION</span>
-                    <h1 class="h3 fw-bold text-dark mb-1"><%= booking ? 'Edit Walk-in Booking' : 'Create Walk-in Booking' %></h1>
-                    <p class="text-muted mb-0">Uses the same closure, pricing, occupancy, and availability rules as online bookings.</p>
+                    <div class="d-flex align-items-center justify-content-between gap-3 flex-wrap">
+                        <div>
+                            <span class="badge bg-info-subtle text-info-emphasis rounded-pill mb-2">IN-PERSON RESERVATION</span>
+                            <h1 class="h3 fw-bold text-dark mb-0"><%= booking ? 'Edit Walk-in Booking' : 'Create Walk-in Booking' %></h1>
+                        </div>
+                        <button type="button" class="booking-edit-guide" data-bs-toggle="popover" data-bs-title="Booking guide" data-bs-content="<ul><li>Overnight rooms: each guest above included occupancy is ₱200 per night; rooms allow up to 20 guests.</li><li>Cottages: guest limit follows the cottage occupancy. Entrance is ₱30 per guest; overnight room entrance is free.</li><li>Paid pool: cottages may include guests up to their occupancy; rooms may include only guests above included occupancy. Rates: ₱150 per adult and ₱100 per child under 4 ft.</li><li>KTV: ₱1,000 for 3 hours, up to 15 guests. Choose an available slot: 8:00–11:00 AM, 11:00 AM–2:00 PM, or 3:00–6:00 PM. Resort is closed Monday and Tuesday.</li><li>Enter the amount collected; the balance is calculated automatically.</li></ul>" aria-label="View booking guide"><i class="bi bi-info-circle" aria-hidden="true"></i><span>View guide</span></button>
+                    </div>
                 </div>
                 <% if (error) { %><div id="walkInError" data-message="<%= error %>" hidden></div><% } %>
 
+                <% const bookingCheckinDate = booking && booking.checkin ? (booking.checkin instanceof Date ? `${booking.checkin.getFullYear()}-${String(booking.checkin.getMonth() + 1).padStart(2, '0')}-${String(booking.checkin.getDate()).padStart(2, '0')}` : String(booking.checkin).match(/^\d{4}-\d{2}-\d{2}/)?.[0] || '') : ''; %>
                 <form id="walkInForm" action="<%= booking ? '/update/' + booking.id : '/walk-in-booking' %>" method="POST" class="card-custom shadow-sm p-4">
-                    <input type="hidden" name="checkin" id="checkinHidden" value="<%= booking ? booking.checkin : '' %>">
-                    <input type="hidden" name="checkout" id="checkoutHidden" value="<%= booking ? booking.checkout : '' %>">
+                    <% const bookingAddons = booking ? getBookingAddons(booking) : { poolSelected: false, poolAdultCount: 0, poolChildCount: 0, ktvSelected: false, ktvGuestCount: 0 }; %>
+                    <input type="hidden" name="checkin" id="checkinHidden" value="<%= bookingCheckinDate %>">
+                    <input type="hidden" name="checkout" id="checkoutHidden" value="<%= booking && booking.checkout ? booking.checkout : '' %>">
                     <div class="form-section pt-0">
                         <h2 class="h6 fw-bold mb-3"><i class="bi bi-person me-2 text-info"></i>Guest Details</h2>
                         <div class="row g-3">
                             <div class="col-md-6"><label class="form-label" for="name">Full Name</label><input id="name" name="name" class="form-control" value="<%= booking ? booking.name : '' %>" required></div>
                             <div class="col-md-6"><label class="form-label" for="email">Email Address <span class="text-muted fw-normal">(optional)</span></label><input id="email" name="email" type="email" class="form-control" value="<%= booking ? booking.email : '' %>"></div>
-                            <div class="col-md-4"><label class="form-label" for="people">Guests</label><input id="people" name="people" type="number" min="1" value="<%= booking ? booking.people : 1 %>" class="form-control" required></div>
+                            <div class="col-md-4"><label class="form-label" for="people">Guests</label><input id="people" name="people" type="number" min="1" max="20" value="<%= booking ? booking.people : 1 %>" class="form-control" required></div>
                         </div>
                     </div>
 
@@ -75,13 +86,46 @@
                             </select></div>
                         </div>
                         <div id="roomFields" class="row g-3 mt-1">
-                            <div class="col-md-6"><label class="form-label" for="roomCheckin">Check-in Date</label><input id="roomCheckin" type="date" class="form-control" value="<%= booking && booking.checkin ? String(booking.checkin).slice(0, 10) : '' %>"></div>
+                            <div class="col-md-6"><label class="form-label" for="roomCheckin">Check-in Date</label><input id="roomCheckin" type="date" class="form-control" value="<%= bookingCheckinDate %>"></div>
                             <div class="col-md-6"><label class="form-label" for="roomCheckoutPreview">Check-out Date</label><input id="roomCheckoutPreview" type="date" class="form-control" readonly></div>
                         </div>
                         <div id="cottageFields" class="row g-3 mt-1" style="display:none;">
-                            <div class="col-md-4"><label class="form-label" for="bookingDate">Booking Date</label><input id="bookingDate" type="date" class="form-control" value="<%= booking && booking.checkin ? String(booking.checkin).slice(0, 10) : '' %>"></div>
+                            <div class="col-md-4"><label class="form-label" for="bookingDate">Booking Date</label><input id="bookingDate" type="date" class="form-control" value="<%= bookingCheckinDate %>"></div>
                             <div class="col-md-4"><label class="form-label" for="checkinTime">Check-in Time</label><input id="checkinTime" type="time" class="form-control" value="08:00"></div>
                             <div class="col-md-4"><label class="form-label" for="checkoutTime">Check-out Time</label><input id="checkoutTime" type="time" class="form-control" value="17:00"></div>
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <h2 class="h6 fw-bold mb-3"><i class="bi bi-stars me-2 text-info"></i>Entrance and Optional Add-ons</h2>
+                        <div class="small text-muted mb-3" id="chargeSummary"></div>
+                        <div class="booking-schedule-section">
+                            <button class="schedule-header w-100 text-start border-0" type="button" id="addonsToggle" aria-expanded="<%= bookingAddons.poolSelected || bookingAddons.ktvSelected ? 'true' : 'false' %>" aria-controls="addonsContent">
+                                <h6 class="mb-0 fw-bold"><i class="bi bi-plus-circle me-2 text-info"></i>Choose optional add-ons</h6>
+                                <i class="bi <%= bookingAddons.poolSelected || bookingAddons.ktvSelected ? 'bi-chevron-up' : 'bi-chevron-down' %>" id="addonsToggleIcon" aria-hidden="true"></i>
+                            </button>
+                            <div class="schedule-content p-3" id="addonsContent" <%= bookingAddons.poolSelected || bookingAddons.ktvSelected ? '' : 'style="display:none"' %>>
+                                <div class="form-check mb-2" id="poolAddonOption" style="display:none;">
+                                    <input class="form-check-input" type="checkbox" name="addons" value="pool" id="poolAddon" <%= bookingAddons.poolSelected ? 'checked' : '' %>>
+                                    <label class="form-check-label fw-semibold" for="poolAddon">Paid swimming pool</label>
+                                </div>
+                                <div class="row g-3 mb-3" id="poolGuestCounts" <%= bookingAddons.poolSelected ? '' : 'style="display:none"' %>>
+                                    <div class="col-md-6"><label class="form-label" for="poolAdultCount">Pool adults</label><input id="poolAdultCount" name="poolAdultCount" type="number" min="0" value="<%= bookingAddons.poolAdultCount %>" class="form-control"></div>
+                                    <div class="col-md-6"><label class="form-label" for="poolChildCount">Pool children under 4 ft</label><input id="poolChildCount" name="poolChildCount" type="number" min="0" value="<%= bookingAddons.poolChildCount %>" class="form-control"></div>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="addons" value="ktv" id="ktvAddon" <%= bookingAddons.ktvSelected ? 'checked' : '' %>>
+                                    <label class="form-check-label fw-semibold" for="ktvAddon">KTV room</label>
+                                </div>
+                                <div class="row g-3 mb-3" id="ktvGuestCountFields" <%= bookingAddons.ktvSelected ? '' : 'style="display:none"' %>>
+                                    <div class="col-md-6"><label class="form-label" for="ktvGuestCount">KTV guests (max 15)</label><input id="ktvGuestCount" name="ktvGuestCount" type="number" min="1" max="15" step="1" value="<%= bookingAddons.ktvGuestCount || 1 %>" class="form-control" <%= bookingAddons.ktvSelected ? '' : 'disabled' %>></div>
+                                </div>
+                                <div id="ktvScheduleFields" class="row g-3 mb-3" <%= bookingAddons.ktvSelected ? '' : 'style="display:none"' %>>
+                                    <div class="col-md-6"><label class="form-label" for="ktvBookingDate">KTV Schedule Date</label><input id="ktvBookingDate" type="date" class="form-control" readonly></div>
+                                    <div class="col-md-6"><label class="form-label" for="ktvStartTime">Available KTV Time (3 hours)</label><select id="ktvStartTime" name="ktvStartTime" class="form-select" <%= bookingAddons.ktvSelected ? '' : 'disabled' %>><option value="">Choose an available time</option></select></div>
+                                    <div class="col-12"><div id="ktvAvailabilityMessage" class="form-text" aria-live="polite">Select a stay date to view KTV availability.</div></div>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -89,18 +133,19 @@
                         <h2 class="h6 fw-bold mb-3"><i class="bi bi-wallet2 me-2 text-info"></i>Payment</h2>
                         <div class="row g-3">
                             <div class="col-md-4"><label class="form-label" for="payment_method">Payment Method</label><select id="payment_method" name="payment_method" class="form-select"><option value="cash" <%= !booking || booking.payment_method === 'cash' ? 'selected' : '' %>>Cash</option><option value="gcash" <%= booking && booking.payment_method === 'gcash' ? 'selected' : '' %>>GCash</option><option value="maya" <%= booking && booking.payment_method === 'maya' ? 'selected' : '' %>>Maya</option><option value="card" <%= booking && booking.payment_method === 'card' ? 'selected' : '' %>>Card</option></select></div>
-                            <div class="col-md-4"><label class="form-label" for="amount_paid">Amount Paid</label><input id="amount_paid" name="amount_paid" type="number" min="0" step="0.01" value="<%= booking ? booking.amount_paid : 0 %>" class="form-control"></div>
+                            <div class="col-md-4"><label class="form-label" for="amount_paid">Amount Paid</label><input id="amount_paid" name="amount_paid" type="number" min="0" step="0.01" value="<%= booking ? Number(booking.amount_paid) || 0 : 0 %>" class="form-control" required></div>
                             <div class="col-md-4"><div class="summary-card p-3 h-100 d-flex justify-content-between align-items-center"><div><div class="label">Balance Due</div><div id="balance" class="value">₱0.00</div></div><i class="bi bi-receipt-cutoff fs-2 text-info"></i></div></div>
                         </div>
                     </div>
 
-                    <div class="form-section"><label class="form-label" for="requests">Special Requests</label><textarea id="requests" name="requests" class="form-control" rows="3" placeholder="Optional notes for the reservation"><%= booking ? booking.requests || '' : '' %></textarea></div>
+                    <div class="form-section"><label class="form-label" for="requests">Special Requests</label><textarea id="requests" name="requests" class="form-control" rows="3" placeholder="Optional notes for the reservation"><%= booking ? stripCalculatedBookingRequests(booking.requests) || '' : '' %></textarea></div>
                     <div class="d-flex justify-content-between align-items-center pt-4 flex-wrap gap-3"><div><span class="text-muted small">Total Price</span><div id="total" class="h4 fw-bold mb-0">₱0.00</div></div><button type="submit" class="btn btn-dark px-4 py-2"><i class="bi bi-check2-circle me-2"></i><%= booking ? 'Save Walk-in Changes' : 'Create Walk-in Booking' %></button></div>
                 </form>
             </div>
         </main>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         const roomType = document.getElementById('roomType');
         const roomFields = document.getElementById('roomFields');
@@ -110,45 +155,252 @@
         const bookingDate = document.getElementById('bookingDate');
         const checkinTime = document.getElementById('checkinTime');
         const checkoutTime = document.getElementById('checkoutTime');
-        const amountPaid = document.getElementById('amount_paid');
+        const ktvScheduleFields = document.getElementById('ktvScheduleFields');
+        const ktvBookingDateInput = document.getElementById('ktvBookingDate');
+        const ktvStartTime = document.getElementById('ktvStartTime');
+        const ktvAvailabilityMessage = document.getElementById('ktvAvailabilityMessage');
+        const editingBookingId = <%- JSON.stringify(booking ? booking.id : null) %>;
+        let ktvAvailabilityRequest = 0;
+        let ktvAvailabilityForDate = '';
+        const amountPaidInput = document.getElementById('amount_paid');
+        const people = document.getElementById('people');
+        const poolAddon = document.getElementById('poolAddon');
+        const ktvAddon = document.getElementById('ktvAddon');
+        const ktvGuestCount = document.getElementById('ktvGuestCount');
+        const ktvGuestCountFields = document.getElementById('ktvGuestCountFields');
+        const poolGuestCounts = document.getElementById('poolGuestCounts');
+        const poolAdultCount = document.getElementById('poolAdultCount');
+        const poolChildCount = document.getElementById('poolChildCount');
+        const addonsToggle = document.getElementById('addonsToggle');
+        const addonsContent = document.getElementById('addonsContent');
+        const addonsToggleIcon = document.getElementById('addonsToggleIcon');
         const totalOutput = document.getElementById('total');
         const balanceOutput = document.getElementById('balance');
-        let currentTotal = 0;
         const peso = value => '₱' + value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         function showWalkInAlert(title, text) { Swal.fire({ icon: 'error', title, text, confirmButtonColor: '#0f172a' }); }
+        document.querySelectorAll('.booking-edit-guide').forEach(button => {
+            new bootstrap.Popover(button, {
+                container: 'body',
+                html: true,
+                trigger: 'focus',
+                placement: 'auto'
+            });
+            addonsToggle.addEventListener('click', function() {
+                const isExpanded = this.getAttribute('aria-expanded') === 'true';
+                this.setAttribute('aria-expanded', String(!isExpanded));
+                addonsContent.style.display = isExpanded ? 'none' : 'block';
+                addonsToggleIcon.classList.toggle('bi-chevron-down', isExpanded);
+                addonsToggleIcon.classList.toggle('bi-chevron-up', !isExpanded);
+            });
+        });
         function closed(date) { const day = new Date(date + 'T00:00:00').getDay(); return day === 1 || day === 2; }
-        function autoCheckout(dateValue) { const date = new Date(dateValue + 'T00:00:00'); date.setDate(date.getDate() + 1); while (date.getDay() === 1 || date.getDay() === 2) date.setDate(date.getDate() + 1); const year = date.getFullYear(); const month = String(date.getMonth() + 1).padStart(2, '0'); const day = String(date.getDate()).padStart(2, '0'); return `${year}-${month}-${day}`; }
+        function autoCheckout(dateValue) { const date = new Date(dateValue + 'T00:00:00'); date.setDate(date.getDate() + 1); const year = date.getFullYear(); const month = String(date.getMonth() + 1).padStart(2, '0'); const day = String(date.getDate()).padStart(2, '0'); return `${year}-${month}-${day}`; }
         function minutes(value) { const parts = value.split(':').map(Number); return parts[0] * 60 + parts[1]; }
         function isCottage() { const option = roomType.options[roomType.selectedIndex]; return option && option.dataset.category === 'Cottage'; }
-        function updateFields() { const cottage = isCottage(); roomFields.style.display = cottage ? 'none' : 'flex'; cottageFields.style.display = cottage ? 'flex' : 'none'; updatePrice(); }
+        function scheduleDateKey(value) {
+            const date = new Date(String(value).replace(' ', 'T'));
+            if (Number.isNaN(date.getTime())) return '';
+            return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+        }
+        async function refreshKtvSchedule() {
+            ktvScheduleFields.style.display = ktvAddon.checked ? '' : 'none';
+            ktvStartTime.disabled = true;
+            ktvAvailabilityForDate = '';
+            if (!ktvAddon.checked) {
+                ktvStartTime.value = '';
+                return;
+            }
+            const date = isCottage() ? bookingDate.value : roomCheckin.value;
+            ktvBookingDateInput.value = date;
+            const previousSelection = ktvStartTime.value;
+            ktvStartTime.replaceChildren(new Option('Loading available times...', ''));
+            const requestId = ++ktvAvailabilityRequest;
+            if (!date) {
+                ktvStartTime.replaceChildren(new Option('Choose a stay date first', ''));
+                ktvAvailabilityMessage.textContent = 'Select an accommodation and stay date to view available KTV times.';
+                return;
+            }
+            if (closed(date)) {
+                ktvStartTime.replaceChildren(new Option('KTV is closed on this date', ''));
+                ktvAvailabilityMessage.textContent = 'The resort and KTV are closed every Monday and Tuesday.';
+                return;
+            }
+            try {
+                const params = new URLSearchParams({ date });
+                if (editingBookingId) params.set('excludeBookingId', editingBookingId);
+                const response = await fetch(`/api/ktv-schedule?${params}`, { cache: 'no-store' });
+                if (!response.ok) throw new Error(`KTV availability request failed with status ${response.status}.`);
+                const data = await response.json();
+                if (!data.success || !Array.isArray(data.slots) || !Array.isArray(data.bookings)) {
+                    throw new Error(data.error || 'The KTV availability response was invalid.');
+                }
+                if (requestId !== ktvAvailabilityRequest) return;
+                const reserved = data.bookings.filter(item => scheduleDateKey(item.date) === date);
+                const reservedTimes = new Set(reserved.map(item => String(item.startTime || '').slice(0, 8)).filter(Boolean));
+                const legacyBooking = reserved.some(item => item.schedulePending);
+                const previousValue = String(previousSelection || <%- JSON.stringify(booking && booking.ktv_start_time ? String(booking.ktv_start_time).slice(0, 8) : '') %>).slice(0, 8);
+                ktvStartTime.replaceChildren(new Option('Choose an available time', ''));
+                data.slots.forEach(slot => {
+                    const option = new Option(slot.label, slot.start);
+                    if (legacyBooking || reservedTimes.has(slot.start)) {
+                        option.disabled = true;
+                        option.textContent = `${slot.label} — Booked`;
+                    } else {
+                        option.textContent = `${slot.label} — Available`;
+                    }
+                    ktvStartTime.add(option);
+                });
+                if (previousValue && !legacyBooking && !reservedTimes.has(previousValue)) ktvStartTime.value = previousValue;
+                const available = data.slots.filter(slot => !legacyBooking && !reservedTimes.has(slot.start));
+                ktvStartTime.disabled = available.length === 0;
+                ktvAvailabilityForDate = date;
+                const unavailable = data.slots.filter(slot => reservedTimes.has(slot.start)).map(slot => slot.label);
+                ktvAvailabilityMessage.textContent = legacyBooking
+                    ? 'A KTV booking on this date has no assigned time. Please choose another date.'
+                    : available.length
+                        ? `Available: ${available.map(slot => slot.label).join(', ')}.${unavailable.length ? ` Booked: ${unavailable.join(', ')}.` : ''}`
+                        : 'All KTV time slots are booked for this date. Choose another stay date.';
+            } catch (error) {
+                if (requestId !== ktvAvailabilityRequest) return;
+                console.error('Failed to load KTV availability:', error);
+                ktvStartTime.replaceChildren(new Option('Availability unavailable', ''));
+                ktvAvailabilityMessage.textContent = 'Could not load KTV availability. Try again before saving.';
+            }
+        }
+        function updateFields() {
+            const cottage = isCottage();
+            const option = roomType.options[roomType.selectedIndex];
+            const occupancy = Number(option && option.dataset.occupancy) || 1;
+            roomFields.style.display = cottage ? 'none' : 'flex';
+            cottageFields.style.display = cottage ? 'flex' : 'none';
+            people.max = cottage ? occupancy : 20;
+            if (cottage && Number(people.value) > occupancy) people.value = occupancy;
+            updatePoolOption();
+            updateKtvGuestCount();
+            updatePrice();
+            refreshKtvSchedule();
+        }
+        function updatePoolOption() {
+            const cottage = isCottage();
+            const option = roomType.options[roomType.selectedIndex];
+            const occupancy = Number(option && option.dataset.occupancy) || 1;
+            const extraGuests = cottage ? 0 : Math.max(0, (Number(people.value) || 1) - occupancy);
+            const available = cottage || extraGuests > 0;
+            document.getElementById('poolAddonOption').style.display = available ? '' : 'none';
+            if (!available) {
+                poolAddon.checked = false;
+                poolAdultCount.value = '0';
+                poolChildCount.value = '0';
+            }
+            poolGuestCounts.style.display = poolAddon.checked ? 'flex' : 'none';
+            const maxPoolUsers = cottage ? Number(people.value) || 1 : extraGuests;
+            updatePoolGuestLimits(maxPoolUsers);
+        }
+        function updatePoolGuestLimits(maxUsers, changedInput) {
+            const limit = Math.max(0, Number(maxUsers) || 0);
+            let adults = Math.max(0, Number(poolAdultCount.value) || 0);
+            let children = Math.max(0, Number(poolChildCount.value) || 0);
+
+            if (adults + children > limit) {
+                if (changedInput === poolAdultCount) {
+                    adults = Math.min(adults, limit - Math.min(children, limit));
+                    children = Math.min(children, limit);
+                } else if (changedInput === poolChildCount) {
+                    children = Math.min(children, limit - Math.min(adults, limit));
+                    adults = Math.min(adults, limit);
+                } else {
+                    adults = Math.min(adults, limit);
+                    children = Math.min(children, limit - adults);
+                }
+            }
+
+            if (poolAdultCount.value !== '' || adults !== 0) poolAdultCount.value = String(adults);
+            if (poolChildCount.value !== '' || children !== 0) poolChildCount.value = String(children);
+            poolAdultCount.max = String(Math.max(0, limit - children));
+            poolChildCount.max = String(Math.max(0, limit - adults));
+        }
+        function updateKtvGuestCount(initialize = false) {
+            const maximum = Math.min(15, Number(people.value) || 1);
+            ktvGuestCount.max = String(maximum);
+            ktvGuestCountFields.style.display = ktvAddon.checked ? '' : 'none';
+            ktvGuestCount.disabled = !ktvAddon.checked;
+            if (ktvAddon.checked) {
+                if (initialize && (!ktvGuestCount.value || Number(ktvGuestCount.value) < 1)) {
+                    ktvGuestCount.value = String(maximum);
+                } else if (ktvGuestCount.value && Number(ktvGuestCount.value) > maximum) {
+                    ktvGuestCount.value = String(maximum);
+                }
+            } else {
+                ktvGuestCount.value = '0';
+            }
+        }
         function updatePrice() {
             const option = roomType.options[roomType.selectedIndex];
             const price = Number(option && option.dataset.price) || 0;
             const cottage = isCottage();
+            const occupancy = Number(option && option.dataset.occupancy) || 1;
+            const guestCount = Number(people.value) || 1;
+            updateKtvGuestCount();
             const date = cottage ? bookingDate.value : roomCheckin.value;
             const checkout = date && !cottage ? autoCheckout(date) : '';
             roomCheckoutPreview.value = checkout;
             const nights = cottage ? 1 : Math.max(1, Math.ceil(((new Date(checkout) - new Date(date)) || 86400000) / 86400000));
-            const total = price * nights;
-            currentTotal = total;
-            const paid = Math.min(Math.max(Number(amountPaid.value) || 0, 0), total);
+            const extraGuestCount = cottage ? 0 : Math.max(0, guestCount - occupancy);
+            const entranceFee = cottage ? guestCount * 30 : 0;
+            const poolUsers = Number(poolAdultCount.value) || 0;
+            const poolChildren = Number(poolChildCount.value) || 0;
+            const poolFee = poolAddon.checked ? poolUsers * 150 + poolChildren * 100 : 0;
+            const ktvFee = ktvAddon.checked ? 1000 : 0;
+            const total = price * nights + extraGuestCount * 200 * nights + entranceFee + poolFee + ktvFee;
+            const paid = Number(amountPaidInput.value) || 0;
+            amountPaidInput.max = String(total);
+            amountPaidInput.setCustomValidity(paid > total ? 'Amount paid cannot exceed the total price.' : '');
             totalOutput.textContent = peso(total);
             balanceOutput.textContent = peso(Math.max(0, total - paid));
+            document.getElementById('chargeSummary').textContent =
+                `Entrance: ${cottage ? peso(entranceFee) : 'Free'} · Extra overnight guests: ${peso(extraGuestCount * 200 * nights)} · Pool: ${peso(poolFee)} · KTV: ${peso(ktvFee)}`;
         }
         roomType.addEventListener('change', updateFields);
-        [roomCheckin, bookingDate, checkinTime, checkoutTime, amountPaid].forEach(function(input) { input.addEventListener('input', updatePrice); input.addEventListener('change', updatePrice); });
+        [roomCheckin, bookingDate, checkinTime, checkoutTime].forEach(function(input) { input.addEventListener('input', updatePrice); input.addEventListener('change', updatePrice); });
+        people.addEventListener('input', function() { updatePoolOption(); updatePrice(); });
+        people.addEventListener('change', function() { updatePoolOption(); updatePrice(); });
+        amountPaidInput.addEventListener('input', updatePrice);
+        amountPaidInput.addEventListener('change', updatePrice);
+        poolAddon.addEventListener('change', function() { poolGuestCounts.style.display = poolAddon.checked ? 'flex' : 'none'; updatePrice(); });
+        [poolAdultCount, poolChildCount].forEach(function(input) {
+            input.addEventListener('input', function() {
+                const occupancy = Number(roomType.options[roomType.selectedIndex].dataset.occupancy) || 1;
+                const maxPoolUsers = isCottage() ? Number(people.value) || 1 : Math.max(0, Number(people.value) - occupancy);
+                updatePoolGuestLimits(maxPoolUsers, input);
+                updatePrice();
+            });
+            input.addEventListener('change', function() {
+                const occupancy = Number(roomType.options[roomType.selectedIndex].dataset.occupancy) || 1;
+                const maxPoolUsers = isCottage() ? Number(people.value) || 1 : Math.max(0, Number(people.value) - occupancy);
+                updatePoolGuestLimits(maxPoolUsers, input);
+                updatePrice();
+            });
+        });
+        ktvGuestCount.addEventListener('input', updatePrice);
+        ktvGuestCount.addEventListener('change', updatePrice);
+        ktvAddon.addEventListener('change', function() { updateKtvGuestCount(true); updatePrice(); refreshKtvSchedule(); });
+        [roomCheckin, bookingDate].forEach(input => input.addEventListener('change', refreshKtvSchedule));
         const errorElement = document.getElementById('walkInError');
         if (errorElement) showWalkInAlert('Unable to save walk-in booking', errorElement.dataset.message);
         document.getElementById('walkInForm').addEventListener('submit', function(event) {
             const date = isCottage() ? bookingDate.value : roomCheckin.value;
             if (!date || closed(date)) { event.preventDefault(); showWalkInAlert('Unavailable date', 'Bookings are closed every Monday and Tuesday.'); return; }
             if (isCottage() && (!checkinTime.value || !checkoutTime.value || minutes(checkoutTime.value) <= minutes(checkinTime.value))) { event.preventDefault(); showWalkInAlert('Invalid stay times', 'Cottage check-out time must be later than check-in time.'); return; }
-            const paid = Number(amountPaid.value);
-            if (!Number.isFinite(paid) || paid < 0 || paid > currentTotal) {
-                event.preventDefault();
-                showWalkInAlert('Invalid payment amount', `Amount paid must be between ₱0.00 and ${peso(currentTotal)}.`);
-                return;
-            }
+            if (!Number.isInteger(Number(people.value)) || Number(people.value) < 1 || Number(people.value) > 20) { event.preventDefault(); showWalkInAlert('Invalid guest count', 'Guest count must be between 1 and 20.'); return; }
+            const selectedRoom = roomType.options[roomType.selectedIndex];
+            const occupancy = Number(selectedRoom && selectedRoom.dataset.occupancy) || 1;
+            if (isCottage() && Number(people.value) > occupancy) { event.preventDefault(); showWalkInAlert('Cottage capacity exceeded', `This cottage can accommodate up to ${occupancy} guests.`); return; }
+            const extraGuestCount = isCottage() ? 0 : Math.max(0, Number(people.value) - occupancy);
+            const poolCount = (Number(poolAdultCount.value) || 0) + (Number(poolChildCount.value) || 0);
+            const maxPoolUsers = isCottage() ? Number(people.value) : extraGuestCount;
+            if (poolAddon.checked && (poolCount < 1 || poolCount > maxPoolUsers)) { event.preventDefault(); showWalkInAlert('Invalid pool guest count', `Pool users must be between 1 and ${maxPoolUsers} eligible guests.`); return; }
+            if (ktvAddon.checked && (!Number.isInteger(Number(ktvGuestCount.value)) || Number(ktvGuestCount.value) < 1 || Number(ktvGuestCount.value) > Math.min(15, Number(people.value)))) { event.preventDefault(); showWalkInAlert('Invalid KTV guest count', `KTV guest count must be between 1 and ${Math.min(15, Number(people.value))}.`); return; }
+            if (ktvAddon.checked && (!ktvStartTime.value || ktvAvailabilityForDate !== date)) { event.preventDefault(); showWalkInAlert('KTV time required', 'Choose an available KTV time slot for this booking date.'); refreshKtvSchedule(); return; }
             document.getElementById('checkinHidden').value = isCottage() ? date + ' ' + checkinTime.value + ':00' : date;
             document.getElementById('checkoutHidden').value = isCottage() ? date + ' ' + checkoutTime.value + ':00' : autoCheckout(date);
         });

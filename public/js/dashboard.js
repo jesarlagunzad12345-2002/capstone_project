@@ -13,11 +13,30 @@ function showDashboardDialog(options) {
 const DashboardApp = {
 
     refreshInterval: 30000,
+    revenueBookings: [],
+    revenueBookingDate: '',
+    revenueBookingsModal: null,
 
     init() {
         this.setCurrentDate();  
         this.loadStats();  
         this.loadRevenueLog();  
+        this.revenueBookingsModal = new bootstrap.Modal(document.getElementById('revenueBookingsModal'));
+        document.getElementById('revenueLog').addEventListener('click', event => {
+            const item = event.target.closest('[data-revenue-date]');
+            if (!item || event.target.closest('.delete-log-btn')) return;
+            this.showRevenueBookings(item.dataset.revenueDate);
+        });
+        document.getElementById('revenueLog').addEventListener('keydown', event => {
+            const item = event.target.closest('[data-revenue-date]');
+            if (!item || event.target.closest('.delete-log-btn') || !['Enter', ' '].includes(event.key)) return;
+            event.preventDefault();
+            this.showRevenueBookings(item.dataset.revenueDate);
+        });
+        document.getElementById('revenueBookingRows').addEventListener('click', event => {
+            const button = event.target.closest('[data-delete-revenue-booking]');
+            if (button) this.deleteRevenueBooking(button.dataset.deleteRevenueBooking);
+        });
 
         setInterval(() => {
             this.loadStats();
@@ -80,7 +99,8 @@ const DashboardApp = {
 
             // Build the HTML list
             const html = data.log.map(item => {
-                const date = new Date(item.revenue_date);
+                const dateKey = String(item.revenue_date).slice(0, 10);
+                const date = new Date(`${dateKey}T00:00:00`);
                 const dateStr = date.toLocaleDateString('en-US', {
                     year: 'numeric', month: 'short', day: 'numeric'
                 });
@@ -93,7 +113,7 @@ const DashboardApp = {
                 const guests = item.guest_count || 0;
 
                 return `
-                    <div class="revenue-log-item">
+                    <div class="revenue-log-item" data-revenue-date="${dateKey}" role="button" tabindex="0" aria-label="View bookings and payments for ${dateStr}">
                         <div>
                             <div class="log-date">
                                 ${dateStr}${todayBadge}
@@ -120,6 +140,130 @@ const DashboardApp = {
 
         } catch (err) {
             console.error('Failed to load revenue log:', err);
+        }
+    },
+
+    async showRevenueBookings(date) {
+        const rows = document.getElementById('revenueBookingRows');
+        this.revenueBookingDate = date;
+        const dateLabel = new Date(`${date}T00:00:00`).toLocaleDateString('en-US', {
+            year: 'numeric', month: 'long', day: 'numeric'
+        });
+        document.getElementById('revenueBookingsModalDate').textContent = dateLabel;
+        rows.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-4">Loading booking records...</td></tr>';
+        this.revenueBookings = [];
+        this.updateRevenueBookingSummary([]);
+        this.revenueBookingsModal.show();
+
+        try {
+            const response = await fetch(`/api/dashboard/revenue-log/${encodeURIComponent(date)}/bookings`);
+            const data = await response.json();
+            if (!response.ok || !data.success || !Array.isArray(data.bookings)) {
+                throw new Error(data.error || 'Could not load bookings for this revenue date.');
+            }
+            this.revenueBookings = data.bookings;
+            this.updateRevenueBookingSummary(data.bookings);
+            this.renderRevenueBookings();
+        } catch (error) {
+            console.error('Failed to load bookings for revenue date:', error);
+            rows.innerHTML = `<tr><td colspan="9" class="text-center text-danger py-4">${this.escapeHtml(error.message)}</td></tr>`;
+        }
+    },
+
+    renderRevenueBookings() {
+        const rows = document.getElementById('revenueBookingRows');
+        const bookings = this.revenueBookings;
+        if (!bookings.length) {
+            rows.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-4">No booking records found for this date.</td></tr>';
+            return;
+        }
+        rows.innerHTML = bookings.map(booking => {
+            const source = booking.bookingSource === 'WALK_IN' ? 'Walk-in' : 'Online';
+            const totalPrice = Number(booking.total_price) || 0;
+            const amountPaid = Number(booking.amount_paid) || 0;
+            const paymentStatus = totalPrice > 0 && amountPaid >= totalPrice
+                ? 'Fully Paid'
+                : source === 'Walk-in'
+                    ? amountPaid > 0
+                        ? 'Partially Paid'
+                        : 'Unpaid'
+                    : booking.payment_status || 'Not recorded';
+            const bookingStatus = booking.status || 'Not recorded';
+            const bookingStatusClass = String(bookingStatus).toLowerCase() === 'approved'
+                ? 'bg-success-subtle text-success-emphasis'
+                : 'bg-warning-subtle text-warning-emphasis';
+            return `<tr>
+                <td><div class="fw-semibold">${this.escapeHtml(booking.name || 'Guest')}</div><span class="badge ${source === 'Walk-in' ? 'bg-info-subtle text-info-emphasis' : 'bg-primary-subtle text-primary-emphasis'}">${source}</span></td>
+                <td>${this.escapeHtml(booking.roomType || '—')}<div class="small text-muted">${Number(booking.people) || 0} guest(s)</div></td>
+                <td><span class="badge ${bookingStatusClass}">${this.escapeHtml(bookingStatus)}</span></td>
+                <td><span class="badge ${String(paymentStatus).toLowerCase().includes('paid') || String(paymentStatus).toLowerCase() === 'verified' ? 'bg-success-subtle text-success-emphasis' : 'bg-warning-subtle text-warning-emphasis'}">${this.escapeHtml(paymentStatus)}</span></td>
+                <td class="text-uppercase">${this.escapeHtml(booking.payment_method || 'Not recorded')}</td>
+                <td class="revenue-booking-money">₱${this.formatMoney(totalPrice)}</td>
+                <td class="revenue-booking-money fw-semibold">₱${this.formatMoney(amountPaid)}</td>
+                <td class="revenue-booking-money">₱${this.formatMoney(booking.balance)}</td>
+                <td><button type="button" class="btn btn-sm btn-outline-danger" data-delete-revenue-booking="${encodeURIComponent(booking.id)}" aria-label="Delete ${this.escapeHtml(booking.name || 'booking')} from revenue records" title="Delete revenue record"><i class="bi bi-x-lg" aria-hidden="true"></i></button></td>
+            </tr>`;
+        }).join('');
+    },
+
+    updateRevenueBookingSummary(bookings) {
+        const online = bookings.filter(booking => booking.bookingSource !== 'WALK_IN').length;
+        const walkIn = bookings.length - online;
+        const paid = bookings.reduce((sum, booking) => sum + (Number(booking.amount_paid) || 0), 0);
+        document.getElementById('revenueSummaryBookings').textContent = String(bookings.length);
+        document.getElementById('revenueSummaryOnline').textContent = String(online);
+        document.getElementById('revenueSummaryWalkIn').textContent = String(walkIn);
+        document.getElementById('revenueSummaryPaid').textContent = `₱${this.formatMoney(paid)}`;
+    },
+
+    escapeHtml(value) {
+        return String(value).replace(/[&<>"']/g, char => ({
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#39;'
+        })[char]);
+    },
+
+    async deleteRevenueBooking(bookingId) {
+        const confirmation = await showDashboardDialog({
+            title: 'Delete this revenue booking record?',
+            text: 'This removes it from the revenue history and adjusts that day’s revenue. It will not delete the booking record.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Delete record',
+            cancelButtonText: 'Keep record',
+            reverseButtons: true,
+            customClass: {
+                confirmButton: 'btn btn-danger px-4',
+                cancelButton: 'btn btn-light px-4'
+            }
+        });
+        if (!confirmation.isConfirmed) return;
+
+        try {
+            const response = await fetch(
+                `/api/dashboard/revenue-log/${encodeURIComponent(this.revenueBookingDate)}/bookings/${bookingId}`,
+                { method: 'DELETE' }
+            );
+            const data = await response.json();
+            if (!response.ok || !data.success) {
+                throw new Error(data.error || 'Could not delete this revenue record.');
+            }
+            this.revenueBookings = this.revenueBookings.filter(booking => String(booking.id) !== decodeURIComponent(bookingId));
+            this.updateRevenueBookingSummary(this.revenueBookings);
+            this.renderRevenueBookings();
+            this.loadStats();
+            this.loadRevenueLog();
+        } catch (error) {
+            console.error('Failed to delete revenue booking record:', error);
+            await showDashboardDialog({
+                title: 'Could not delete record',
+                text: error.message || 'Please try again.',
+                icon: 'error',
+                confirmButtonText: 'OK'
+            });
         }
     },
 

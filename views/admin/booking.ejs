@@ -40,14 +40,11 @@
           return (h * 60) + m;
       }
 
-      // Auto-calculate checkout for rooms: next day, skipping Mon/Tue
+      // Room stays end the next day, including when checkout falls on a closure day.
       function getAutoCheckout(checkinStr) {
           const [year, month, day] = checkinStr.split('-').map(Number);
           const date = new Date(year, month - 1, day);
           date.setDate(date.getDate() + 1);
-          while (date.getDay() === 1 || date.getDay() === 2) {
-              date.setDate(date.getDate() + 1);
-          }
           const y = date.getFullYear();
           const m = String(date.getMonth() + 1).padStart(2, '0');
           const d = String(date.getDate()).padStart(2, '0');
@@ -55,6 +52,51 @@
       }
 
       window.onload = function() {
+        const paymentPaidEmail = document.getElementById('paymentPaidEmail');
+        if (paymentPaidEmail) {
+          const paidAmount = '₱' + Number(paymentPaidEmail.dataset.total).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+          emailjs.send('service_zu9wo49', 'template_i50p7ra', {
+            to_email: paymentPaidEmail.dataset.email,
+            user_name: paymentPaidEmail.dataset.name,
+            booking_id: paymentPaidEmail.dataset.id,
+            room_type: paymentPaidEmail.dataset.room,
+            checkin_date: formatDate(paymentPaidEmail.dataset.checkin),
+            checkout_date: formatDate(paymentPaidEmail.dataset.checkout),
+            total_price: paidAmount,
+            amount_paid: '₱' + Number(paymentPaidEmail.dataset.amountPaidToday).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+            entrance_fee: '₱' + Number(paymentPaidEmail.dataset.entranceFee).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+            pool_fee: Number(paymentPaidEmail.dataset.poolFee) > 0
+              ? '₱' + Number(paymentPaidEmail.dataset.poolFee).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+              : 'Not selected',
+            ktv_fee: Number(paymentPaidEmail.dataset.ktvFee) > 0
+              ? '₱' + Number(paymentPaidEmail.dataset.ktvFee).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+              : 'Not selected',
+            balance: '₱0.00',
+            remaining_balance: '₱0.00',
+            payment_method: 'On-site payment',
+            message: 'Your booking has been fully paid. Thank you for choosing KML Resort!'
+          }, {
+            publicKey: 'NMKEdAd8l04_ANBcn'
+          }).then(function() {
+            showBookingAlert({
+              icon: 'success',
+              title: 'Payment recorded and email sent',
+              text: `A fully paid confirmation was sent to ${paymentPaidEmail.dataset.email}`,
+              timer: 3500,
+              timerProgressBar: true,
+              showConfirmButton: false
+            });
+          }).catch(function(error) {
+            console.error('Fully paid email error:', error);
+            showBookingAlert({
+              icon: 'warning',
+              title: 'Payment recorded, email not sent',
+              text: 'The booking is fully paid, but the confirmation email could not be sent. Please check the EmailJS template configuration.',
+              confirmButtonText: 'OK'
+            });
+          });
+        }
+
         const shouldTrigger = "<%= typeof triggerApprove !== 'undefined' ? triggerApprove : false %>";
         if (shouldTrigger === "true") {
             const toastElement = document.getElementById('approveToast');
@@ -63,48 +105,40 @@
             const bellDot = document.getElementById('bellDot');
             if (bellDot) bellDot.classList.remove('d-none');
 
-            const gEmail = "<%= typeof guestEmail !== 'undefined' ? guestEmail : '' %>";
-            const gName = "<%= typeof guestName !== 'undefined' ? guestName : '' %>";
-            if (gEmail && gEmail !== "null" && gEmail !== "") {
-              const specialRequests = "<%= typeof guestRequests !== 'undefined' ? guestRequests : 'None' %>" || "None";
-              const bookingBalance = '₱' + Number("<%= typeof guestTotalPrice !== 'undefined' ? guestTotalPrice : 0 %>").toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-              const templateParams = {
-                to_email: gEmail,
-                user_name: gName,
-                room_type: "<%= typeof guestRoom !== 'undefined' ? guestRoom : 'Standard Apartment' %>" || "Standard Apartment",
-                checkin_date: formatDate("<%= typeof guestIn !== 'undefined' ? guestIn : '' %>"),
-                checkout_date: formatDate("<%= typeof guestOut !== 'undefined' ? guestOut : '' %>"),
-                guests_count: "<%= typeof guestPeople !== 'undefined' ? guestPeople : '' %>",
-                special_requests: specialRequests,
-                total_price: bookingBalance,
-                remaining_balance: bookingBalance,
-                message: "Your reservation at KML Resort is officially confirmed!"
-              };
-                            emailjs.send('service_kmlresort', 'template_klmresort1', templateParams, {
-                                publicKey: 'EfvIkV0UtUXjEGOgu'
-                            })
-                                .then(() => Swal.fire({
-                                    icon: 'success',
-                                    title: 'Confirmation email sent',
-                                    text: `Sent to ${gEmail}`,
-                                    timer: 3000,
-                                    timerProgressBar: true,
-                                    showConfirmButton: false,
-                                    showClass: { popup: 'booking-alert-show' },
-                                    hideClass: { popup: 'booking-alert-hide' }
-                                }))
-                                .catch((err) => {
-                                    console.error('Confirmation email error:', err);
-                                    Swal.fire({
-                                        icon: 'error',
-                                        title: 'Booking approved, email not sent',
-                                        text: 'Please check the EmailJS configuration and try sending the confirmation again.',
-                                        confirmButtonText: 'OK',
-                                        showClass: { popup: 'booking-alert-show' },
-                                        hideClass: { popup: 'booking-alert-hide' }
-                                    });
-                                });
+            const approvalEmail = document.getElementById('approvalEmail');
+            if (approvalEmail && approvalEmail.dataset.email) {
+                const bookingTotal = '₱' + Number(approvalEmail.dataset.total).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                emailjs.send('service_kmlresort', 'template_klmresort1', {
+                    to_email: approvalEmail.dataset.email,
+                    user_name: approvalEmail.dataset.name,
+                    room_type: approvalEmail.dataset.room || 'Standard Apartment',
+                    checkin_date: formatDate(approvalEmail.dataset.checkin),
+                    checkout_date: formatDate(approvalEmail.dataset.checkout),
+                    guests_count: approvalEmail.dataset.guests,
+                    special_requests: approvalEmail.dataset.requests || 'None',
+                    total_price: bookingTotal,
+                    remaining_balance: bookingTotal,
+                    message: 'Your reservation at KML Resort is officially confirmed!'
+                }, {
+                    publicKey: 'EfvIkV0UtUXjEGOgu'
+                }).then(function() {
+                    showBookingAlert({
+                        icon: 'success',
+                        title: 'Confirmation email sent',
+                        text: `Sent to ${approvalEmail.dataset.email}`,
+                        timer: 3000,
+                        timerProgressBar: true,
+                        showConfirmButton: false
+                    });
+                }).catch(function(error) {
+                    console.error('Booking confirmation email error:', error);
+                    showBookingAlert({
+                        icon: 'error',
+                        title: 'Booking approved, email not sent',
+                        text: 'The booking was approved, but the confirmation email failed. Check the EmailJS service, template, and recipient field configuration.',
+                        confirmButtonText: 'OK'
+                    });
+                });
             }
         }
 
@@ -188,22 +222,77 @@
           }
       }
 
-      function updateGuestDropdown(bookingId) {
+      const ktvAvailabilityRequests = new Map();
+      async function refreshEditKtvSlots(bookingId, bookingDate, select) {
+          const message = document.getElementById('editKtvAvailability' + bookingId);
+          const requestId = (ktvAvailabilityRequests.get(bookingId) || 0) + 1;
+          ktvAvailabilityRequests.set(bookingId, requestId);
+          const currentValue = select.value;
+
+          if (!bookingDate) {
+              select.replaceChildren(new Option('Choose a booking date first', ''));
+              select.disabled = true;
+              message.textContent = 'Choose a booking date to view slot availability.';
+              return;
+          }
+
+          select.replaceChildren(new Option('Loading availability...', ''));
+          select.disabled = true;
+          try {
+              const params = new URLSearchParams({ date: bookingDate, excludeBookingId: bookingId });
+              const response = await fetch(`/api/ktv-schedule?${params}`, { cache: 'no-store' });
+              if (!response.ok) throw new Error(`KTV availability request failed with status ${response.status}.`);
+              const data = await response.json();
+              if (!data.success || !Array.isArray(data.slots) || !Array.isArray(data.bookings)) {
+                  throw new Error(data.error || 'The KTV availability response was invalid.');
+              }
+              if (ktvAvailabilityRequests.get(bookingId) !== requestId) return;
+
+              const reserved = data.bookings.filter(item => String(item.date).slice(0, 10) === bookingDate);
+              const unavailableTimes = new Set(reserved.map(item => String(item.startTime || '').slice(0, 8)).filter(Boolean));
+              const hasUnscheduledBooking = reserved.some(item => item.schedulePending);
+              select.replaceChildren(new Option('Choose a slot', ''));
+              data.slots.forEach(slot => {
+                  const option = new Option(slot.label, slot.start);
+                  if (hasUnscheduledBooking || unavailableTimes.has(slot.start)) {
+                      option.disabled = true;
+                      option.textContent = `${slot.label} — Booked`;
+                  } else {
+                      option.textContent = `${slot.label} — Available`;
+                  }
+                  select.add(option);
+              });
+              const normalizedCurrentValue = String(currentValue || '').slice(0, 8);
+              if (normalizedCurrentValue && !hasUnscheduledBooking && !unavailableTimes.has(normalizedCurrentValue)) {
+                  select.value = normalizedCurrentValue;
+              }
+              const availableSlots = data.slots.filter(slot => !hasUnscheduledBooking && !unavailableTimes.has(slot.start));
+              select.disabled = availableSlots.length === 0;
+              message.textContent = hasUnscheduledBooking
+                  ? 'A KTV booking on this date has no assigned time.'
+                  : availableSlots.length
+                      ? `${availableSlots.length} time slot${availableSlots.length === 1 ? '' : 's'} available.`
+                      : 'All KTV time slots are booked for this date.';
+          } catch (error) {
+              if (ktvAvailabilityRequests.get(bookingId) !== requestId) return;
+              console.error('Failed to load KTV slot availability:', error);
+              select.replaceChildren(new Option('Availability unavailable', ''));
+              message.textContent = 'Could not load KTV availability.';
+          }
+      }
+
+      function updateGuestCountLimit(bookingId) {
           const roomSelect = document.getElementById('roomSelect' + bookingId);
-          const guestSelect = document.getElementById('guestSelect' + bookingId);
-          if (!roomSelect || !guestSelect) return;
+          const guestInput = document.getElementById('guestSelect' + bookingId);
+          if (!roomSelect || !guestInput) return;
           const selectedOption = roomSelect.options[roomSelect.selectedIndex];
           const maxOccupancy = parseInt(selectedOption.getAttribute('data-occupancy')) || 1;
-          const currentValue = parseInt(guestSelect.value) || 1;
-          guestSelect.innerHTML = '';
-          for (let i = 1; i <= maxOccupancy; i++) {
-              const option = document.createElement('option');
-              option.value = i;
-              option.textContent = i === 1 ? '1 Adult' : i + ' Adults';
-              if (i === currentValue) option.selected = true;
-              guestSelect.appendChild(option);
-          }
-          if (currentValue > maxOccupancy) guestSelect.value = maxOccupancy;
+          const isCottage = selectedOption.getAttribute('data-category') === 'Cottage';
+          const guestLimit = isCottage ? maxOccupancy : 20;
+          guestInput.max = String(guestLimit);
+          const currentValue = Number(guestInput.value) || 1;
+          if (currentValue > guestLimit) guestInput.value = String(guestLimit);
+          if (currentValue < 1) guestInput.value = '1';
       }
 
       function toggleEditModalFields(bookingId) {
@@ -216,7 +305,75 @@
           const cottageFields = document.getElementById('editCottageFields' + bookingId);
           if (roomFields) roomFields.style.display = isCottage ? 'none' : 'flex';
           if (cottageFields) cottageFields.style.display = isCottage ? 'flex' : 'none';
-          updateGuestDropdown(bookingId);
+          updateGuestCountLimit(bookingId);
+          updateEditAddonFields(bookingId);
+      }
+
+      function updateEditAddonFields(bookingId) {
+          const roomSelect = document.getElementById('roomSelect' + bookingId);
+          const guestSelect = document.getElementById('guestSelect' + bookingId);
+          const poolOption = document.getElementById('editPoolOption' + bookingId);
+          const poolCounts = document.getElementById('editPoolCounts' + bookingId);
+          const summary = document.getElementById('editChargeSummary' + bookingId);
+          if (!roomSelect || !guestSelect || !poolOption || !poolCounts || !summary) return;
+
+          const selectedOption = roomSelect.options[roomSelect.selectedIndex];
+          const isCottage = selectedOption.dataset.category === 'Cottage';
+          const occupancy = Number(selectedOption.dataset.occupancy) || 1;
+          const guests = Number(guestSelect.value) || 1;
+          const extraGuests = isCottage ? 0 : Math.max(0, guests - occupancy);
+          const poolCheckbox = document.getElementById('editPoolAddon' + bookingId);
+          const adultCount = document.getElementById('editPoolAdultCount' + bookingId);
+          const childCount = document.getElementById('editPoolChildCount' + bookingId);
+          const ktvCheckbox = document.getElementById('editKtvAddon' + bookingId);
+          const ktvGuestCount = document.getElementById('editKtvGuestCount' + bookingId);
+          const ktvGuestCountFields = document.getElementById('editKtvGuestCountFields' + bookingId);
+          const ktvStartTime = document.getElementById('editKtvStartTime' + bookingId);
+          poolOption.style.display = isCottage || extraGuests > 0 ? '' : 'none';
+          if (!isCottage && extraGuests === 0) {
+              poolCheckbox.checked = false;
+              adultCount.value = '0';
+              childCount.value = '0';
+          }
+          poolCounts.style.display = poolCheckbox.checked ? 'flex' : 'none';
+          const poolEligible = isCottage ? guests : extraGuests;
+          adultCount.max = String(poolEligible);
+          childCount.max = String(poolEligible);
+          if (poolCheckbox.checked) {
+              const eligibleAdults = Math.min(Number(adultCount.value) || 0, poolEligible);
+              adultCount.value = String(eligibleAdults);
+              childCount.value = String(Math.min(Number(childCount.value) || 0, poolEligible - eligibleAdults));
+          }
+          const maxKtvGuests = Math.min(15, guests);
+          ktvGuestCount.max = String(maxKtvGuests);
+          ktvGuestCountFields.style.display = ktvCheckbox.checked ? '' : 'none';
+          ktvGuestCount.disabled = !ktvCheckbox.checked;
+          ktvStartTime.disabled = !ktvCheckbox.checked;
+          if (ktvCheckbox.checked) {
+              if (ktvGuestCount.value && Number(ktvGuestCount.value) > maxKtvGuests) {
+                  ktvGuestCount.value = String(maxKtvGuests);
+              }
+          } else {
+              ktvGuestCount.value = '0';
+          }
+
+          const dateInput = document.getElementById((isCottage ? 'editBookingDate' : 'editCheckinDate') + bookingId);
+          const date = dateInput ? dateInput.value : '';
+          if (ktvCheckbox.checked) {
+              refreshEditKtvSlots(bookingId, date, ktvStartTime);
+          } else {
+              ktvStartTime.replaceChildren(new Option('Select KTV to view availability', ''));
+              ktvStartTime.disabled = true;
+              document.getElementById('editKtvAvailability' + bookingId).textContent = '';
+          }
+          const nights = isCottage || !date ? 0 : Math.max(1, Math.ceil((new Date(getAutoCheckout(date)) - new Date(date)) / 86400000));
+          const extraFee = extraGuests * 200 * nights;
+          const entranceFee = isCottage ? guests * 30 : 0;
+          const poolFee = poolCheckbox.checked
+              ? (Number(adultCount.value) || 0) * 150 + (Number(childCount.value) || 0) * 100
+              : 0;
+          const ktvFee = document.getElementById('editKtvAddon' + bookingId).checked ? 1000 : 0;
+          summary.textContent = `Entrance: ${isCottage ? '₱' + entranceFee.toLocaleString() : 'Free'} · Extra overnight guests: ₱${extraFee.toLocaleString()} · Pool: ₱${poolFee.toLocaleString()} · KTV: ₱${ktvFee.toLocaleString()}`;
       }
 
       function prepareEditSubmit(bookingId) {
@@ -250,6 +407,28 @@
               hiddenCheckin.value = checkin;
               hiddenCheckout.value = getAutoCheckout(checkin);
           }
+
+          const guestInput = document.getElementById('guestSelect' + bookingId);
+          const guestCount = Number(guestInput?.value);
+          const guestLimit = isCottage
+              ? Number(selectedOption.getAttribute('data-occupancy')) || 1
+              : 20;
+          if (!Number.isInteger(guestCount) || guestCount < 1 || guestCount > guestLimit) {
+              return `Enter a whole number of guests between 1 and ${guestLimit}.`;
+          }
+          const includedOccupancy = Number(selectedOption.getAttribute('data-occupancy')) || 1;
+          const eligiblePoolGuests = isCottage ? guestCount : Math.max(0, guestCount - includedOccupancy);
+          const poolCheckbox = document.getElementById('editPoolAddon' + bookingId);
+          const poolAdults = Number(document.getElementById('editPoolAdultCount' + bookingId)?.value) || 0;
+          const poolChildren = Number(document.getElementById('editPoolChildCount' + bookingId)?.value) || 0;
+          if (poolCheckbox?.checked && (poolAdults + poolChildren < 1 || poolAdults + poolChildren > eligiblePoolGuests)) {
+              return `Enter pool counts for no more than ${eligiblePoolGuests} eligible guest${eligiblePoolGuests === 1 ? '' : 's'}.`;
+          }
+          const ktvCheckbox = document.getElementById('editKtvAddon' + bookingId);
+          const ktvGuestCount = Number(document.getElementById('editKtvGuestCount' + bookingId)?.value) || 0;
+          if (ktvCheckbox?.checked && (ktvGuestCount < 1 || ktvGuestCount > Math.min(15, guestCount))) {
+              return `KTV guests must be between 1 and ${Math.min(15, guestCount)}.`;
+          }
           return null;
       }
 
@@ -261,6 +440,12 @@
       // easier to see, at a glance, everything this page can do.
       // ============================================
       document.addEventListener('DOMContentLoaded', function() {
+          document.querySelectorAll('.booking-flash-alert').forEach(function(alert) {
+              window.setTimeout(function() {
+                  if (alert.isConnected) bootstrap.Alert.getOrCreateInstance(alert).close();
+              }, 3500);
+          });
+
           document.querySelectorAll('.booking-actions-dropdown').forEach(function(dropdown) {
               const toggle = dropdown.querySelector('[data-bs-toggle="dropdown"]');
               const menu = dropdown.querySelector('.dropdown-menu');
@@ -362,6 +547,28 @@
               });
           });
 
+          document.querySelectorAll('input[id^="guestSelect"]').forEach(function(input) {
+              ['input', 'change'].forEach(function(eventName) {
+                  input.addEventListener(eventName, function() {
+                      updateEditAddonFields(this.id.replace('guestSelect', ''));
+                  });
+              });
+          });
+          document.querySelectorAll('input[id^="editPoolAddon"], input[id^="editKtvAddon"], input[id^="editPoolAdultCount"], input[id^="editPoolChildCount"], input[id^="editKtvGuestCount"], input[id^="editCheckinDate"], input[id^="editBookingDate"]').forEach(function(input) {
+              const bookingId = input.id.match(/\d+$/)?.[0];
+              if (!bookingId) return;
+              function refreshAddonFields() {
+                  if (input.id.startsWith('editKtvAddon') && input.checked) {
+                      const guests = Number(document.getElementById('guestSelect' + bookingId)?.value) || 1;
+                      const ktvGuestCount = document.getElementById('editKtvGuestCount' + bookingId);
+                      if (!Number(ktvGuestCount.value)) ktvGuestCount.value = String(Math.min(15, guests));
+                  }
+                  updateEditAddonFields(bookingId);
+              }
+              input.addEventListener('input', refreshAddonFields);
+              input.addEventListener('change', refreshAddonFields);
+          });
+
           document.querySelectorAll('.approved-edit-checkin').forEach(function(input) {
               function updateCheckoutPreview() {
                   const preview = document.getElementById('editCheckoutPreview' + input.dataset.bookingId);
@@ -380,6 +587,15 @@
                       const match = (form.getAttribute('action') || '').match(/\/update\/(\d+)/);
                       if (match) toggleEditModalFields(match[1]);
                   }
+              });
+          });
+
+          document.querySelectorAll('.booking-edit-guide').forEach(function(button) {
+              new bootstrap.Popover(button, {
+                  container: 'body',
+                  html: true,
+                  trigger: 'focus',
+                  placement: 'auto'
               });
           });
 
@@ -402,6 +618,31 @@
     </style>
 </head>
 <body>
+    <% if (triggerApprove && guestEmail) { %>
+        <div id="approvalEmail" hidden
+             data-email="<%= guestEmail %>"
+             data-name="<%= guestName || '' %>"
+             data-room="<%= guestRoom || '' %>"
+             data-checkin="<%= guestIn || '' %>"
+             data-checkout="<%= guestOut || '' %>"
+             data-guests="<%= guestPeople || '' %>"
+             data-requests="<%= guestRequests || 'None' %>"
+             data-total="<%= guestTotalPrice || 0 %>"></div>
+    <% } %>
+    <% if (paymentPaidData && paymentPaidData.trigger) { %>
+        <div id="paymentPaidEmail" hidden
+             data-email="<%= paymentPaidData.email || '' %>"
+             data-name="<%= paymentPaidData.name || '' %>"
+             data-id="<%= paymentPaidData.id || '' %>"
+             data-room="<%= paymentPaidData.room || '' %>"
+             data-checkin="<%= paymentPaidData.checkin || '' %>"
+             data-checkout="<%= paymentPaidData.checkout || '' %>"
+             data-total="<%= paymentPaidData.total %>"
+             data-amount-paid-today="<%= paymentPaidData.amountPaidToday %>"
+             data-entrance-fee="<%= paymentPaidData.entranceFee %>"
+             data-pool-fee="<%= paymentPaidData.poolFee %>"
+             data-ktv-fee="<%= paymentPaidData.ktvFee %>"></div>
+    <% } %>
 
     <%
         const shortDate = (d) => {
@@ -518,11 +759,11 @@
                 </div>
             </div>
             <% if (typeof message !== 'undefined' && message) { %>
-                <div class="alert alert-success alert-dismissible fade show" role="alert"><i class="bi bi-check-circle me-2"></i><%= message %><button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
+                <div class="alert alert-success alert-dismissible fade show booking-flash-alert" role="alert"><i class="bi bi-check-circle me-2"></i><%= message %><button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
             <% } %>
             
             <% if (typeof error !== 'undefined' && error) { %>
-                <div class="alert alert-danger alert-dismissible fade show mb-4" role="alert" style="border-radius: 16px;">
+                <div class="alert alert-danger alert-dismissible fade show mb-4 booking-flash-alert" role="alert" style="border-radius: 16px;">
                     <i class="bi bi-exclamation-triangle-fill me-2"></i>
                     <strong>Update Blocked!</strong> <%= error %>
                     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
@@ -540,7 +781,7 @@
                     <table class="table table-sm table-hover align-middle mb-0 booking-table pending-bookings-table">
                         <colgroup>
                             <col style="width: 175px"><col style="width: 195px"><col style="width: 140px"><col style="width: 65px">
-                            <col style="width: 115px"><col style="width: 120px"><col style="width: 75px">
+                            <col style="width: 115px"><col style="width: 120px"><col style="width: 120px"><col style="width: 75px">
                         </colgroup>
                         <thead>
                             <tr>
@@ -550,6 +791,7 @@
                                 <th class="text-center">GUESTS</th>
                                 <th>PRICE</th>
                                 <th class="text-center">BOOKING STATUS</th>
+                                <th class="text-center">PAYMENT STATUS</th>
                                 <th class="text-end pe-4">ACTIONS</th>
                             </tr>
                         </thead>
@@ -558,12 +800,13 @@
                                 const pendingBookings = bookings.filter(b => (b.bookingSource || 'ONLINE') !== 'WALK_IN' && b.status !== 'approved' && b.status !== 'pending_payment');
                                 if (pendingBookings.length === 0) {
                             %>
-                                <tr><td colspan="7" class="empty-bookings-message text-muted py-4">No pending bookings yet.</td></tr>
+                                <tr><td colspan="8" class="empty-bookings-message text-muted py-4">No pending bookings yet.</td></tr>
                             <% } %>
                             <%
                                 pendingBookings.forEach(booking => { 
                                     const bRoom = rooms.find(r => r.name === booking.roomType);
                                     const isCottage = bRoom && bRoom.category === 'Cottage';
+                                    const bookingAddons = getBookingAddons(booking);
                                     const pendingCheckin = booking.checkin ? new Date(booking.checkin) : null;
                                     const pendingCheckout = booking.checkout ? new Date(booking.checkout) : null;
                             %>
@@ -596,15 +839,32 @@
                                 <td class="text-center"><span class="guest-badge"><%= booking.people %></span></td>
                                 <td><span class="price-tag"><%= formatPrice(booking.total_price) %></span></td>
                                 <td class="text-center"><span class="status-tag bg-warning bg-opacity-10 text-warning-emphasis"><%= String(booking.status || 'pending').replaceAll('_', ' ').replace(/\b\w/g, letter => letter.toUpperCase()) %></span></td>
+                                <td class="text-center"><span class="status-tag <%= booking.payment_status === 'verified' ? 'bg-success bg-opacity-10 text-success' : 'bg-warning bg-opacity-10 text-warning-emphasis' %>"><%= booking.payment_status === 'verified' ? 'Verified' : 'Unverified' %></span></td>
                                 <td class="text-end pe-4">
                                     <div class="dropdown booking-actions-dropdown">
                                         <button type="button" class="btn btn-light btn-sm" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Booking actions">
                                             <i class="bi bi-three-dots-vertical"></i>
                                         </button>
                                         <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0">
+                                            <li><button type="button" class="dropdown-item booking-detail-btn" data-bs-toggle="modal" data-bs-target="#bookingDetailsModal"
+                                                data-id="<%= booking.id %>" data-name="<%= booking.name || '' %>" data-email="<%= booking.email || '' %>" data-phone="<%= booking.phone || '' %>"
+                                                data-room="<%= booking.roomType || '' %>" data-people="<%= booking.people ?? '' %>" data-checkin="<%= booking.checkin || '' %>" data-checkout="<%= booking.checkout || '' %>"
+                                                data-status="<%= booking.status || '' %>" data-source="<%= booking.bookingSource || 'ONLINE' %>" data-total="<%= booking.total_price ?? '' %>"
+                                                data-nights="<%= booking.nights ?? '' %>" data-requests="<%= stripCalculatedBookingRequests(booking.requests) || '' %>" data-payment-method="<%= booking.payment_method || '' %>"
+                                                data-pool-selected="<%= getBookingAddons(booking).poolSelected %>" data-pool-adults="<%= getBookingAddons(booking).poolAdultCount %>" data-pool-children="<%= getBookingAddons(booking).poolChildCount %>"
+                                                data-pool-fee="<%= booking.pool_fee || (getBookingAddons(booking).poolAdultCount * 150 + getBookingAddons(booking).poolChildCount * 100) %>" data-ktv-selected="<%= getBookingAddons(booking).ktvSelected %>" data-ktv-guests="<%= getBookingAddons(booking).ktvGuestCount %>" data-ktv-fee="<%= booking.ktv_fee || (getBookingAddons(booking).ktvSelected ? 1000 : 0) %>"
+                                                data-entrance-fee="<%= booking.entrance_fee_total ?? '' %>" data-extra-guest-count="<%= booking.overnight_extra_guest_count ?? '' %>" data-extra-guest-rate="<%= booking.overnight_extra_guest_rate ?? 200 %>" data-extra-guest-fee="<%= booking.overnight_extra_guest_fee ?? '' %>"
+                                                data-amount-paid="<%= booking.amount_paid ?? '' %>" data-balance="<%= booking.balance ?? '' %>"
+                                                data-payment-status="<%= booking.payment_status || '' %>" data-downpayment="<%= booking.downpayment_amount ?? '' %>"
+                                                data-reference="<%= booking.reference_number || '' %>" data-payment-submitted="<%= booking.payment_submitted_at || '' %>"
+                                                data-created-at="<%= booking.created_at || '' %>"><i class="bi bi-card-text me-2"></i>View full info</button></li>
                                             <li>
                                                 <form action="/approve/<%= booking.id %>" method="POST">
-                                                    <button type="button" class="dropdown-item text-success approve-booking-btn"><i class="bi bi-check-circle me-2"></i>Approve</button>
+                                                    <% if (booking.payment_status === 'verified') { %>
+                                                        <button type="button" class="dropdown-item text-success approve-booking-btn"><i class="bi bi-check-circle me-2"></i>Approve</button>
+                                                    <% } else { %>
+                                                        <button type="button" class="dropdown-item text-muted" disabled title="Verify payment before approving"><i class="bi bi-lock me-2"></i>Verify payment to approve</button>
+                                                    <% } %>
                                                 </form>
                                             </li>
                                             <li><button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#editModal<%= booking.id %>"><i class="bi bi-pencil-square me-2"></i>Edit booking</button></li>
@@ -620,7 +880,7 @@
 
                             <!-- EDIT MODAL -->
                             <div class="modal fade" id="editModal<%= booking.id %>" tabindex="-1" aria-hidden="true">
-                                <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+                                <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable booking-edit-dialog">
                                     <div class="modal-content border-0 shadow booking-edit-modal">
                                         <form action="/update/<%= booking.id %>" method="POST" class="edit-booking-form" novalidate>
                                             <div class="modal-header booking-edit-modal-header">
@@ -631,26 +891,46 @@
                                                         <h5 class="modal-title fw-bold">Edit Booking #<%= booking.id %></h5>
                                                     </div>
                                                 </div>
+                                                <div class="booking-edit-header-actions">
+                                                    <button type="button" class="booking-edit-guide" data-bs-toggle="popover" data-bs-title="Booking guide" data-bs-content="<ul><li>Overnight rooms: each guest above included occupancy is ₱200 per night, up to 20 guests total.</li><li>Cottages: entrance fee is ₱30 per guest. Overnight rooms have free entrance.</li><li>Paid pool: cottages may include any guest; rooms may include only guests above included occupancy. Rates are ₱150 per adult and ₱100 per child under 4 ft.</li><li>KTV: ₱1,000 for 3 hours, maximum 15 guests.</li></ul>" aria-label="View booking guide"><i class="bi bi-info-circle" aria-hidden="true"></i><span>View guide</span></button>
+                                                </div>
                                                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                                             </div>
                                             <div class="modal-body booking-edit-modal-body">
-                                                
+
                                                 <input type="hidden" name="checkin" id="editCheckinHidden<%= booking.id %>" value="<%= booking.checkinFormatted %>">
                                                 <input type="hidden" name="checkout" id="editCheckoutHidden<%= booking.id %>" value="<%= booking.checkoutFormatted %>">
 
-                                                <div class="mb-3">
-                                                    <label class="form-label text-uppercase small fw-bold text-muted">Full Name</label>
-                                                    <input type="text" name="name" class="form-control py-2 bg-light border-0 rounded-3" value="<%= booking.name %>" required>
-                                                </div>
-                                                <div class="mb-3">
-                                                    <label class="form-label text-uppercase small fw-bold text-muted">Email</label>
-                                                    <input type="email" name="email" class="form-control py-2 bg-light border-0 rounded-3" value="<%= booking.email %>" required>
-                                                </div>
-                                                <div class="mb-3">
-                                                    <label class="form-label text-uppercase small fw-bold text-muted">Phone Number</label>
-                                                    <input type="tel" name="phone" class="form-control py-2 bg-light border-0 rounded-3" value="<%= booking.phone || '' %>" maxlength="30">
-                                                </div>
-                                                
+                                                <section class="booking-edit-section">
+                                                    <div class="booking-edit-section-heading">
+                                                        <span class="booking-edit-section-icon"><i class="bi bi-person" aria-hidden="true"></i></span>
+                                                        <div>
+                                                            <h3>Guest information</h3>
+                                                        </div>
+                                                    </div>
+                                                    <div class="row g-3">
+                                                        <div class="col-12 col-md-6">
+                                                            <label class="form-label text-uppercase small fw-bold text-muted" for="editName<%= booking.id %>">Full Name</label>
+                                                            <input id="editName<%= booking.id %>" type="text" name="name" class="form-control" value="<%= booking.name %>" required>
+                                                        </div>
+                                                        <div class="col-12 col-md-6">
+                                                            <label class="form-label text-uppercase small fw-bold text-muted" for="editEmail<%= booking.id %>">Email</label>
+                                                            <input id="editEmail<%= booking.id %>" type="email" name="email" class="form-control" value="<%= booking.email %>" required>
+                                                        </div>
+                                                        <div class="col-12 col-md-6">
+                                                            <label class="form-label text-uppercase small fw-bold text-muted" for="editPhone<%= booking.id %>">Phone Number</label>
+                                                            <input id="editPhone<%= booking.id %>" type="tel" name="phone" class="form-control" value="<%= booking.phone || '' %>" maxlength="30">
+                                                        </div>
+                                                    </div>
+                                                </section>
+
+                                                <section class="booking-edit-section">
+                                                    <div class="booking-edit-section-heading">
+                                                        <span class="booking-edit-section-icon"><i class="bi bi-house-door" aria-hidden="true"></i></span>
+                                                        <div>
+                                                            <h3>Stay details</h3>
+                                                        </div>
+                                                    </div>
                                                 <div class="row">
                                                     <div class="col-12 col-lg-6 mb-3">
                                                         <label class="form-label text-uppercase small fw-bold text-muted">Room Type</label>
@@ -670,8 +950,9 @@
                                                                             <option value="<%= room.name %>" 
                                                                                 data-category="<%= room.category %>" 
                                                                                 data-occupancy="<%= room.occupancy %>" 
+                                                                                data-price="<%= room.price %>"
                                                                                 <%= booking.roomType === room.name ? 'selected' : '' %>>
-                                                                                <%= room.name %> — ₱<%= room.price %><%= room.category === 'Cottage' ? ' (Flat)' : '/night' %> (Max <%= room.occupancy %> guests)
+                                                                                <%= room.name %> — ₱<%= room.price %><%= room.category === 'Cottage' ? ' (Flat, max ' + room.occupancy + ' guests)' : '/night (' + room.occupancy + ' included)' %>
                                                                             </option>
                                                                         <% }) %>
                                                                     </optgroup>
@@ -683,18 +964,13 @@
                                                     </div>
                                                     <div class="col-12 col-lg-6 mb-3">
                                                         <label class="form-label text-uppercase small fw-bold text-muted">Guests</label>
-                                                        <select name="people" id="guestSelect<%= booking.id %>" class="form-select py-2 bg-light border-0 rounded-3" required>
-                                                            <% 
-                                                                let selectedRoomMax = 10;
-                                                                if (rooms && rooms.length > 0) {
-                                                                    const foundRoom = rooms.find(r => r.name === booking.roomType);
-                                                                    if (foundRoom) selectedRoomMax = parseInt(foundRoom.occupancy) || 10;
-                                                                }
-                                                                for (let i = 1; i <= selectedRoomMax; i++) {
-                                                            %>
-                                                                <option value="<%= i %>" <%= booking.people == i ? 'selected' : '' %>><%= i === 1 ? '1 Adult' : i + ' Adults' %></option>
-                                                            <% } %>
-                                                        </select>
+                                                        <% let selectedRoomMax = 20;
+                                                            if (rooms && rooms.length > 0) {
+                                                                const foundRoom = rooms.find(r => r.name === booking.roomType);
+                                                                if (foundRoom && foundRoom.category === 'Cottage') selectedRoomMax = parseInt(foundRoom.occupancy) || 10;
+                                                            }
+                                                        %>
+                                                        <input type="number" name="people" id="guestSelect<%= booking.id %>" class="form-control py-2 bg-light border-0 rounded-3" min="1" max="<%= selectedRoomMax %>" step="1" value="<%= booking.people || 1 %>" inputmode="numeric" required>
                                                     </div>
                                                 </div>
 
@@ -750,10 +1026,88 @@
                                                     </div>
                                                 </div>
 
+                                                </section>
+                                                <section class="booking-edit-section">
+                                                    <div class="booking-edit-section-heading">
+                                                        <span class="booking-edit-section-icon"><i class="bi bi-wallet2" aria-hidden="true"></i></span>
+                                                        <div><h3>Payment verification</h3></div>
+                                                    </div>
+                                                    <div class="col-12 col-md-6">
+                                                        <label class="form-label text-uppercase small fw-bold text-muted" for="editPaymentStatus<%= booking.id %>">Payment Status</label>
+                                                        <select id="editPaymentStatus<%= booking.id %>" name="payment_status" class="form-select">
+                                                            <option value="pending_verification" <%= booking.payment_status !== 'verified' ? 'selected' : '' %>>Unverified</option>
+                                                            <option value="verified" <%= booking.payment_status === 'verified' ? 'selected' : '' %>>Verified</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="row g-3 mt-1">
+                                                        <div class="col-12 col-md-6">
+                                                            <label class="form-label text-uppercase small fw-bold text-muted" for="editPaymentMethod<%= booking.id %>">Payment Method</label>
+                                                            <select id="editPaymentMethod<%= booking.id %>" name="payment_method" class="form-select">
+                                                                <option value="" <%= !booking.payment_method ? 'selected' : '' %>>Choose a payment method</option>
+                                                                <option value="gcash" <%= booking.payment_method === 'gcash' ? 'selected' : '' %>>GCash</option>
+                                                                <option value="maya" <%= booking.payment_method === 'maya' ? 'selected' : '' %>>Maya</option>
+                                                                <option value="cash" <%= booking.payment_method === 'cash' ? 'selected' : '' %>>Cash</option>
+                                                                <option value="card" <%= booking.payment_method === 'card' ? 'selected' : '' %>>Card</option>
+                                                            </select>
+                                                        </div>
+                                                    </div>
+                                                </section>
+                                                <section class="booking-edit-section">
+                                                    <div class="booking-edit-section-heading">
+                                                        <span class="booking-edit-section-icon"><i class="bi bi-stars" aria-hidden="true"></i></span>
+                                                        <div>
+                                                            <h3>Extras and requests</h3>
+                                                        </div>
+                                                    </div>
+                                                <div class="booking-edit-addon-panel mb-3">
+                                                    <div class="booking-edit-addon-title">
+                                                        <span class="booking-edit-section-icon"><i class="bi bi-stars" aria-hidden="true"></i></span>
+                                                        <div>
+                                                            <h4>Entrance and optional add-ons</h4>
+                                                        </div>
+                                                    </div>
+                                                    <div class="form-text mb-2" id="editChargeSummary<%= booking.id %>"></div>
+                                                    <div class="form-check mb-2" id="editPoolOption<%= booking.id %>">
+                                                        <input class="form-check-input" type="checkbox" name="addons" value="pool" id="editPoolAddon<%= booking.id %>" <%= bookingAddons.poolSelected ? 'checked' : '' %>>
+                                                        <label class="form-check-label fw-semibold" for="editPoolAddon<%= booking.id %>">Paid swimming pool</label>
+                                                    </div>
+                                                    <div class="row g-2 mb-2" id="editPoolCounts<%= booking.id %>" <%= bookingAddons.poolSelected ? '' : 'style="display:none"' %>>
+                                                        <div class="col-sm-6">
+                                                            <label class="form-label small" for="editPoolAdultCount<%= booking.id %>">Pool adults</label>
+                                                            <input class="form-control form-control-sm" type="number" min="0" name="poolAdultCount" id="editPoolAdultCount<%= booking.id %>" value="<%= bookingAddons.poolAdultCount %>">
+                                                        </div>
+                                                        <div class="col-sm-6">
+                                                            <label class="form-label small" for="editPoolChildCount<%= booking.id %>">Pool children under 4 ft</label>
+                                                            <input class="form-control form-control-sm" type="number" min="0" name="poolChildCount" id="editPoolChildCount<%= booking.id %>" value="<%= bookingAddons.poolChildCount %>">
+                                                        </div>
+                                                    </div>
+                                                    <div class="form-check">
+                                                        <input class="form-check-input" type="checkbox" name="addons" value="ktv" id="editKtvAddon<%= booking.id %>" <%= bookingAddons.ktvSelected ? 'checked' : '' %>>
+                                                        <label class="form-check-label fw-semibold" for="editKtvAddon<%= booking.id %>">KTV room</label>
+                                                    </div>
+                                                    <div class="row g-2 mt-1" id="editKtvGuestCountFields<%= booking.id %>" <%= bookingAddons.ktvSelected ? '' : 'style="display:none"' %>>
+                                                        <div class="col-sm-6">
+                                                            <label class="form-label small" for="editKtvGuestCount<%= booking.id %>">KTV guests (max 15)</label>
+                                                            <input class="form-control form-control-sm" type="number" min="1" max="15" step="1" name="ktvGuestCount" id="editKtvGuestCount<%= booking.id %>" value="<%= bookingAddons.ktvGuestCount || 1 %>" <%= bookingAddons.ktvSelected ? '' : 'disabled' %>>
+                                                        </div>
+                                                        <div class="col-sm-6">
+                                                            <label class="form-label small" for="editKtvStartTime<%= booking.id %>">KTV time slot on booking date</label>
+                                                            <select class="form-select form-select-sm" name="ktvStartTime" id="editKtvStartTime<%= booking.id %>" <%= bookingAddons.ktvSelected ? '' : 'disabled' %>>
+                                                                <option value="">Loading availability...</option>
+                                                                <option value="08:00:00" <%= booking.ktv_start_time && String(booking.ktv_start_time).slice(0, 8) === '08:00:00' ? 'selected' : '' %>>8:00 AM–11:00 AM</option>
+                                                                <option value="11:00:00" <%= booking.ktv_start_time && String(booking.ktv_start_time).slice(0, 8) === '11:00:00' ? 'selected' : '' %>>11:00 AM–2:00 PM</option>
+                                                                <option value="15:00:00" <%= booking.ktv_start_time && String(booking.ktv_start_time).slice(0, 8) === '15:00:00' ? 'selected' : '' %>>3:00 PM–6:00 PM</option>
+                                                            </select>
+                                                            <div class="form-text" id="editKtvAvailability<%= booking.id %>" aria-live="polite"></div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
                                                 <div class="mb-3">
                                                     <label class="form-label text-uppercase small fw-bold text-muted">Special Requests</label>
-                                                    <textarea name="requests" class="form-control py-2 bg-light border-0 rounded-3" rows="3" placeholder="No special requests"><%= booking.requests || '' %></textarea>
+                                                    <textarea name="requests" class="form-control py-2 bg-light border-0 rounded-3" rows="3" placeholder="No special requests"><%= stripCalculatedBookingRequests(booking.requests) || '' %></textarea>
                                                 </div>
+                                                </section>
                                             </div>
                                             <div class="modal-footer booking-edit-modal-footer">
                                                 <button type="button" class="btn btn-light w-100 py-2 fw-bold" data-bs-dismiss="modal">Cancel</button>
@@ -803,7 +1157,7 @@
                                 <tr>
                                     <td class="ps-4">
                                         <div class="fw-bold small"><%= booking.name %></div>
-                                        <div class="booking-email text-muted" style="font-size: 0.7rem;"><%= booking.email %></div>
+                                        <div class="booking-email text-muted" style="font-size: 0.7rem;"><%= !booking.email || booking.email === 'walkin@kmlresort.local' ? 'No email' : booking.email %></div>
                                     </td>
                                     <td class="stay-details-cell">
                                         <div class="small fw-bold">In: <%= shortDate(booking.checkin) %></div>
@@ -821,6 +1175,18 @@
                                                 <i class="bi bi-three-dots-vertical"></i>
                                             </button>
                                             <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0">
+                                                <li><button type="button" class="dropdown-item booking-detail-btn" data-bs-toggle="modal" data-bs-target="#bookingDetailsModal"
+                                                    data-id="<%= booking.id %>" data-name="<%= booking.name || '' %>" data-email="<%= booking.email || '' %>" data-phone="<%= booking.phone || '' %>"
+                                                    data-room="<%= booking.roomType || '' %>" data-people="<%= booking.people ?? '' %>" data-checkin="<%= booking.checkin || '' %>" data-checkout="<%= booking.checkout || '' %>"
+                                                    data-status="<%= booking.status || '' %>" data-source="<%= booking.bookingSource || 'ONLINE' %>" data-total="<%= booking.total_price ?? '' %>"
+                                                    data-nights="<%= booking.nights ?? '' %>" data-requests="<%= stripCalculatedBookingRequests(booking.requests) || '' %>" data-payment-method="<%= booking.payment_method || '' %>"
+                                                    data-pool-selected="<%= getBookingAddons(booking).poolSelected %>" data-pool-adults="<%= getBookingAddons(booking).poolAdultCount %>" data-pool-children="<%= getBookingAddons(booking).poolChildCount %>"
+                                                    data-pool-fee="<%= booking.pool_fee || (getBookingAddons(booking).poolAdultCount * 150 + getBookingAddons(booking).poolChildCount * 100) %>" data-ktv-selected="<%= getBookingAddons(booking).ktvSelected %>" data-ktv-guests="<%= getBookingAddons(booking).ktvGuestCount %>" data-ktv-fee="<%= booking.ktv_fee || (getBookingAddons(booking).ktvSelected ? 1000 : 0) %>"
+                                                    data-entrance-fee="<%= booking.entrance_fee_total ?? '' %>" data-extra-guest-count="<%= booking.overnight_extra_guest_count ?? '' %>" data-extra-guest-rate="<%= booking.overnight_extra_guest_rate ?? 200 %>" data-extra-guest-fee="<%= booking.overnight_extra_guest_fee ?? '' %>"
+                                                    data-amount-paid="<%= booking.amount_paid ?? '' %>" data-balance="<%= booking.balance ?? '' %>"
+                                                    data-payment-status="<%= booking.payment_status || '' %>" data-downpayment="<%= booking.downpayment_amount ?? '' %>"
+                                                    data-reference="<%= booking.reference_number || '' %>" data-payment-submitted="<%= booking.payment_submitted_at || '' %>"
+                                                    data-created-at="<%= booking.created_at || '' %>"><i class="bi bi-card-text me-2"></i>View full info</button></li>
                                                 <li><a href="/walk-in-booking/edit/<%= booking.id %>" class="dropdown-item"><i class="bi bi-pencil-square me-2"></i>Edit booking</a></li>
                                                 <li>
                                                     <form action="/admin-cancel/<%= booking.id %>" method="POST" data-swal-confirm="Cancel this walk-in booking?" data-swal-title="Cancel walk-in booking?" data-swal-confirm-button="Cancel booking">
@@ -850,7 +1216,7 @@
                     <table class="table table-sm table-hover align-middle mb-0 booking-table approved-bookings-table">
                         <colgroup>
                             <col style="width: 175px"><col style="width: 195px"><col style="width: 140px"><col style="width: 65px">
-                            <col style="width: 115px"><col style="width: 120px"><col style="width: 75px">
+                            <col style="width: 115px"><col style="width: 120px"><col style="width: 120px"><col style="width: 75px">
                         </colgroup>
                         <thead>
                             <tr>
@@ -860,6 +1226,7 @@
                                 <th class="text-center">GUESTS</th>
                                 <th>PRICE</th>
                                 <th class="text-center">BOOKING STATUS</th>
+                                <th class="text-center">PAYMENT STATUS</th>
                                 <th class="text-end pe-4">ACTIONS</th>
                             </tr>
                         </thead>
@@ -867,12 +1234,13 @@
                             <% 
                                 const approvedBookings = bookings.filter(b => (b.bookingSource || 'ONLINE') !== 'WALK_IN' && b.status === 'approved');
                                 approvedBookings.forEach(booking => { 
+                                    const bookingAddons = getBookingAddons(booking);
                                     const bRoom2 = allRooms.find(r => r.name === booking.roomType);
                                     const isCottage2 = bRoom2 && bRoom2.category === 'Cottage';
                                     const approvedEditRooms = rooms.some(r => r.name === booking.roomType)
                                         ? rooms
                                         : [...rooms, ...(bRoom2 ? [bRoom2] : [])];
-                                    const approvedRoomMax = parseInt(bRoom2 && bRoom2.occupancy) || 1;
+                                    const approvedRoomMax = isCottage2 ? (parseInt(bRoom2 && bRoom2.occupancy) || 1) : 20;
                                     const approvedCheckin = booking.checkin ? new Date(booking.checkin) : null;
                                     const approvedCheckout = booking.checkout ? new Date(booking.checkout) : null;
                                     const approvedCottageDate = approvedCheckin && !isNaN(approvedCheckin.getTime())
@@ -911,13 +1279,33 @@
                                 <td><span class="price-tag"><%= formatPrice(booking.total_price) %></span></td>
 
                                 <td class="text-center"><span class="status-tag bg-success bg-opacity-10 text-success">Approved</span></td>
+                                <td class="text-center"><span class="status-tag <%= Number(booking.total_price) > 0 && Number(booking.amount_paid) >= Number(booking.total_price) ? 'bg-success bg-opacity-10 text-success' : booking.payment_status === 'verified' ? 'bg-success bg-opacity-10 text-success' : 'bg-warning bg-opacity-10 text-warning-emphasis' %>"><%= Number(booking.total_price) > 0 && Number(booking.amount_paid) >= Number(booking.total_price) ? 'Fully Paid' : booking.payment_status === 'verified' ? 'Verified' : 'Unverified' %></span></td>
                                 <td class="text-end pe-4">
                                     <div class="dropdown booking-actions-dropdown">
                                         <button type="button" class="btn btn-light btn-sm" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Booking actions">
                                             <i class="bi bi-three-dots-vertical"></i>
                                         </button>
                                         <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0">
+                                            <li><button type="button" class="dropdown-item booking-detail-btn" data-bs-toggle="modal" data-bs-target="#bookingDetailsModal"
+                                                data-id="<%= booking.id %>" data-name="<%= booking.name || '' %>" data-email="<%= booking.email || '' %>" data-phone="<%= booking.phone || '' %>"
+                                                data-room="<%= booking.roomType || '' %>" data-people="<%= booking.people ?? '' %>" data-checkin="<%= booking.checkin || '' %>" data-checkout="<%= booking.checkout || '' %>"
+                                                data-status="<%= booking.status || '' %>" data-source="<%= booking.bookingSource || 'ONLINE' %>" data-total="<%= booking.total_price ?? '' %>"
+                                                data-nights="<%= booking.nights ?? '' %>" data-requests="<%= stripCalculatedBookingRequests(booking.requests) || '' %>" data-payment-method="<%= booking.payment_method || '' %>"
+                                                data-pool-selected="<%= getBookingAddons(booking).poolSelected %>" data-pool-adults="<%= getBookingAddons(booking).poolAdultCount %>" data-pool-children="<%= getBookingAddons(booking).poolChildCount %>"
+                                                data-pool-fee="<%= booking.pool_fee || (getBookingAddons(booking).poolAdultCount * 150 + getBookingAddons(booking).poolChildCount * 100) %>" data-ktv-selected="<%= getBookingAddons(booking).ktvSelected %>" data-ktv-guests="<%= getBookingAddons(booking).ktvGuestCount %>" data-ktv-fee="<%= booking.ktv_fee || (getBookingAddons(booking).ktvSelected ? 1000 : 0) %>"
+                                                data-entrance-fee="<%= booking.entrance_fee_total ?? '' %>" data-extra-guest-count="<%= booking.overnight_extra_guest_count ?? '' %>" data-extra-guest-rate="<%= booking.overnight_extra_guest_rate ?? 200 %>" data-extra-guest-fee="<%= booking.overnight_extra_guest_fee ?? '' %>"
+                                                data-amount-paid="<%= booking.amount_paid ?? '' %>" data-balance="<%= booking.balance ?? '' %>"
+                                                data-payment-status="<%= Number(booking.total_price) > 0 && Number(booking.amount_paid) >= Number(booking.total_price) ? 'Fully Paid' : booking.payment_status || '' %>" data-downpayment="<%= booking.downpayment_amount ?? '' %>"
+                                                data-reference="<%= booking.reference_number || '' %>" data-payment-submitted="<%= booking.payment_submitted_at || '' %>"
+                                                data-created-at="<%= booking.created_at || '' %>"><i class="bi bi-card-text me-2"></i>View full info</button></li>
                                             <li><button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#approvedEditModal<%= booking.id %>"><i class="bi bi-pencil-square me-2"></i>Edit booking</button></li>
+                                            <% if (Number(booking.total_price) > 0 && Number(booking.amount_paid) < Number(booking.total_price)) { %>
+                                            <li>
+                                                <form action="/mark-fully-paid/<%= booking.id %>" method="POST" data-swal-icon="question" data-swal-confirm="Record the full booking total as paid on site?" data-swal-title="Mark booking fully paid?" data-swal-confirm-button="Mark fully paid">
+                                                    <button type="submit" class="dropdown-item text-success"><i class="bi bi-cash-coin me-2"></i>Mark fully paid</button>
+                                                </form>
+                                            </li>
+                                            <% } %>
                                             <li>
                                                 <form action="/admin-cancel/<%= booking.id %>" method="POST" data-swal-confirm="Cancel this booking and notify the guest by email?" data-swal-title="Cancel booking?" data-swal-confirm-button="Cancel booking">
                                                     <button type="submit" class="dropdown-item text-danger"><i class="bi bi-x-circle me-2"></i>Cancel booking</button>
@@ -933,7 +1321,7 @@
                                 </td>
                             </tr>
                             <div class="modal fade" id="approvedEditModal<%= booking.id %>" tabindex="-1" aria-labelledby="approvedEditModalTitle<%= booking.id %>" aria-hidden="true">
-                                <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+                                <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable booking-edit-dialog">
                                     <div class="modal-content border-0 shadow booking-edit-modal">
                                         <form action="/update/<%= booking.id %>" method="POST" class="edit-booking-form" novalidate>
                                             <div class="modal-header booking-edit-modal-header">
@@ -944,24 +1332,44 @@
                                                         <h2 class="modal-title h5 fw-bold" id="approvedEditModalTitle<%= booking.id %>">Edit Booking #<%= booking.id %></h2>
                                                     </div>
                                                 </div>
+                                                <div class="booking-edit-header-actions">
+                                                    <button type="button" class="booking-edit-guide" data-bs-toggle="popover" data-bs-title="Booking guide" data-bs-content="<ul><li>Overnight rooms: each guest above included occupancy is ₱200 per night, up to 20 guests total.</li><li>Cottages: entrance fee is ₱30 per guest. Overnight rooms have free entrance.</li><li>Paid pool: cottages may include any guest; rooms may include only guests above included occupancy. Rates are ₱150 per adult and ₱100 per child under 4 ft.</li><li>KTV: ₱1,000 for 3 hours, maximum 15 guests.</li></ul>" aria-label="View booking guide"><i class="bi bi-info-circle" aria-hidden="true"></i><span>View guide</span></button>
+                                                </div>
                                                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                                             </div>
                                             <div class="modal-body booking-edit-modal-body">
                                                 <input type="hidden" name="checkin" id="editCheckinHidden<%= booking.id %>" value="<%= booking.checkinFormatted %>">
                                                 <input type="hidden" name="checkout" id="editCheckoutHidden<%= booking.id %>" value="<%= booking.checkoutFormatted %>">
-                                                <div class="mb-3">
-                                                    <label class="form-label text-uppercase small fw-bold text-muted" for="approvedEditName<%= booking.id %>">Full Name</label>
-                                                    <input id="approvedEditName<%= booking.id %>" type="text" name="name" class="form-control py-2 bg-light border-0 rounded-3" value="<%= booking.name %>" required>
-                                                </div>
-                                                <div class="mb-3">
-                                                    <label class="form-label text-uppercase small fw-bold text-muted" for="approvedEditEmail<%= booking.id %>">Email</label>
-                                                    <input id="approvedEditEmail<%= booking.id %>" type="email" name="email" class="form-control py-2 bg-light border-0 rounded-3" value="<%= booking.email %>" required>
-                                                </div>
-                                                <div class="mb-3">
-                                                    <label class="form-label text-uppercase small fw-bold text-muted" for="approvedEditPhone<%= booking.id %>">Phone Number</label>
-                                                    <input id="approvedEditPhone<%= booking.id %>" type="tel" name="phone" class="form-control py-2 bg-light border-0 rounded-3" value="<%= booking.phone || '' %>" maxlength="30">
-                                                </div>
+                                                <section class="booking-edit-section">
+                                                    <div class="booking-edit-section-heading">
+                                                        <span class="booking-edit-section-icon"><i class="bi bi-person" aria-hidden="true"></i></span>
+                                                        <div>
+                                                            <h3>Guest information</h3>
+                                                        </div>
+                                                    </div>
+                                                    <div class="row g-3">
+                                                        <div class="col-12 col-md-6">
+                                                            <label class="form-label text-uppercase small fw-bold text-muted" for="approvedEditName<%= booking.id %>">Full Name</label>
+                                                            <input id="approvedEditName<%= booking.id %>" type="text" name="name" class="form-control" value="<%= booking.name %>" required>
+                                                        </div>
+                                                        <div class="col-12 col-md-6">
+                                                            <label class="form-label text-uppercase small fw-bold text-muted" for="approvedEditEmail<%= booking.id %>">Email</label>
+                                                            <input id="approvedEditEmail<%= booking.id %>" type="email" name="email" class="form-control" value="<%= booking.email %>" required>
+                                                        </div>
+                                                        <div class="col-12 col-md-6">
+                                                            <label class="form-label text-uppercase small fw-bold text-muted" for="approvedEditPhone<%= booking.id %>">Phone Number</label>
+                                                            <input id="approvedEditPhone<%= booking.id %>" type="tel" name="phone" class="form-control" value="<%= booking.phone || '' %>" maxlength="30">
+                                                        </div>
+                                                    </div>
+                                                </section>
 
+                                                <section class="booking-edit-section">
+                                                    <div class="booking-edit-section-heading">
+                                                        <span class="booking-edit-section-icon"><i class="bi bi-house-door" aria-hidden="true"></i></span>
+                                                        <div>
+                                                            <h3>Stay details</h3>
+                                                        </div>
+                                                    </div>
                                                 <div class="row">
                                                     <div class="col-12 col-lg-6 mb-3">
                                                         <label class="form-label text-uppercase small fw-bold text-muted" for="roomSelect<%= booking.id %>">Room Type</label>
@@ -975,7 +1383,7 @@
                                                             <% for (const [category, categoryRooms] of Object.entries(approvedRoomCategories)) { %>
                                                                 <optgroup label="<%= category === 'Cottage' ? '🏡 Cottages' : '🏨 ' + category + ' Rooms' %>">
                                                                     <% categoryRooms.forEach(room => { %>
-                                                                        <option value="<%= room.name %>" data-category="<%= room.category %>" data-occupancy="<%= room.occupancy %>" <%= booking.roomType === room.name ? 'selected' : '' %>><%= room.name %> — ₱<%= room.price %><%= room.category === 'Cottage' ? ' (Flat)' : '/night' %> (Max <%= room.occupancy %> guests)</option>
+                                                                        <option value="<%= room.name %>" data-category="<%= room.category %>" data-occupancy="<%= room.occupancy %>" data-price="<%= room.price %>" <%= booking.roomType === room.name ? 'selected' : '' %>><%= room.name %> — ₱<%= room.price %><%= room.category === 'Cottage' ? ' (Flat, max ' + room.occupancy + ' guests)' : '/night (' + room.occupancy + ' included)' %></option>
                                                                     <% }); %>
                                                                 </optgroup>
                                                             <% } %>
@@ -983,11 +1391,7 @@
                                                     </div>
                                                     <div class="col-12 col-lg-6 mb-3">
                                                         <label class="form-label text-uppercase small fw-bold text-muted" for="guestSelect<%= booking.id %>">Guests</label>
-                                                        <select id="guestSelect<%= booking.id %>" name="people" class="form-select py-2 bg-light border-0 rounded-3" required>
-                                                            <% for (let guestNumber = 1; guestNumber <= approvedRoomMax; guestNumber++) { %>
-                                                                <option value="<%= guestNumber %>" <%= Number(booking.people) === guestNumber ? 'selected' : '' %>><%= guestNumber === 1 ? '1 Adult' : guestNumber + ' Adults' %></option>
-                                                            <% } %>
-                                                        </select>
+                                                        <input id="guestSelect<%= booking.id %>" type="number" name="people" class="form-control py-2 bg-light border-0 rounded-3" min="1" max="<%= approvedRoomMax %>" step="1" value="<%= booking.people || 1 %>" inputmode="numeric" required>
                                                     </div>
                                                 </div>
 
@@ -1015,10 +1419,80 @@
                                                         <input id="editCheckoutTime<%= booking.id %>" type="time" class="form-control py-2 bg-light border-0 rounded-3" value="<%= approvedCottageCheckout %>">
                                                     </div>
                                                 </div>
+                                                </section>
+                                                <section class="booking-edit-section">
+                                                    <div class="booking-edit-section-heading">
+                                                        <span class="booking-edit-section-icon"><i class="bi bi-wallet2" aria-hidden="true"></i></span>
+                                                        <div><h3>Payment details</h3></div>
+                                                    </div>
+                                                    <div class="row g-3">
+                                                        <div class="col-12 col-md-6">
+                                                            <label class="form-label text-uppercase small fw-bold text-muted" for="approvedEditPaymentMethod<%= booking.id %>">Payment Method</label>
+                                                            <select id="approvedEditPaymentMethod<%= booking.id %>" name="payment_method" class="form-select">
+                                                                <option value="" <%= !booking.payment_method ? 'selected' : '' %>>Choose a payment method</option>
+                                                                <option value="gcash" <%= booking.payment_method === 'gcash' ? 'selected' : '' %>>GCash</option>
+                                                                <option value="maya" <%= booking.payment_method === 'maya' ? 'selected' : '' %>>Maya</option>
+                                                                <option value="cash" <%= booking.payment_method === 'cash' ? 'selected' : '' %>>Cash</option>
+                                                                <option value="card" <%= booking.payment_method === 'card' ? 'selected' : '' %>>Card</option>
+                                                            </select>
+                                                        </div>
+                                                    </div>
+                                                </section>
+                                                <section class="booking-edit-section">
+                                                    <div class="booking-edit-section-heading">
+                                                        <span class="booking-edit-section-icon"><i class="bi bi-stars" aria-hidden="true"></i></span>
+                                                        <div>
+                                                            <h3>Extras and requests</h3>
+                                                        </div>
+                                                    </div>
+                                                <div class="booking-edit-addon-panel mb-3">
+                                                    <div class="booking-edit-addon-title">
+                                                        <span class="booking-edit-section-icon"><i class="bi bi-stars" aria-hidden="true"></i></span>
+                                                        <div>
+                                                            <h4>Entrance and optional add-ons</h4>
+                                                        </div>
+                                                    </div>
+                                                    <div class="form-text mb-2" id="editChargeSummary<%= booking.id %>"></div>
+                                                    <div class="form-check mb-2" id="editPoolOption<%= booking.id %>">
+                                                        <input class="form-check-input" type="checkbox" name="addons" value="pool" id="editPoolAddon<%= booking.id %>" <%= bookingAddons.poolSelected ? 'checked' : '' %>>
+                                                        <label class="form-check-label fw-semibold" for="editPoolAddon<%= booking.id %>">Paid swimming pool</label>
+                                                    </div>
+                                                    <div class="row g-2 mb-2" id="editPoolCounts<%= booking.id %>" <%= bookingAddons.poolSelected ? '' : 'style="display:none"' %>>
+                                                        <div class="col-sm-6">
+                                                            <label class="form-label small" for="editPoolAdultCount<%= booking.id %>">Pool adults</label>
+                                                            <input class="form-control form-control-sm" type="number" min="0" name="poolAdultCount" id="editPoolAdultCount<%= booking.id %>" value="<%= bookingAddons.poolAdultCount %>">
+                                                        </div>
+                                                        <div class="col-sm-6">
+                                                            <label class="form-label small" for="editPoolChildCount<%= booking.id %>">Pool children under 4 ft</label>
+                                                            <input class="form-control form-control-sm" type="number" min="0" name="poolChildCount" id="editPoolChildCount<%= booking.id %>" value="<%= bookingAddons.poolChildCount %>">
+                                                        </div>
+                                                    </div>
+                                                    <div class="form-check">
+                                                        <input class="form-check-input" type="checkbox" name="addons" value="ktv" id="editKtvAddon<%= booking.id %>" <%= bookingAddons.ktvSelected ? 'checked' : '' %>>
+                                                        <label class="form-check-label fw-semibold" for="editKtvAddon<%= booking.id %>">KTV room</label>
+                                                    </div>
+                                                    <div class="row g-2 mt-1" id="editKtvGuestCountFields<%= booking.id %>" <%= bookingAddons.ktvSelected ? '' : 'style="display:none"' %>>
+                                                        <div class="col-sm-6">
+                                                            <label class="form-label small" for="editKtvGuestCount<%= booking.id %>">KTV guests (max 15)</label>
+                                                            <input class="form-control form-control-sm" type="number" min="1" max="15" step="1" name="ktvGuestCount" id="editKtvGuestCount<%= booking.id %>" value="<%= bookingAddons.ktvGuestCount || 1 %>" <%= bookingAddons.ktvSelected ? '' : 'disabled' %>>
+                                                        </div>
+                                                        <div class="col-sm-6">
+                                                            <label class="form-label small" for="editKtvStartTime<%= booking.id %>">KTV time slot on booking date</label>
+                                                            <select class="form-select form-select-sm" name="ktvStartTime" id="editKtvStartTime<%= booking.id %>" <%= bookingAddons.ktvSelected ? '' : 'disabled' %>>
+                                                                <option value="">Loading availability...</option>
+                                                                <option value="08:00:00" <%= booking.ktv_start_time && String(booking.ktv_start_time).slice(0, 8) === '08:00:00' ? 'selected' : '' %>>8:00 AM–11:00 AM</option>
+                                                                <option value="11:00:00" <%= booking.ktv_start_time && String(booking.ktv_start_time).slice(0, 8) === '11:00:00' ? 'selected' : '' %>>11:00 AM–2:00 PM</option>
+                                                                <option value="15:00:00" <%= booking.ktv_start_time && String(booking.ktv_start_time).slice(0, 8) === '15:00:00' ? 'selected' : '' %>>3:00 PM–6:00 PM</option>
+                                                            </select>
+                                                            <div class="form-text" id="editKtvAvailability<%= booking.id %>" aria-live="polite"></div>
+                                                        </div>
+                                                    </div>
+                                                </div>
                                                 <div class="mb-3">
                                                     <label class="form-label text-uppercase small fw-bold text-muted" for="approvedEditRequests<%= booking.id %>">Special Requests</label>
-                                                    <textarea id="approvedEditRequests<%= booking.id %>" name="requests" class="form-control py-2 bg-light border-0 rounded-3" rows="3" placeholder="No special requests"><%= booking.requests || '' %></textarea>
+                                                    <textarea id="approvedEditRequests<%= booking.id %>" name="requests" class="form-control py-2 bg-light border-0 rounded-3" rows="3" placeholder="No special requests"><%= stripCalculatedBookingRequests(booking.requests) || '' %></textarea>
                                                 </div>
+                                                </section>
                                             </div>
                                             <div class="modal-footer booking-edit-modal-footer">
                                                 <button type="button" class="btn btn-light w-100 py-2 fw-bold" data-bs-dismiss="modal">Cancel</button>
@@ -1035,7 +1509,78 @@
             </div>
             </div>
 
-            <% const bookingsWithRequests = bookings.filter(booking => String(booking.requests || '').trim().length > 0); %>
+            <div class="modal fade" id="bookingDetailsModal" tabindex="-1" aria-labelledby="bookingDetailsModalTitle" aria-hidden="true">
+                <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+                    <div class="modal-content border-0 shadow">
+                        <div class="modal-header booking-details-header">
+                            <div>
+                                <p class="booking-details-eyebrow">CUSTOMER RESERVATION</p>
+                                <h2 class="modal-title h5 fw-bold mb-0" id="bookingDetailsModalTitle">Booking details</h2>
+                            </div>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body booking-details-body">
+                            <div class="booking-details-grid">
+                                <section class="booking-details-card">
+                                    <h3><i class="bi bi-person-vcard" aria-hidden="true"></i> Guest information</h3>
+                                    <dl class="booking-details-list">
+                                        <dt>Booking ID</dt><dd id="detailId"></dd>
+                                        <dt>Customer name</dt><dd id="detailName"></dd>
+                                        <dt>Email</dt><dd id="detailEmail"></dd>
+                                        <dt>Phone</dt><dd id="detailPhone"></dd>
+                                        <dt>Booking source</dt><dd id="detailSource"></dd>
+                                    </dl>
+                                </section>
+                                <section class="booking-details-card">
+                                    <h3><i class="bi bi-calendar2-week" aria-hidden="true"></i> Stay details</h3>
+                                    <dl class="booking-details-list">
+                                        <dt>Room or cottage</dt><dd id="detailRoom"></dd>
+                                        <dt>Guests</dt><dd id="detailPeople"></dd>
+                                        <dt>Check-in</dt><dd id="detailCheckin"></dd>
+                                        <dt>Check-out</dt><dd id="detailCheckout"></dd>
+                                        <dt>Nights</dt><dd id="detailNights"></dd>
+                                        <dt>Booking status</dt><dd id="detailStatus"></dd>
+                                    </dl>
+                                </section>
+                                <section class="booking-details-card">
+                                    <h3><i class="bi bi-stars" aria-hidden="true"></i> Extras and fees</h3>
+                                    <dl class="booking-details-list">
+                                        <dt>Swimming pool</dt><dd id="detailPool"></dd>
+                                        <dt>KTV room</dt><dd id="detailKtv"></dd>
+                                        <dt>Entrance fee</dt><dd id="detailEntranceFee"></dd>
+                                        <dt>Additional overnight guests</dt><dd id="detailExtraGuests"></dd>
+                                    </dl>
+                                </section>
+                                <section class="booking-details-card">
+                                    <h3><i class="bi bi-credit-card" aria-hidden="true"></i> Payment</h3>
+                                    <dl class="booking-details-list">
+                                        <dt class="detail-payment-status">Payment status</dt><dd id="detailPaymentStatus" class="detail-payment-status"></dd>
+                                        <dt>Payment method</dt><dd id="detailPaymentMethod"></dd>
+                                        <dt>Payment reference</dt><dd id="detailReference"></dd>
+                                        <dt class="detail-payment-submission">Payment submitted</dt><dd id="detailPaymentSubmitted" class="detail-payment-submission"></dd>
+                                        <dt class="detail-payment-downpayment">Downpayment</dt><dd id="detailDownpayment" class="detail-payment-downpayment"></dd>
+                                        <dt>Total price</dt><dd id="detailTotal" class="booking-details-total"></dd>
+                                        <dt>Amount paid</dt><dd id="detailPaid"></dd>
+                                        <dt>Balance</dt><dd id="detailBalance"></dd>
+                                    </dl>
+                                </section>
+                                <section class="booking-details-card booking-details-card-wide">
+                                    <h3><i class="bi bi-clock-history" aria-hidden="true"></i> Booking notes</h3>
+                                    <dl class="booking-details-list booking-details-list-single">
+                                        <dt>Booking created</dt><dd id="detailCreatedAt"></dd>
+                                        <dt>Special requests / notes</dt><dd id="detailRequests" class="booking-details-notes"></dd>
+                                    </dl>
+                                </section>
+                            </div>
+                        </div>
+                        <div class="modal-footer booking-details-footer">
+                            <button type="button" class="btn btn-dark px-4" data-bs-dismiss="modal">Close</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <% const bookingsWithRequests = bookings.filter(booking => stripCalculatedBookingRequests(booking.requests)); %>
             <div id="specialRequestsView" class="d-none" role="tabpanel" aria-labelledby="specialRequestsViewTab">
                 <div class="special-requests-heading">
                     <div>
@@ -1095,7 +1640,7 @@
 
                                 <div class="special-request-note">
                                     <p class="special-request-label mb-2"><i class="bi bi-chat-left-text me-1" aria-hidden="true"></i>GUEST REQUEST</p>
-                                    <p class="mb-0"><%= booking.requests %></p>
+                                    <p class="mb-0"><%= stripCalculatedBookingRequests(booking.requests) %></p>
                                 </div>
                             </article>
                         <% }); %>
@@ -1120,6 +1665,104 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        function formatBookingDetailDate(value) {
+            if (!value) return 'Not provided';
+            const date = new Date(value);
+            return Number.isNaN(date.getTime())
+                ? value
+                : date.toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+        }
+
+        function formatBookingDetailPrice(value) {
+            if (value === '' || value === null || value === undefined) return 'Not provided';
+            const amount = Number(value);
+            return Number.isFinite(amount)
+                ? '₱' + amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                : value;
+        }
+
+        function getCalculatedFeeFromNotes(requests, prefix) {
+            const line = String(requests || '').split(/\r?\n/).find(function(note) {
+                return note.startsWith(prefix);
+            });
+            const match = line && line.match(/=\s*₱([\d,]+(?:\.\d{1,2})?)/);
+            return match ? Number(match[1].replace(/,/g, '')) : null;
+        }
+
+        document.querySelectorAll('.booking-detail-btn').forEach(function(button) {
+            button.addEventListener('click', function() {
+                const detail = (field, value, fallback = 'Not provided') => {
+                    document.getElementById(field).textContent = value || fallback;
+                };
+                const requests = button.dataset.requests || '';
+                const poolSelected = button.dataset.poolSelected === 'true';
+                const poolAdults = Number(button.dataset.poolAdults) || 0;
+                const poolChildren = Number(button.dataset.poolChildren) || 0;
+                const poolFee = Number(button.dataset.poolFee) || 0;
+                const ktvSelected = button.dataset.ktvSelected === 'true';
+                const ktvGuestCount = Number(button.dataset.ktvGuests) || 0;
+                const ktvFee = Number(button.dataset.ktvFee) || 0;
+                const entranceNoteFee = getCalculatedFeeFromNotes(requests, 'Entrance fee:');
+                const extraGuestLine = requests.split(/\r?\n/).find(function(note) {
+                    return note.startsWith('Overnight extra guests:');
+                });
+                const extraGuestMatch = extraGuestLine && extraGuestLine.match(/Overnight extra guests:\s*(\d+)\s*×\s*₱([\d,]+)\s*×\s*(\d+)\s*night/i);
+                const savedExtraGuestCount = Number(button.dataset.extraGuestCount) || 0;
+                const extraGuestCount = savedExtraGuestCount > 0
+                    ? savedExtraGuestCount
+                    : (extraGuestMatch ? Number(extraGuestMatch[1]) : 0);
+                const extraGuestRate = Number(button.dataset.extraGuestRate) || 200;
+                const savedExtraGuestFee = Number(button.dataset.extraGuestFee) > 0
+                    ? Number(button.dataset.extraGuestFee)
+                    : (extraGuestMatch ? Number(extraGuestMatch[1]) * Number(extraGuestMatch[2].replace(/,/g, '')) * Number(extraGuestMatch[3]) : 0);
+                const savedEntranceFee = Number(button.dataset.entranceFee) || 0;
+                const entranceFee = savedEntranceFee > 0
+                    ? savedEntranceFee
+                    : (entranceNoteFee !== null ? entranceNoteFee : button.dataset.entranceFee !== '' ? 0 : null);
+
+                detail('detailId', button.dataset.id);
+                document.getElementById('bookingDetailsModalTitle').textContent = `Booking #${button.dataset.id}`;
+                detail('detailName', button.dataset.name);
+                detail('detailEmail', button.dataset.email);
+                detail('detailPhone', button.dataset.phone);
+                detail('detailRoom', button.dataset.room);
+                detail('detailPeople', button.dataset.people);
+                detail('detailCheckin', formatBookingDetailDate(button.dataset.checkin));
+                detail('detailCheckout', formatBookingDetailDate(button.dataset.checkout));
+                detail('detailNights', button.dataset.nights);
+                document.getElementById('detailPool').textContent = poolSelected
+                    ? `${poolAdults} adult${poolAdults === 1 ? '' : 's'}, ${poolChildren} child${poolChildren === 1 ? '' : 'ren'} under 4 ft — ${formatBookingDetailPrice(poolFee)}`
+                    : 'Not selected';
+                document.getElementById('detailKtv').textContent = ktvSelected
+                    ? `${ktvGuestCount} guest${ktvGuestCount === 1 ? '' : 's'} (3 hours) — ${formatBookingDetailPrice(ktvFee)}`
+                    : 'Not selected';
+                document.getElementById('detailEntranceFee').textContent = entranceFee === null
+                    ? 'Not recorded'
+                    : entranceFee > 0 ? formatBookingDetailPrice(entranceFee) : 'Free — ₱0.00';
+                document.getElementById('detailExtraGuests').textContent = extraGuestCount > 0
+                    ? `${extraGuestCount} guest${extraGuestCount === 1 ? '' : 's'} × ${formatBookingDetailPrice(extraGuestRate)} per night — ${formatBookingDetailPrice(savedExtraGuestFee)}`
+                    : 'None — ₱0.00';
+                detail('detailSource', button.dataset.source);
+                detail('detailStatus', button.dataset.status.replaceAll('_', ' '));
+                detail('detailPaymentStatus', button.dataset.paymentStatus);
+                detail('detailPaymentMethod', button.dataset.paymentMethod);
+                detail('detailReference', button.dataset.reference);
+                detail('detailPaymentSubmitted', formatBookingDetailDate(button.dataset.paymentSubmitted));
+                detail('detailDownpayment', formatBookingDetailPrice(button.dataset.downpayment));
+                document.querySelectorAll('.detail-payment-status').forEach(function(element) {
+                    element.classList.toggle('d-none', button.dataset.source === 'WALK_IN');
+                });
+                document.querySelectorAll('.detail-payment-submission, .detail-payment-downpayment').forEach(function(element) {
+                    element.classList.add('d-none');
+                });
+                detail('detailTotal', formatBookingDetailPrice(button.dataset.total));
+                detail('detailPaid', formatBookingDetailPrice(button.dataset.amountPaid));
+                detail('detailBalance', formatBookingDetailPrice(button.dataset.balance));
+                detail('detailCreatedAt', formatBookingDetailDate(button.dataset.createdAt));
+                detail('detailRequests', button.dataset.requests);
+            });
+        });
+
         document.querySelectorAll('.booking-section-tab').forEach(function(button) {
             button.addEventListener('click', function() {
                 const showRequests = button.dataset.bookingView === 'requests';
