@@ -156,7 +156,7 @@ async function showFacilityModal(facilityId) {
         
         // Update hours if available from API, else default
         document.getElementById('modalFacilityHours').textContent = 
-            facility.hours || facility.opening_hours || 'SWIMMINGPOOL : Open at (9AM - 10PM)'+'\n'+'\nKTV : Open 24 Hours';
+            facility.hours || facility.opening_hours || 'SWIMMINGPOOL : Open at (9AM - 8PM) |'+'\n'+'\nKTV : Open (8AM - 6PM) Hours';
 
         new bootstrap.Modal(document.getElementById('facilityDetailsModal')).show();
     } catch (err) {

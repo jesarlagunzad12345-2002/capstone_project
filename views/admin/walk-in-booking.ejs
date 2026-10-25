@@ -64,7 +64,7 @@
                 <% if (error) { %><div id="walkInError" data-message="<%= error %>" hidden></div><% } %>
 
                 <% const bookingCheckinDate = booking && booking.checkin ? (booking.checkin instanceof Date ? `${booking.checkin.getFullYear()}-${String(booking.checkin.getMonth() + 1).padStart(2, '0')}-${String(booking.checkin.getDate()).padStart(2, '0')}` : String(booking.checkin).match(/^\d{4}-\d{2}-\d{2}/)?.[0] || '') : ''; %>
-                <form id="walkInForm" action="<%= booking ? '/update/' + booking.id : '/walk-in-booking' %>" method="POST" class="card-custom shadow-sm p-4">
+                <form id="walkInForm" action="<%= booking ? '/update/' + booking.id : '/walk-in-booking' %>" method="POST" class="card-custom shadow-sm p-4" data-editing-booking-id="<%= booking ? booking.id : '' %>" data-original-ktv-start-time="<%= booking && booking.ktv_start_time ? String(booking.ktv_start_time).slice(0, 8) : '' %>">
                     <% const bookingAddons = booking ? getBookingAddons(booking) : { poolSelected: false, poolAdultCount: 0, poolChildCount: 0, ktvSelected: false, ktvGuestCount: 0 }; %>
                     <input type="hidden" name="checkin" id="checkinHidden" value="<%= bookingCheckinDate %>">
                     <input type="hidden" name="checkout" id="checkoutHidden" value="<%= booking && booking.checkout ? booking.checkout : '' %>">
@@ -82,8 +82,8 @@
                         <div class="row g-3">
                             <div class="col-md-5"><label class="form-label" for="roomType">Room or Cottage</label><select id="roomType" name="roomType" class="form-select" required><option value="">Choose available accommodation...</option>
                                 <% const groupedRooms = {}; (rooms || []).forEach(function(room) { (groupedRooms[room.category] ||= []).push(room); }); %>
-                                <% Object.keys(groupedRooms).forEach(function(category) { %><optgroup label="<%= category %>"><% groupedRooms[category].forEach(function(room) { %><option value="<%= room.name %>" data-price="<%= room.price %>" data-category="<%= room.category %>" data-occupancy="<%= room.occupancy %>" <%= booking && booking.roomType === room.name ? 'selected' : '' %>><%= room.name %> - ₱<%= room.price %><%= category === 'Cottage' ? ' flat' : '/night' %></option><% }); %></optgroup><% }); %>
-                            </select></div>
+                                <% Object.keys(groupedRooms).forEach(function(category) { %><optgroup label="<%= category %>"><% groupedRooms[category].forEach(function(room) { %><option value="<%= room.name %>" data-price="<%= room.price %>" data-category="<%= room.category %>" data-occupancy="<%= Number(room.occupancy) || 1 %>" <%= booking && booking.roomType === room.name ? 'selected' : '' %>><%= room.name %> · ₱<%= room.price %><%= category === 'Cottage' ? ' flat' : '/night' %> · <%= Number(room.occupancy) || 1 %> guests</option><% }); %></optgroup><% }); %>
+                            </select><div id="accommodationCapacity" class="form-text" aria-live="polite">Choose an accommodation to see its guest capacity.</div></div>
                         </div>
                         <div id="roomFields" class="row g-3 mt-1">
                             <div class="col-md-6"><label class="form-label" for="roomCheckin">Check-in Date</label><input id="roomCheckin" type="date" class="form-control" value="<%= bookingCheckinDate %>"></div>
@@ -159,7 +159,9 @@
         const ktvBookingDateInput = document.getElementById('ktvBookingDate');
         const ktvStartTime = document.getElementById('ktvStartTime');
         const ktvAvailabilityMessage = document.getElementById('ktvAvailabilityMessage');
-        const editingBookingId = <%- JSON.stringify(booking ? booking.id : null) %>;
+        const walkInForm = document.getElementById('walkInForm');
+        const editingBookingId = walkInForm.dataset.editingBookingId || null;
+        const originalKtvStartTime = walkInForm.dataset.originalKtvStartTime || '';
         let ktvAvailabilityRequest = 0;
         let ktvAvailabilityForDate = '';
         const amountPaidInput = document.getElementById('amount_paid');
@@ -238,7 +240,7 @@
                 const reserved = data.bookings.filter(item => scheduleDateKey(item.date) === date);
                 const reservedTimes = new Set(reserved.map(item => String(item.startTime || '').slice(0, 8)).filter(Boolean));
                 const legacyBooking = reserved.some(item => item.schedulePending);
-                const previousValue = String(previousSelection || <%- JSON.stringify(booking && booking.ktv_start_time ? String(booking.ktv_start_time).slice(0, 8) : '') %>).slice(0, 8);
+                const previousValue = String(previousSelection || originalKtvStartTime).slice(0, 8);
                 ktvStartTime.replaceChildren(new Option('Choose an available time', ''));
                 data.slots.forEach(slot => {
                     const option = new Option(slot.label, slot.start);
@@ -271,6 +273,10 @@
             const cottage = isCottage();
             const option = roomType.options[roomType.selectedIndex];
             const occupancy = Number(option && option.dataset.occupancy) || 1;
+            const capacityMessage = document.getElementById('accommodationCapacity');
+            capacityMessage.textContent = option && option.value
+                ? `Guest capacity · ${occupancy} guests`
+                : 'Choose an accommodation to see its guest capacity.';
             roomFields.style.display = cottage ? 'none' : 'flex';
             cottageFields.style.display = cottage ? 'flex' : 'none';
             people.max = cottage ? occupancy : 20;
@@ -387,7 +393,7 @@
         [roomCheckin, bookingDate].forEach(input => input.addEventListener('change', refreshKtvSchedule));
         const errorElement = document.getElementById('walkInError');
         if (errorElement) showWalkInAlert('Unable to save walk-in booking', errorElement.dataset.message);
-        document.getElementById('walkInForm').addEventListener('submit', function(event) {
+        walkInForm.addEventListener('submit', function(event) {
             const date = isCottage() ? bookingDate.value : roomCheckin.value;
             if (!date || closed(date)) { event.preventDefault(); showWalkInAlert('Unavailable date', 'Bookings are closed every Monday and Tuesday.'); return; }
             if (isCottage() && (!checkinTime.value || !checkoutTime.value || minutes(checkoutTime.value) <= minutes(checkinTime.value))) { event.preventDefault(); showWalkInAlert('Invalid stay times', 'Cottage check-out time must be later than check-in time.'); return; }
