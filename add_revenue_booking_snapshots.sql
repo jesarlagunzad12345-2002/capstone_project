@@ -1,6 +1,19 @@
+SET @previous_sql_safe_updates = @@SQL_SAFE_UPDATES;
+SET SQL_SAFE_UPDATES = 0;
+
 START TRANSACTION;
 
-CREATE TEMPORARY TABLE revenue_date_corrections AS
+DROP TEMPORARY TABLE IF EXISTS revenue_date_corrections;
+
+CREATE TEMPORARY TABLE revenue_date_corrections (
+    booking_id INT NOT NULL PRIMARY KEY,
+    previous_date DATE NOT NULL,
+    correct_date DATE NOT NULL,
+    amount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    guest_count INT UNSIGNED NOT NULL DEFAULT 0
+) ENGINE=InnoDB;
+
+INSERT INTO revenue_date_corrections
 SELECT
     c.booking_id,
     c.revenue_date AS previous_date,
@@ -171,3 +184,5 @@ SET c.revenue_date = DATE(b.checkin),
     c.payment_method = b.payment_method,
     c.payment_status = b.payment_status
 WHERE b.checkin IS NOT NULL;
+
+SET SQL_SAFE_UPDATES = @previous_sql_safe_updates;
