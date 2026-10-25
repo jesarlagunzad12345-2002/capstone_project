@@ -666,8 +666,10 @@ router.delete("/api/food-items/:id", checkAuth, async (req, res) => {
 // ===================== AMENITIES API (Public) =====================
 router.get("/api/amenities", async (req, res) => {
     try {
-        const dining = await dbQuery("SELECT dining_id as id, name, tag, description, image, 'dining' as type FROM dining_spots");
-        const facilities = await dbQuery("SELECT facility_id as id, name, tag, description, image, 'facility' as type FROM facilities");
+        const [dining, facilities] = await Promise.all([
+            dbQuery("SELECT dining_id as id, name, tag, description, image, 'dining' as type FROM dining_spots"),
+            dbQuery("SELECT facility_id as id, name, tag, description, image, 'facility' as type FROM facilities")
+        ]);
         res.json({ dining, facilities });
     } catch (err) { console.error("❌ Error fetching amenities:", err); res.status(500).json({ error: "Failed to fetch amenities" }); }
 });
@@ -938,28 +940,14 @@ router.get("/api/dashboard/stats", checkAuth, async (req, res) => {
     try {
         const today = new Date().toISOString().split('T')[0];
 
-        const revenueResults = await dbQuery(
-            "SELECT total_amount FROM daily_revenue WHERE revenue_date = ?", 
-            [today]
-        );
-        const dailyRevenue = revenueResults.length > 0 ? revenueResults[0].total_amount : 0;
-
-        const guestResults = await dbQuery(
-            "SELECT COUNT(*) as total FROM bookings WHERE status = 'approved'"
-        );
-        const activeGuests = guestResults[0].total;
-
-        const totalRevenueResults = await dbQuery(
-            "SELECT SUM(total_amount) as grand_total FROM daily_revenue"
-        );
-        const totalRevenue = totalRevenueResults[0].grand_total || 0;
-
-        const totalGuestsResults = await dbQuery(
-            "SELECT SUM(guest_count) as total_guests FROM daily_revenue"
-        );
-        const totalGuestsAllTime = totalGuestsResults[0].total_guests || 0;
-
-        const [onlineCheckins, walkInCheckins] = await Promise.all([
+        const [summaryResults, onlineCheckins, walkInCheckins] = await Promise.all([
+            dbQuery(`
+                SELECT
+                    COALESCE((SELECT total_amount FROM daily_revenue WHERE revenue_date = ? LIMIT 1), 0) AS dailyRevenue,
+                    (SELECT COUNT(*) FROM bookings WHERE status = 'approved') AS activeGuests,
+                    COALESCE((SELECT SUM(total_amount) FROM daily_revenue), 0) AS totalRevenue,
+                    COALESCE((SELECT SUM(guest_count) FROM daily_revenue), 0) AS totalGuestsAllTime
+            `, [today]),
             dbQuery(`
                 SELECT name, roomType, checkin, status, people
                 FROM bookings
@@ -975,12 +963,13 @@ router.get("/api/dashboard/stats", checkAuth, async (req, res) => {
                 LIMIT 5
             `)
         ]);
+        const summary = summaryResults[0] || {};
 
         res.json({ 
-            dailyRevenue, 
-            activeGuests, 
-            totalRevenue,
-            totalGuestsAllTime,
+            dailyRevenue: summary.dailyRevenue,
+            activeGuests: summary.activeGuests,
+            totalRevenue: summary.totalRevenue,
+            totalGuestsAllTime: summary.totalGuestsAllTime,
             recentOnlineBookings: onlineCheckins || [],
             recentWalkInBookings: walkInCheckins || []
         });

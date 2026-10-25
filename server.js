@@ -10,7 +10,19 @@ const routes = require("./routes");
 
 app.set("view engine", "ejs");
 app.set('views', path.join(__dirname, 'views'));
-app.use(express.static(path.join(__dirname, "public")));
+const publicDirectory = path.join(__dirname, "public");
+app.use(express.static(publicDirectory, {
+    setHeaders(res, filePath) {
+        const relativePath = path.relative(publicDirectory, filePath);
+        const assetDirectory = relativePath.split(path.sep)[0];
+        if (['css', 'js', 'img'].includes(assetDirectory)) {
+            res.setHeader(
+                'Cache-Control',
+                'public, max-age=300, s-maxage=86400, stale-while-revalidate=604800'
+            );
+        }
+    }
+}));
 
 app.use(bodyParser.urlencoded({ extended: true, limit: '10mb' }));
 app.use(express.json({ limit: '10mb' }));

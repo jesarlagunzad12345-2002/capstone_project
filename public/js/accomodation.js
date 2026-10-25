@@ -65,7 +65,7 @@ function renderAccommodations() {
 
         const imageCol = `
             <div class="col-lg-6">
-                <img src="${room.image}" alt="${room.name}" class="img-fluid accommodation-img" style="width: 100%; height: 350px; object-fit: cover; border-radius: 12px;">
+                <img src="${room.image}" alt="${room.name}" class="img-fluid accommodation-img" loading="${index === 0 ? 'eager' : 'lazy'}" decoding="async" style="width: 100%; height: 350px; object-fit: cover; border-radius: 12px;">
             </div>
         `;
 

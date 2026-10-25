@@ -73,7 +73,7 @@ function showGallery() {
                         <span class="room-category-badge">${room.category}</span>
                         <span class="room-price">₱${room.price}</span>
                         <span class="room-status-badge status-${room.status}">${room.status}</span>
-                        <img src="${room.image}" alt="${room.name}">
+                        <img src="${room.image}" alt="${room.name}" loading="lazy" decoding="async">
                         <div class="room-gallery-content">
                             <h4>${room.name}</h4>
                             <p>${room.occupancy} Guests • ${room.id}</p>
@@ -100,7 +100,7 @@ function showGallery() {
                 <div class="col-md-6 col-lg-4">
                     <div class="mountain-gallery-card">
                         <span class="mountain-gallery-location"><i class="bi bi-geo-alt-fill"></i> ${view.location}</span>
-                        <img src="${view.image}" alt="${view.name}">
+                        <img src="${view.image}" alt="${view.name}" loading="lazy" decoding="async">
                         <div class="mountain-gallery-content">
                             <h4>${view.name}</h4>
                             <p><i class="bi bi-map"></i> ${view.location}</p>
@@ -135,7 +135,7 @@ function showGallery() {
                         ${item.popularity ? `<span class="popularity-badge ${popClass}">${item.popularity}</span>` : ''}
                         <span class="dining-price-badge">₱${parseFloat(item.price).toFixed(2)}</span>
                         <span class="dining-stock-badge ${stockClass}">${displayStatus}</span>
-                        <img src="${item.image}" alt="${item.name}" style="${isNotAvailable ? 'filter: grayscale(0.6)' : ''}">
+                        <img src="${item.image}" alt="${item.name}" loading="lazy" decoding="async" style="${isNotAvailable ? 'filter: grayscale(0.6)' : ''}">
                         <div class="dining-gallery-content">
                             <h4>${item.name}</h4>
                             <p class="dining-category"><i class="bi bi-tag-fill"></i> ${item.category}</p>

@@ -69,7 +69,7 @@ function showAmenities() {
                 <div class="col-md-6 col-lg-4">
                     <div class="dining-card">
                         <span class="dining-tag-badge">${spot.tag || 'DINING'}</span>
-                        <img src="${spot.image}" alt="${spot.name}">
+                        <img src="${spot.image}" alt="${spot.name}" loading="lazy" decoding="async">
                         <div class="dining-card-content">
                             <h4>${spot.name}</h4>
                             <p class="card-subtitle">Click to explore dining details</p>
@@ -96,7 +96,7 @@ function showAmenities() {
                 <div class="col-md-6 col-lg-4">
                     <div class="facility-card">
                         <span class="facility-tag-badge">${facility.tag || 'FACILITY'}</span>
-                        <img src="${facility.image}" alt="${facility.name}">
+                        <img src="${facility.image}" alt="${facility.name}" loading="lazy" decoding="async">
                         <div class="facility-card-content">
                             <h4>${facility.name}</h4>
                             <p class="card-subtitle">Click to explore facility details</p>
